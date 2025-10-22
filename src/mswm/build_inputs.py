@@ -58,7 +58,9 @@ class RealizationBuilder:
         This property can be changed after instantiating this class, before calling one of the `build_*_realization()` methods.
     """
 
-    def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, config_overrides: InputConfig | None = None):
+    def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
+                 use_hindcast: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
+                 config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
         self._config_overrides: InputConfig | None
@@ -82,10 +84,20 @@ class RealizationBuilder:
             raise ValueError("Must provide `input_path` or `config_overrides`")
 
         self.valid_yaml = Path(valid_yaml) if valid_yaml else None
-
         self.use_cold_start = use_cold_start
+        self.use_warm_start = use_warm_start
+        self.use_hindcast = use_hindcast
         self.forcing_path = Path(forcing_path) if forcing_path else None
         self.fcst_run_name = fcst_run_name if fcst_run_name else None
+        self.hind_cycle = hind_cycle if hind_cycle else 0
+        self.prev_hind_cycle = prev_hind_cycle if prev_hind_cycle else 0
+
+        # Validate optional forecast flags
+        fcst_modes = sum([self.use_cold_start, self.use_warm_start, self.use_hindcast])
+        if fcst_modes > 1:
+            err = ("Invalid configuration: only one of 'use_cold_start', 'use_warm_start', or 'use_hindcast' may be True.")
+            logger.critical(err)
+            raise ValueError(err)
 
         # Initialize this to empty dict so that config override has a target even when input_path is not used
         self.input_configs = {}
@@ -572,6 +584,9 @@ class RealizationBuilder:
                 if self.use_cold_start:
                     forcing_region = next((f"_{reg}" for reg in ["alaska", "hawaii", "puertorico"] if reg in self.forcing_configuration), "")
                     self.forcing_configuration_str = f"cold_start{forcing_region}_config.yml"
+                elif self.use_warm_start:
+                    forcing_region = next((f"_{reg}" for reg in ["alaska", "hawaii", "puertorico"] if reg in self.forcing_configuration), "")
+                    self.forcing_configuration_str = f"standard_ana{forcing_region}_config.yml"
                 else:
                     self.forcing_configuration_str = f"{self.forcing_configuration}_config.yml"
 
