@@ -42,6 +42,11 @@ class RealizationBuilder:
     This class reads a .conf file from disk (input_path) during calls to method `build_*_realization()`.
     Optionally, the configurations can be taken from config_overrides, if provided.
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 110693d (Add hindcasting parameters to user input)
     `config_overrides` (class argument and property): InputConfig
         When this is provided as an argument to class construction, it is used instead of
         reading configuration from disk, and `config_overrides_mode__amend` is set to False.
@@ -619,7 +624,7 @@ class RealizationBuilder:
 
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Retrieve ngen start and end time based on forecast cycle date, hour and configuration
-                self.fcst_start, self.fcst_end = gfun.create_fcst_times(self.forcing_template, self.cycle_date, self.cycle_hour, self.use_cold_start, self.cold_start_datetime)
+                self.fcst_start, self.fcst_end = gfun.create_fcst_times(self.forcing_template, self.cycle_date, self.cycle_hour, self.use_cold_start, self.use_int_ana, self.cold_start_datetime)
             else:
                 # Set default fcst_start/fcst_end values
                 self.fcst_start = None
@@ -1179,9 +1184,9 @@ class RealizationBuilder:
             gpkg_file = self.cat_file if hasattr(self, "cat_file") and self.cat_file else self.gpkg_cats
 
             if self.forcing_configuration not in ['nwm', 'aorc']:
-                # Update forecast dynamic parameters in forcing engine configuration file
-                gfun.update_fcst_forcing_config(self.cycle_date, self.cycle_hour, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir,
-                                                self.forcing_config_file, self.use_cold_start, self.cold_start_datetime)
+                # Update dynamic parameters in forcing engine configuration file
+                gfun.update_forcing_config(self.cycle_date, self.cycle_hour, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir,
+                                           self.forcing_config_file, self.use_cold_start, self.use_int_ana, self.cold_start_datetime)
             else:
                 # Update historical dynamic parameters in forcing engine configuration file
                 gfun.update_hist_forcing_config(self.time_period, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir, self.forcing_config_file, self.run_type, self.global_domain, self.forcing_static_dir)
