@@ -87,9 +87,9 @@ build_calib(input_path="/path/to/input.config")
 
 ---
 
-### Forecast Workflow
+### Forecast & Hindcast Workflow
 
-Modify the realization and configuration files from an existing calibration run for a cold start or forecast run of ngen.
+Modify the realization and configuration files from an existing calibration run for a forecast run of ngen. If running a forecast or Hindcast through the nwm-fcst-mgr, the fcst-mgr will orchestrate these calls to the mswm.
 
 #### CLI
 
@@ -111,6 +111,10 @@ build_fcst(
     valid_yaml="/path/to/valid_best.yaml",
     fcst_run_name="my_forecast_run",
     use_cold_start=True,
+    use_warm_start=False,
+    use_hindcast=False,
+    hind_cycle=None,
+    prev_hind_cycle=None
 )
 ```
 
@@ -119,6 +123,10 @@ build_fcst(
 - `valid_best.yaml` - Path to validation yaml file from previous nwm-cal-mgr run
 - `fcst_run_name` - Relative path for output folder (e.g., 'fcst_run1')
 - `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
+- `--use_warm_start` - (optional) Generate files for hindcasting warm start run
+- `--use_hindcast` - (optional) Generate files for hindcast run
+- `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
+- `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
 
 #### Example
 **Cold start:**
@@ -130,6 +138,22 @@ python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --use_cold_s
 ```bash
 python -m mswm.manager build_fcst input.config valid.yaml fcst_run1
 ```
+
+**Warm start:**
+```bash
+python -m mswm.manager build_fcst input.config valid_yaml hind_run1 --use_warm_start
+```
+
+**Hindcast (cycle 0):**
+```bash
+python -m mswm.manager build_fcst input.config valid.yaml hind_run1 --use_hindcast --hind_cycle 0
+```
+
+**Hindcast (cycle 1, 3 hour interval):**
+```bash
+python -m mswm.manager build_fcst input.config valid.yaml hind_run1 --use hindcast --hind_cycle 3 --hind_cycle 0
+```
+
 ---
 
 ### Regionalization Workflow
@@ -371,7 +395,7 @@ Available optimization metrics for calibration:
 ## Input Directory Structure
 
 For calibration, the Model Setup Workflow Manager stores run files under the structure `/objfunc_optalg/my_run_name/basin/` (ex: `/kge_dds/calib_1/01123000/`).
-For regionalization, run files are stored in `/regionalization/my_run_name/basin/` (ex: `/regionalization/region_1/vpu01`)
+For regionalization, run files are stored in `/regionalization/my_run_name/basin/` (`ex: `/regionalization/region_1/vpu01`)
 
 ```bash
 ├── /[objfunc]_[optalg]/[my_run_name]/[basin]/              # Top level file structure, dependent on run type
@@ -414,16 +438,56 @@ When generating run files for a forecast (using the nwm-fcst-mgr), input files a
 ├── /[Output]/                                         # Top level forecast file structure, within calibration run /Output/
 │   ├── Calibration_Run/                               # Output run folder from previous calibration run
 │   ├── Validation_Run/                                # Output run folder from previous validation run
-│   ├── Cold_Start_Run/                                # Cold Start run providing start up states for forecast (if --use_cold_start)
-│   │   └── [fcst_run_name]/
-│   │       ├── [module]_input/                        # Module parameter files if modifications required from calibration
-│   │       ├── forcing_config/                        # BMI forcing engine provider config file (if bmi forcing provider used)
-│   │       ├── logs/
-│   │       └── output/                                # Output run folder from nwm-fcst-mgr execution
+│   ├── Model_State_Run/  
+│   │   └── Cold_Start_Run/                            # Cold Start run providing start up states for forecast (if --use_cold_start)
+│   │       └── [fcst_run_name]/
+│   │           ├── Input/
+│   │           │    ├── [module]_input/               # Module parameter files if modifications required from calibration
+│   │           │    └── forcing_config/               # BMI forcing engine provider config file (if bmi forcing provider used)
+│   │           ├── logs/
+│   │           └── Output/                            # Output run folder from nwm-fcst-mgr execution
 │   └── Forecast_Run/
 │       └── [fcst_run_name]/
-│           ├── [module]_input/                        # Module parameter files if modifications required from calibration
-│           ├── forcing_config/                        # BMI forcing engine provider config file (if bmi forcing provider used)
+│   │       ├── Input/
+│   │       │    ├── [module]_input/                   # Module parameter files if modifications required from calibration
+│   │       │    └── forcing_config/                   # BMI forcing engine provider config file (if bmi forcing provider used)
+│   │       ├── logs/
+│   │       └── Output/                                # Output run folder from nwm-fcst-mgr execution
+```
+
+### Hindcast Directory Structure
+When generating run files for a hindcast (using the nwm-fcst-mgr), multiple sets of input files for each warm start and hindcast iterationare created in the `/Output/` folder of a completed calibration run.
+
+```bash
+├── /[Output]/                                         # Top level forecast file structure, within calibration run /Output/
+│   ├── Calibration_Run/                               # Output run folder from previous calibration run
+│   ├── Validation_Run/                                # Output run folder from previous validation run
+│   ├── Model_State_Run/  
+│   │   ├── Cold_Start_Run/                            # Cold Start run providing start up states to first hindcast cycle (if --use_cold_start)
+│   │   │   └── [hind_run_name]/
+│   │   │       ├── Input/
+│   │   │       ├── logs/
+│   │   │       └── Output/                            
+│   │   └── Warm_Start_Run/
+│   │       ├── [hind_run_name]_3/                     # Warm Start run providing start up states to hindcast cycle at 3 hours
+│   │       │   ├── Input/
+│   │       │   ├── logs/
+│   │       │   └── Output/
+│   │       └── [hind_run_name]_6/                     # Warm Start run providing start up states to hindcast cycle at 6 hours
+│   │           ├── Input/
+│   │           ├── logs/
+│   │           └── Output/
+│   └── Hindcast_Run
+│       ├── [hind_run_name]_0/                         # Hindcast run at 0 hours, using saved states from Cold Start run
+│       │   ├── Input/
+│       │   ├── logs/
+│       │   └── Output/     
+│       ├── [hind_run_name]_3/                         # Hindcast run at 3 hours, using saved states from Warm Start run at 3 hours
+│       │   ├── Input/
+│       │   ├── logs/
+│       │   └── Output/  
+│       └── [hind_run_name]_6/                         # Hindcast run at 6 hours, using saved states from Warm Start run at 6 hours
+│           ├── Input/
 │           ├── logs/
-│           └── output/                                # Output run folder from nwm-fcst-mgr execution
+│           └── Output/                         
 ```

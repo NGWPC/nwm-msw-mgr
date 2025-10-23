@@ -81,7 +81,7 @@ def main():
     build_fcst_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
     build_fcst_sub.add_argument("--use_int_ana", action="store_true", help="Enable intermediate AnA flag when passed")
     build_fcst_sub.add_argument("--use_hindcast", action="store_true", help="Enable hindcast flag when passed")
-    build_fcst_sub.add_argument("--hind_cycle", type=int, default=None, help="Cycle interval (in hours) between hindcast runs")
+    build_fcst_sub.add_argument("--hind_cycle", type=int, default=None, help="Cycle interval (in hours) between hindcast start and current hindcast run")
 
     # subcomman: validate_topoflow
     validate_topo_sub = subparser.add_parser("validate_topoflow_glacier", help="Validate Topoflow-Glacier applicability for a basin")
