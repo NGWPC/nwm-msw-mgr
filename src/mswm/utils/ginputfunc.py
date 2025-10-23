@@ -2171,6 +2171,7 @@ def create_fcst_times(
         fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) + datetime.timedelta(hours=forcing_horizon), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on analysis cycle
+    # Can also be used in hindcasting intermediate ana run, which uses standard ana
     elif ana_flag == 1:
 
         # Retrieve analysis lookback from config file
