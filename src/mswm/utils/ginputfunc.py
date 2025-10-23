@@ -2092,6 +2092,7 @@ def create_fcst_times(
         cycle_hour: str,
         use_cold_start: bool,
         use_int_ana: bool,
+        hind_cycle: int = None,
         cold_start_datetime: str = None
 ) -> Tuple[str, str]:
     """ Compute forecast start and end time based on selected forecast cycle, date, and hour
@@ -2103,6 +2104,7 @@ def create_fcst_times(
     cycle_hour : hour of forecast cycle (00z)
     use_cold_start : boolean flag for using cold start period
     use_int_ana: boolean flag for using intermediate AnA run
+    hind_cycle: cycle interval (in hours) between hindcast runs
     cold_start_datetime : datetime str of beginning of cold start period
 
     Returns
@@ -2125,13 +2127,6 @@ def create_fcst_times(
         fcst_start = datetime.datetime.strftime(cs_dt + datetime.timedelta(hours=1), "%Y-%m-%d %H:%M:%S")
         fcst_end = datetime.datetime.strftime(cycle_dt, "%Y-%m-%d %H:%M:%S")
 
-    # Construct start and end times for intermediate ana period
-    elif use_int_ana:
-
-        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=1), "%Y-%m-%d %H:%M:%S")
-        # DETERMINE END TIME BASED ON CYCLE INTERVAL AND NUM INTERVALS
-        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=24), "%Y-%m-%d %H:%M:%S")
-
     # Construct start and end times based on forecast cycle
     elif ana_flag == 0:
 
@@ -2143,13 +2138,14 @@ def create_fcst_times(
         fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=forcing_horizon), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on analysis cycle
+    # Can also be used in hindcasting intermediate ana run, which uses standard ana
     elif ana_flag == 1:
 
         # Retrieve analysis lookback from config file
         forcing_lookback = int(forcing_template['LookBack'] / 60) - 1
 
-        fcst_start = datetime.datetime.strftime(cycle_dt - datetime.timedelta(hours=forcing_lookback), "%Y-%m-%d %H:%M:%S")
-        fcst_end = datetime.datetime.strftime(cycle_dt, "%Y-%m-%d %H:%M:%S")
+        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) - datetime.timedelta(hours=forcing_lookback), "%Y-%m-%d %H:%M:%S")
+        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle), "%Y-%m-%d %H:%M:%S")
 
     return fcst_start, fcst_end
 

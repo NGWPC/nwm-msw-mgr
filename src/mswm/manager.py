@@ -27,12 +27,12 @@ def build_calib(input_path: str):
 
 
 def build_fcst(input_path: str, valid_yaml: str, fcst_run_name: str, use_cold_start: bool = False, use_int_ana: bool = False,
-               cycle_interval: int | None = None, num_intervals: int | None = None):
+               use_hindcast: bool = False, hind_cycle: int | None = None):
     """
     Call RealizationBuilder class to generate forecast realization and config files
     """
     rb = RealizationBuilder(input_path=input_path, valid_yaml=valid_yaml, fcst_run_name=fcst_run_name,
-                            use_cold_start=use_cold_start, use_int_ana=use_int_ana, cycle_interval=cycle_interval, num_intervals=num_intervals)
+                            use_cold_start=use_cold_start, use_int_ana=use_int_ana, use_hindcast=use_hindcast, hind_cycle=hind_cycle)
     real_path = rb.build_fcst_realization()
     return real_path
 
@@ -80,8 +80,8 @@ def main():
     build_fcst_sub.add_argument("fcst_run_name", help="Name of the folder to be created for storing inputs/outputs from running ngen")
     build_fcst_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
     build_fcst_sub.add_argument("--use_int_ana", action="store_true", help="Enable intermediate AnA flag when passed")
-    build_fcst_sub.add_argument("--cycle_interval", type=int, default=None, help="Cycle interval (in hours) between hindcast runs")
-    build_fcst_sub.add_argument("--num_intervals", type=int, default=None, help="Number of hindcast cycles to perform")
+    build_fcst_sub.add_argument("--use_hindcast", action="store_true", help="Enable hindcast flag when passed")
+    build_fcst_sub.add_argument("--hind_cycle", type=int, default=None, help="Cycle interval (in hours) between hindcast runs")
 
     # subcomman: validate_topoflow
     validate_topo_sub = subparser.add_parser("validate_topoflow_glacier", help="Validate Topoflow-Glacier applicability for a basin")
