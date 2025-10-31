@@ -1245,31 +1245,150 @@ class RealizationBuilder:
                         logger.error(f"Failed to remove existing {mod_input_dir}: {e}")
                         raise
 
-            # make symlinks to existing input files or create new input files
-            bmi_dir = self.conf3.get(m2.replace('-', '_') + '_bmi_dir')
-
             # Skip config generation for sloth
             if m1 in ['sloth']:
-                pass
+                continue
 
-            # Raise error if bmi_dir is invalid path and not empty
-            if bmi_dir is not None and not os.path.isdir(bmi_dir):
+            # Retrieve initial parameters from Icefabric API
+            # Pass gage and module
+            # CFE must retrieve "surface_water_partitioning_scheme" and "is_sft_coupled"
+            # Add some sort of support for identifying domain
+
+            # icefabric_resp = httpx.get(
+            #     f"http://0.0.0.0:8000/v1/modules/{m1}/",
+            #     params={
+            #         "identifier": self.basin,  # the Gauge ID we're testing
+            #         "domain": "conus_hf",  # The CONUS domain
+            #         "use_schaake": "false",  # Specifying we're not using Schaake for the ice fraction setting
+            #     },
+            #     timeout=60.0,
+            # )
+            # icefabric_status = f"Status code: {icefabric_resp.status_code}"
+
+            # Reformat to be a dictionary of catchments and their parameters
+            ipe = {"cat-11466": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
+                                        "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
+                                        "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
+                                        "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
+                                        "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
+                                        "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
+                                        "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
+                                        "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
+                         "cat-11467": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
+                                        "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
+                                        "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
+                                        "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
+                                        "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
+                                        "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
+                                        "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
+                                        "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
+                         "cat-11468": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
+                                        "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
+                                        "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
+                                        "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
+                                        "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
+                                        "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
+                                        "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
+                                        "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
+                         "cat-11469": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
+                                        "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
+                                        "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
+                                        "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
+                                        "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
+                                        "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
+                                        "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
+                                        "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
+                         "cat-11470": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
+                                        "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
+                                        "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
+                                        "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
+                                        "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
+                                        "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
+                                        "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
+                                        "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
+                         "cat-11475": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
+                                        "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
+                                        "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
+                                        "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
+                                        "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
+                                        "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
+                                        "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
+                                        "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
+                         "cat-11476": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
+                                        "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
+                                        "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
+                                        "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
+                                        "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
+                                        "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
+                                        "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
+                                        "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"}}
+
+            ipe = {"cat-11466": {"verbosity":"none","soil_moisture_bmi={self.soil_moisture_bmi}","end_time={self.end_time}",
+            "dt={self.dt}",
+            "soil_params.smcmax={self.soil_params_smcmax}",
+            "soil_params.b={self.soil_params_b}",
+            "soil_params.satpsi={self.soil_params_satpsi}",
+            "soil_params.quartz={self.soil_params_quartz}",
+            "ice_fraction_scheme={self.ice_fraction_scheme.value}",
+            "soil_z={z_values}[m]",
+            "soil_temperature={temp_values}[K]",
+
+            # Create input file directory
+            if m1 != 'troute':
                 try:
-                    raise Exception(f"Invalid BMI directory: {m2.replace('-', '_') + '_bmi_dir'}: `{bmi_dir}`")
+                    os.makedirs(mod_input_dir, exist_ok=True)
                 except Exception as e:
-                    logger.critical(e)
+                    logger.critical(f"Failed to create input directory for {m1}: {mod_input_dir} - {e}")
                     raise
 
-            # Modify existing BMI config files if filepaths provided (ignoring troute for now)
-            elif m1 != 'troute' and bmi_dir and os.path.isdir(bmi_dir):
+            # Create BMI config files from scratch if paths not provided
+            if m1 in ['cfes', 'cfex']:
+                gfun.create_cfe_input(self.catids, mod_input_dir, self.run_type, self.is_aet_rootzone, ipe)
+            elif m1 == 'topmodel':
+                pass
+                # gfun.create_topmodel_input(self.catids, self.attr_file, mod_input_dir)
+            elif m1 == 'ueb':
+                pass
+                #gfun.create_ueb_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
+            elif m1 == 'snow17':
+                pass
+                #gfun.create_snow17_input(self.catids, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
+            elif m1 == "pet":
+                pass
+                #gfun.create_pet_input(self.catids, self.attr_file, mod_input_dir)
+            elif m1 == "sac":
+                pass
+                #gfun.create_sac_input(self.catids, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
+            elif m1 == 'noah':
+                pass
+                #gfun.create_noah_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
+            elif m1 == 'lstm':
+                pass
+                #gfun.create_lstm_input(self.catids, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
+            elif m1 == 'sft':
+                sft_dir = os.path.join(self.input_dir, 'sft_input')
+                smp_dir = os.path.join(self.input_dir, 'smp_input')
+                gfun.create_sft_smp_input(self.catids, self.time_period, self.modules, self.attr_file, sft_dir, smp_dir, self.run_type)
+            elif m1 == 'smp':
+                continue
+            elif m1 == 'lasam':
+                pass
+                #gfun.create_lasam_input(self.catids, self.modules, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
+            elif m1 == 'troute':
+                pass
+                # if self.run_type == 'calibration':
+                #     run_names = ['calib', 'valid', 'valid']
+                # elif self.run_type == 'default':
+                #     run_names = ['default']
 
-                if not os.listdir(bmi_dir):
-                    try:
-                        raise ValueError(f'BMI folder {bmi_dir} cannot be empty')
-                    except Exception as e:
-                        logger.critical(e)
-                        raise
-                else:
+                # for file_name, run_name in zip(self.run_configs, run_names):
+                #     routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + file_name)
+                #     run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
+                #     if len(self.time_period['run_time_period'][run_name][0]) != 0 & len(self.time_period['run_time_period'][run_name][0]):
+                #         run_range = pd.to_datetime(self.time_period['run_time_period'][run_name])
+                #         nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
+                #         gfun.create_troute_config(self.cat_file, routing_config_file, self.time_period['run_time_period'][run_name][0], nts)
+                #         logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
 
                     # Modify existing BMI config files from EDFS or the user with correct time period and/or paths
                     if m1 == 'noah':
@@ -1367,6 +1486,36 @@ class RealizationBuilder:
 
         logger.info("Created BMI config files for all modules in the formulation")
 
+
+            # # Modify existing BMI config files from EDFS or the user with correct time period and/or paths
+            # if m1 == 'noah':
+            #     gfun.create_noah_input_template(self.catids, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, bmi_dir, self.run_type)
+            # elif m1 == 'topmodel':
+            #     gfun.change_topmodel_input(self.catids, bmi_dir, mod_input_dir)
+            # elif m1 in ['cfes', 'cfex']:
+            #     gfun.change_cfe_input(self.catids, bmi_dir, mod_input_dir, self.run_type, self.is_aet_rootzone)
+            # elif m1 == 'ueb':
+            #     gfun.create_ueb_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, bmi_dir, self.run_type)
+            # elif m1 in ['sac', 'snow17']:
+            #     gfun.change_sac_snow17_input(m1, self.catids, mod_input_dir, bmi_dir)
+            # elif m1 == 'lasam':
+            #     gfun.change_lasam_input(self.catids, mod_input_dir, bmi_dir, self.conf3['lasam_parameter_dir'])
+            # elif m1 == 'lstm':
+            #     gfun.change_lstm_input(self.catids, self.conf3['lstm_parameter_dir'], mod_input_dir, bmi_dir)
+            # elif m1 == 'smp' and self.output_dict['output_sm']:
+            #     # For SMP, the depth to output soil moisture may need to be adjusted
+            #     self.output_dict['sm_profile_depth'] = gfun.change_smp_input(self.catids, self.modules, mod_input_dir, bmi_dir, self.run_type, self.output_dict['sm_frac_depth'],
+            #                                                                     self.output_dict['sm_profile_depth'])
+            # elif m1 == 'sft':
+            #     # Modify SFT inputs to ensure ice_fraction_scheme matches rainfall_runoff model
+            #     gfun.change_sft_input(self.catids, modules1, mod_input_dir, bmi_dir, self.run_type)
+            # else:
+            #     # Create symbolic link
+            #     logger.info(f'{m2}: create symlink from {bmi_dir} to {mod_input_dir}')
+            #     os.symlink(bmi_dir, mod_input_dir, target_is_directory=True)
+
+            # else:
+            
     def _create_reg_bmi_configs(self):
         """
         Generate BMI config files for modules for regionalization

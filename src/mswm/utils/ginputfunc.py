@@ -373,22 +373,20 @@ def create_walk_file(
 
 def create_cfe_input(
         catids: List[str],
-        modules: Union[List[str], List[List[str]]],
-        dfa: gpd.GeoDataFrame,
         cfe_input_dir: Union[str, Path],
         run_type: str,
-        is_aet_rootzone: Union[int, dict]
+        is_aet_rootzone: Union[int, dict],
+        ipe: dict
 ) -> None:
     """ Create BMI initial configuration file for CFE with Schaake or Xianjiang infiltration and runoff scheme
 
     Parameters
     ----------
     catids : catchment IDs in the basin
-    modules: list of modules in the formulation
-    dfa: dataframe containing model parameter attributes
     cfe_input_dir: directory to save configuration files
     run_type: type of run (calib, regionalization, or default)
     is_aet_rootzone: flag for CFE rootzone option
+    ipe: initial parameter estimates retrieved from icefabric api
 
     Returns
     ----------
@@ -402,140 +400,32 @@ def create_cfe_input(
 
     """
 
-    os.makedirs(cfe_input_dir, exist_ok=True)
-
     # Set surface partitioning scheme and is_aet_rootzone flag
-    scheme = 'Schaake'
     if run_type != 'regionalization':
-        mods = modules
-        if 'cfex' in mods:
-            scheme = 'Xinanjiang'
         rootzone_flag = is_aet_rootzone
 
     # Create bmi config files
     for i in range(len(catids)):
 
+        # Retrieve catchment parameters from icefabric
         catID = catids[i]
+        cat_ipe = ipe[catID]
 
         # Set module list and is_aet_rootzone flag for each catchment during regionalization
         if run_type == 'regionalization':
-            mods = modules[i]
-            if ('cfex' in mods):
-                scheme = 'Xinanjiang'
             rootzone_flag = is_aet_rootzone[catID]
 
-        # Set sft coupling
-        if 'sft' in mods:
-            sft_coupled = '1'
-        else:
-            sft_coupled = '0'
+        # Add aet_rootzone parameters if option is selected
+        if rootzone_flag == 1:
+            cat_ipe["is_aet_rootzone"] = 1
+            cat_ipe["max_rootzone_layer"] = 2
+            cat_ipe["soil_layer_depths"] = "0.1,0.4,1.0,2.0[m]"
 
+        # Write parameters to file
         cfe_bmi_file = os.path.join(cfe_input_dir, catID + "_bmi_config_cfe.txt")
-        f = open(cfe_bmi_file, "w")
-        f.write("%s" % ("forcing_file=BMI\n"))
-        f.write("%s" % ("verbosity=1\n"))
-        f.write("%s" % ("surface_water_partitioning_scheme=" + scheme + "\n"))
-        f.write("%s" % ("surface_runoff_scheme=GIUH\n"))
-        f.write("%s" % ("DEBUG=0\n"))
-        f.write("%s" % ("num_timesteps=1\n"))
-        if 'cfes' in mods:
-            f.write("%s" % ("is_sft_coupled=" + sft_coupled + "\n"))
-            f.write("%s" % ("ice_content_threshold=0.15\n"))
-        f.write("%s" % ("alpha_fc=0.33\n"))  # TODO Update per soil type
-        f.write("%s" % ("Cgw=" + str(dfa.loc[catID]['mean.Coeff'] * 3600 * 1e-6) + "[m/hr]\n"))
-        f.write("%s" % ("expon=" + str(dfa.loc[catID]['mode.Expon']) + "[]\n"))
-        f.write("%s" % ("giuh_ordinates=0.55, 0.25, 0.2[]\n"))
-        f.write("%s" % ("gw_storage=0.05[m/m]\n"))
-        f.write("%s" % ("K_lf=0.01[]\n"))
-        f.write("%s" % ("K_nash=0.003[1/m]\n"))
-        f.write("%s" % ("max_gw_storage=" + str(dfa.loc[catID]['mean.Zmax'] / 1000.) + "[m]\n"))
-        f.write("%s" % ("nash_storage=0.0,0.0[]\n"))
-        f.write("%s" % ("refkdt=" + str(dfa.loc[catID]['mean.refkdt']) + "[]\n"))
-        f.write("%s" % ("soil_params.b=" + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + "[]\n"))
-        f.write("%s" % ("soil_params.depth=2.0[m]\n"))
-        f.write("%s" % ("soil_params.expon=1[]\n"))
-        f.write("%s" % ("soil_params.expon_secondary=1[]\n"))
-        f.write("%s" % ("soil_params.satdk=" + str(dfa.loc[catID]['geom_mean.dksat_soil_layers_stag=1']) + "[m/s]\n"))
-        f.write("%s" % ("soil_params.satpsi=" + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + "[m]\n"))
-        f.write("%s" % ("soil_params.slop=" + str(dfa.loc[catID]['mean.slope_1km']) + "[m/m]\n"))
-        f.write("%s" % ("soil_params.smcmax=" + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + "[m/m]\n"))
-        f.write("%s" % ("soil_params.wltsmc=" + str(dfa.loc[catID]['mean.smcwlt_soil_layers_stag=1']) + "[m/m]\n"))
-        f.write("%s" % ("soil_storage=0.5[m/m]\n"))
-
-        # Add aet_rootzone parameters if option is selected
-        if rootzone_flag == 1:
-            f.write("%s" % ("is_aet_rootzone=1\n"))
-            f.write("%s" % ("max_rootzone_layer=2\n"))
-            f.write("%s" % ("soil_layer_depths=0.1,0.4,1.0,2.0[m]\n"))
-
-        # add the new parameters for cfex
-        # TODO: read these catchment-specific parameters from the NWMv3 model attributes parquet file
-        # The current parquet file we have access to was likely based on NWMv2.1 and hence missing these XAJ parameters
-        if scheme == 'Xinanjiang':
-            f.write("%s" % ("a_Xinanjiang_inflection_point_parameter=-0.212938[]\n"))
-            f.write("%s" % ("b_Xinanjiang_shape_parameter=0.666238[]\n"))
-            f.write("%s" % ("x_Xinanjiang_shape_parameter=0.02414[]\n"))
-            f.write("%s" % ("urban_decimal_fraction=0.0[]\n"))
-
-        f.close()
-
-
-def change_cfe_input(
-        catids: List[str],
-        bmi_dir: Union[str, Path],
-        inputDir: Union[str, Path],
-        run_type: str,
-        is_aet_rootzone: Union[int, List[int]]
-) -> None:
-    """ change options in CFE input file
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    bmi_dir : directory containing bmi configuration files
-    inputDir : directory for storing input files
-    run_type: type of run (calib, regionalization, or default)
-    is_aet_rootzone: flag for CFE rootzone option
-
-    Returns
-    ----------
-    None
-
-    """
-
-    if not os.path.exists(inputDir):
-        os.makedirs(inputDir, exist_ok=True)
-
-    # Set rootzone_flag depending on run_type
-    if run_type != 'regionalization':
-        rootzone_flag = is_aet_rootzone
-
-    for catID in catids:
-
-        # Set is_aet_rootzone flag for each catchment during regionalization
-        if run_type == 'regionalization':
-            rootzone_flag = is_aet_rootzone[catID]
-
-        # Copy existing file
-        bmi_config = os.path.join(bmi_dir, '{}'.format(catID) + '_bmi_config_cfe.txt')
-        new_config = os.path.join(inputDir, '{}'.format(catID) + '_bmi_config_cfe.txt')
-        shutil.copy(bmi_config, new_config)
-
-        # read runfile
-        with open(new_config, 'r') as infile:
-            list_lines = infile.readlines()
-        lst_lines = copy.deepcopy(list_lines)
-
-        # Add aet_rootzone parameters if option is selected
-        if rootzone_flag == 1:
-            lst_lines[-1] += '\n'
-            lst_lines.append("%s" % ("is_aet_rootzone=1\n"))
-            lst_lines.append("%s" % ("max_rootzone_layer=2\n"))
-            lst_lines.append("%s" % ("soil_layer_depths=0.1,0.4,1.0,2.0[m]\n"))
-
-        # Save file
-        with open(new_config, 'w') as outfile:
-            outfile.writelines(lst_lines)
+        with open(cfe_bmi_file, "w") as f:
+            for key, val in cat_ipe.items():
+                f.write(f"{key}={val}\n")
 
 
 def create_noah_input(
@@ -828,7 +718,7 @@ def create_sft_smp_input(
         # Create sft list
         sft_lst = ['verbosity=none',
                    'soil_moisture_bmi=1',
-                   'end_time=1.[d]',
+                   'end_time=1.[d]',  # We may need to set this, and then create separate cal/val sft files
                    'dt=1.0[h]',
                    'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
                    'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),

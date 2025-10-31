@@ -263,20 +263,6 @@ class DataFileConfig(StrictBaseModel):
     obs_dir: Optional[str] = None
     nwmretro_file: Optional[str] = None
     hydrofab_file: str
-    topoflow_bmi_dir: Optional[str] = None
-    noah_owp_modular_bmi_dir: Optional[str] = None
-    snow_17_bmi_dir: Optional[str] = None
-    ueb_bmi_dir: Optional[str] = None
-    pet_bmi_dir: Optional[str] = None
-    smp_bmi_dir: Optional[str] = None
-    sft_bmi_dir: Optional[str] = None
-    cfe_s_bmi_dir: Optional[str] = None
-    cfe_x_bmi_dir: Optional[str] = None
-    topmodel_bmi_dir: Optional[str] = None
-    sac_sma_bmi_dir: Optional[str] = None
-    lasam_bmi_dir: Optional[str] = None
-    lstm_bmi_dir: Optional[str] = None
-    t_route_bmi_dir: Optional[str] = None
     noah_parameter_dir: Optional[str] = None
     ueb_parameter_dir: Optional[str] = None
     lasam_parameter_dir: Optional[str] = None
