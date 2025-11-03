@@ -63,7 +63,8 @@ __all__ = [
     'create_cfe_input',
     'create_noah_input',
     'create_noah_input_template',
-    'create_sft_smp_input',
+    'create_sft_input',
+    'create_smp_input',
     'create_snow17_input',
     'create_ueb_input',
     'create_sac_input',
@@ -661,23 +662,19 @@ def create_noah_input_template(
         logger.info(f'noah-owp-modular BMI config files for regionalization created at {input_dir}/*{run_name}_.input')
 
 
-def create_sft_smp_input(
+def create_sft_input(
         catids: List[str],
-        modules: Union[List[str], List[List[str]]],
-        dfa: gpd.GeoDataFrame,
         sft_dir: Union[str, Path],
         smp_dir: Union[str, Path],
         run_type: str,
         sm_profile_depth: List[float] = [0.1, 0.4, 1.0, 2.0],
         sm_fraction_depth: float = 0.4,
 ) -> None:
-    """ Create BMI configuration file for soil freeze and thaw module, and soil moisture profiles
+    """ Create BMI configuration file for soil freeze and thaw module
 
     Parameters
     ----------
     catids : catchment IDs in the basin
-    modules: list of modules in the formulation
-    dfa: dataframe containing model parameter attributes
     sft_dir : directory for writing sft bmi configuration files
     smp_dir : directory for writing smp bmi configuration files
     run_type: type of run (calib, regionalization, or default)
@@ -690,19 +687,10 @@ def create_sft_smp_input(
 
     """
 
-    os.makedirs(sft_dir, exist_ok=True)
-    os.makedirs(smp_dir, exist_ok=True)
-
-    # Ice fraction scheme
-    icefscheme = 'Schaake'
-    if run_type != 'regionalization':
-        mods = modules
-        if ('cfex' in mods):
-            icefscheme = 'Xinanjiang'
-
     # Create bmi config files
     for i in range(len(catids)):
 
+        # Retrieve catchment parameters from icefabric
         catID = catids[i]
 
         # Set module list for each catchment during regionalization
@@ -732,7 +720,8 @@ def create_sft_smp_input(
         # Write sft config to file
         sft_bmi_file = os.path.join(sft_dir, catID + '_bmi_config_sft.txt')
         with open(sft_bmi_file, "w") as f:
-            f.writelines('\n'.join(sft_lst))
+            for key, val in cat_ipe.items():
+                f.write(f"{key}={val}\n")
 
         # Create smp list
         smp_lst = ['verbosity=none',
@@ -742,17 +731,44 @@ def create_sft_smp_input(
                    "soil_z=" + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
                    "soil_moisture_fraction_depth=" + f"{float(sm_fraction_depth):g}" + "[m]"]
 
-        if 'cfes' in mods or 'cfex' in mods:
-            smp_lst += ['soil_storage_model=conceptual', 'soil_storage_depth=2.0']
-        elif 'topmodel' in mods:
-            smp_lst += ['soil_storage_model=TopModel', 'water_table_based_method=flux_based']
-        elif 'lasam' in mods:
-            smp_lst += ['soil_storage_model=layered', 'soil_moisture_profile_option=constant', 'soil_depth_layers=2.0', 'water_table_depth=10[m]']
+def create_smp_input(
+        catids: List[str],
+        smp_dir: Union[str, Path],
+        ipe: dict
+) -> None:
+    """ Create BMI configuration file for soil moisture profiles module
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    smp_dir : directory for writing smp bmi configuration files
+    ipe: initial parameter estimates retrieved from icefabric api
+
+    Returns
+    ----------
+    None
+
+    """
+
+    # Create bmi config files
+    for i in range(len(catids)):
+
+        # Retrieve catchment parameters from icefabric
+        catID = catids[i]
+        cat_ipe = ipe[catID]
+
+        # if 'cfes' in mods or 'cfex' in mods:
+        #     smp_lst += ['soil_storage_model=conceptual', 'soil_storage_depth=2.0']
+        # elif 'topmodel' in mods:
+        #     smp_lst += ['soil_storage_model=TopModel', 'water_table_based_method=flux_based']
+        # elif 'lasam' in mods:
+        #     smp_lst += ['soil_storage_model=layered', 'soil_moisture_profile_option=constant', 'soil_depth_layers=2.0', 'water_table_depth=10[m]']
 
         # Write smp to to file
         smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
         with open(smp_bmi_file, "w") as f:
-            f.writelines('\n'.join(smp_lst))
+            for key, val in cat_ipe.items():
+                f.write(f"{key}={val}\n")
 
 
 def create_snow17_input(
