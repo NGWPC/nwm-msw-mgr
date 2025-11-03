@@ -1354,21 +1354,58 @@ class RealizationBuilder:
             #                      "soil_params.quartz":1.0,"ice_fraction_scheme":"Schaake","soil_z":"0.1,0.3,1.0,2.0[m]",
             #                      "soil_temperature":"280.37,280.37,280.37,280.37[K]"}}
 
-            # SMP IPE
-            ipe = {"cat-11466": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-                                 "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-                   "cat-11467": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-                                 "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-                   "cat-11468": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-                                 "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-                   "cat-11469": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-                                 "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-                   "cat-11470": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-                                 "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-                   "cat-11475": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-                                 "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-                   "cat-11476": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-                                 "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0}}
+            # # SMP IPE
+            # ipe = {"cat-11466": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
+            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
+            #        "cat-11467": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
+            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
+            #        "cat-11468": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
+            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
+            #        "cat-11469": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
+            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
+            #        "cat-11470": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
+            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
+            #        "cat-11475": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
+            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
+            #        "cat-11476": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
+            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0}}
+
+            # LASAM IPE
+            ipe = {"cat-11466": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+                   "cat-11467": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+                   "cat-11468": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+                   "cat-11469": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+                   "cat-11470": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+                   "cat-11475": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+                   "cat-11476": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"}}
 
             # Create input file directory
             if m1 != 'troute':
@@ -1409,8 +1446,7 @@ class RealizationBuilder:
                 smp_dir = os.path.join(self.input_dir, 'smp_input')
                 gfun.create_smp_input(self.catids, smp_dir, ipe)
             elif m1 == 'lasam':
-                pass
-                #gfun.create_lasam_input(self.catids, self.modules, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
+                gfun.create_lasam_input(self.catids, mod_input_dir, self.conf3['lasam_parameter_dir'], ipe)
             elif m1 == 'troute':
                 pass
                 # if self.run_type == 'calibration':

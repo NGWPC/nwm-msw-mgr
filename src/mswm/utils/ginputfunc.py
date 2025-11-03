@@ -1550,30 +1550,24 @@ def create_pet_input(
 
 def create_lasam_input(
         catids: List[str],
-        modules: Union[List[str], List[List[str]]],
-        dfa: gpd.GeoDataFrame,
         input_dir: Union[str, Path],
         param_dir: Union[str, Path],
-        run_type: str
+        ipe: dict
 ) -> None:
     """ Create BMI configuration file for Lumped Arid and Semi-arid Model
 
     Parameters
     ----------
     catids : catchment IDs in the basin
-    modules: list of modules or a list of formulations for each catchment
-    dfa: dataframe containing model parameter attributes
     input_dir : directory for the lasam input configuration file
     param_dir: directory for static lasam parameter files
-    run_type: type of run (calib, regionalization, or default)
+    ipe: initial parameter estimates retrieved from icefabric api
 
     Returns
     ----------
     None
 
     """
-
-    os.makedirs(input_dir, exist_ok=True)
 
     # make sure param_dir and parameter files exist
     if param_dir and os.path.exists(param_dir):
@@ -1598,54 +1592,20 @@ def create_lasam_input(
             logger.critical(e)
             raise
 
-    # Check if sft is in use
-    sft_coupled_str = 'true' if 'sft' in modules else 'false'
-
-    # Create lasam list
-    lasam_lst = ['verbosity=none',
-                 'soil_params_file=' + soil_param_file,
-                 'layer_thickness=200.0[cm]',
-                 'initial_psi=2000.0[cm]',
-                 'timestep=300[sec]',  # Where should this be supplied from?
-                 'endtime=1000[hr]',  # Where should this be supplied from?
-                 'forcing_resolution=3600[sec]',
-                 'ponded_depth_max=1.1[cm]',
-                 'use_closed_form_G=false',
-                 'layer_soil_type=',
-                 'max_soil_types=15',
-                 'wilting_point_psi=15495.0[cm]',
-                 'field_capacity_psi=340.9[cm]',
-                 'giuh_ordinates=0.06,0.51,0.28,0.12,0.03',
-                 'calib_params=true',
-                 'adaptive_timestep=true',
-                 'sft_coupled=',
-                 'soil_z=10,30,100.0,200.0[cm]'
-                 ]
-
-    # Set module list for non-regionalization run
-    if run_type != 'regionalization':
-        mods = modules
-
     # Create bmi config file
     for i in range(len(catids)):
+
+        # Retrieve catchment parameters from icefabric
         catID = catids[i]
+        cat_ipe = ipe[catID]
 
-        # Set module list for each catchment during regionalization
-        if run_type == 'regionalization':
-            mods = modules[i]
-
-        # Insert soil type
-        lasam_lst_catID = lasam_lst.copy()
-        lasam_lst_catID[9] = lasam_lst_catID[9] + str(int(dfa.loc[catID]['mode.ISLTYP']))
-
-        # Check if sft is in use
-        sft_coupled_str = 'true' if 'sft' in mods else 'false'
-        lasam_lst_catID[16] += sft_coupled_str
+        # Update soil_params_file
+        cat_ipe['soil_params_file'] = soil_param_file
 
         lasam_bmi_file = os.path.join(input_dir, catID + '_bmi_config_lasam.txt')
-
         with open(lasam_bmi_file, "w") as f:
-            f.writelines('\n'.join(lasam_lst_catID))
+            for key, val in cat_ipe.items():
+                f.write(f"{key}={val}\n")
 
 
 def change_lasam_input(
