@@ -406,10 +406,9 @@ def create_cfe_input(
         rootzone_flag = is_aet_rootzone
 
     # Create bmi config files
-    for i in range(len(catids)):
+    for catID in catids:
 
         # Retrieve catchment parameters from icefabric
-        catID = catids[i]
         cat_ipe = ipe[catID]
 
         # Set module list and is_aet_rootzone flag for each catchment during regionalization
@@ -688,9 +687,10 @@ def create_sft_input(
     """
 
     # Create bmi config files
-    for i in range(len(catids)):
+    for catID in catids:
 
         # Retrieve catchment parameters from icefabric
+<<<<<<< HEAD
         catID = catids[i]
 
         # Set module list for each catchment during regionalization
@@ -716,6 +716,9 @@ def create_sft_input(
                    "soil_z=" + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
                    'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
                    ]
+=======
+        cat_ipe = ipe[catID]
+>>>>>>> e5912be (Implementation of SAC-SMA iceberg configs)
 
         # Write sft config to file
         sft_bmi_file = os.path.join(sft_dir, catID + '_bmi_config_sft.txt')
@@ -751,10 +754,9 @@ def create_smp_input(
     """
 
     # Create bmi config files
-    for i in range(len(catids)):
+    for catID in catids:
 
         # Retrieve catchment parameters from icefabric
-        catID = catids[i]
         cat_ipe = ipe[catID]
 
         # if 'cfes' in mods or 'cfex' in mods:
@@ -1014,58 +1016,35 @@ def create_ueb_input(
 
 def create_sac_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
-        param_dir_source: Union[str, Path],
-        sac_input_dir: str
+        sac_input_dir: str,
+        ipe: dict
 ) -> None:
     """ Create BMI configuration file for sac-sma
 
     Parameters
     ----------
     catids : catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
-    param_dir_source : directory for sac parameter file
     sac_input_dir : directory for the sac bmi configuration file
+    ipe: initial parameter estimates retrieved from icefabric api
 
     Returns
     ----------
     None
 
     """
-    os.makedirs(sac_input_dir, exist_ok=True)
-
-    # Read sac-sma parameter file
-    param_filename = f'{param_dir_source}/sac_sma_params_2.2.csv'
-    params_df = pd.read_csv(param_filename)
-    params_df.set_index('divide_id', inplace=True)
 
     for catID in catids:
 
-        # Set catchment-specific sac-sma config parameters
-        param_list = ['hru_id ' + catID,
-                      'hru_area ' + str(dfa.loc[catID]['areasqkm']),
-                      'uztwm ' + str(params_df.loc[catID]['UZTWM']),
-                      'uzfwm ' + str(params_df.loc[catID]['UZFWM']),
-                      'lztwm ' + str(params_df.loc[catID]['LZTWM']),
-                      'lzfpm ' + str(params_df.loc[catID]['LZFPM']),
-                      'lzfsm ' + str(params_df.loc[catID]['LZFSM']),
-                      'adimp 0.0000',
-                      'uzk ' + str(params_df.loc[catID]['UZK']),
-                      'lzpk ' + str(params_df.loc[catID]['LZPK']),
-                      'lzsk ' + str(params_df.loc[catID]['LZSK']),
-                      'zperc ' + str(params_df.loc[catID]['ZPERC']),
-                      'rexp ' + str(params_df.loc[catID]['REXP']),
-                      'pctim 0.0000',
-                      'pfree ' + str(params_df.loc[catID]['PFREE']),
-                      'riva 0.000',
-                      'side 0.0000',
-                      'rserv 0.3000']
+        # Retrieve catchment parameters from icefabric
+        cat_ipe = ipe[catID]
 
+        # Write parameters to file
         input_file = os.path.join(sac_input_dir, 'sac-init-' + catID + '.namelist.input')
-        param_file = os.path.join(sac_input_dir, 'sac_params-' + catID + '.txt')
+        sac_bmi_file = os.path.join(sac_input_dir, 'sac_params-' + catID + '.txt')
 
-        with open(param_file, "w") as f:
-            f.writelines('\n'.join(param_list))
+        with open(sac_bmi_file, "w") as f:
+            for key, val in cat_ipe.items():
+                f.write(f"{key} {val}\n")
 
         # Namelist file is only used when module is run separately from ngen
         input_list = ['&SAC_CONTROL',
@@ -1076,7 +1055,7 @@ def create_sac_input(
                       'n_hrus              = 1            ! number of sub-areas in model',
                       'forcing_root        = ""',
                       'output_root         = ""',
-                      'sac_param_file   = "' + param_file + '"',
+                      'sac_param_file   = "' + sac_bmi_file + '"',
                       'output_hrus         = 0            ! output HRU results? (1=yes; 0=no)',
                       '',
                       '! -- run period information',
@@ -1096,6 +1075,7 @@ def create_sac_input(
                       '/',
                       ''
                       ]
+
         with open(input_file, "w") as f:
             f.writelines('\n'.join(input_list))
 
@@ -1570,33 +1550,18 @@ def create_lasam_input(
     """
 
     # make sure param_dir and parameter files exist
-    if param_dir and os.path.exists(param_dir):
-        soil_param_file = os.path.join(param_dir, 'vG_default_params.dat')
-        if not os.path.exists(soil_param_file):
-            try:
-                raise Exception(f'Soil params file does not exist: {soil_param_file}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        soil_class_file = os.path.join(param_dir, 'lasam_soil_class.txt')
-        if not os.path.exists(soil_class_file):
-            try:
-                raise Exception(f'Soil class file does not exist: {soil_class_file}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-    else:
+    soil_param_file = os.path.join(param_dir, 'vG_default_params.dat')
+    if not os.path.exists(soil_param_file):
         try:
-            raise Exception(f'lasam_parameter_dir does not exist: {param_dir}')
+            raise Exception(f'Soil params file does not exist: {soil_param_file}')
         except Exception as e:
             logger.critical(e)
             raise
 
     # Create bmi config file
-    for i in range(len(catids)):
+    for catID in catids:
 
         # Retrieve catchment parameters from icefabric
-        catID = catids[i]
         cat_ipe = ipe[catID]
 
         # Update soil_params_file

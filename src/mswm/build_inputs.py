@@ -1408,9 +1408,27 @@ class RealizationBuilder:
                                  "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"}}
 
             # SAC-SMA
-             ipe = {"cat-11466": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-                                  "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-                                  "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+            ipe = {"cat-11466": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+                   "cat-11467": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+                   "cat-11468": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+                   "cat-11469": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+                   "cat-11470": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+                   "cat-11475": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+                                "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+                                "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+                   "cat-11476": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3}}
 
             # Create input file directory
             if m1 != 'troute':
@@ -1436,8 +1454,7 @@ class RealizationBuilder:
                 pass
                 #gfun.create_pet_input(self.catids, self.attr_file, mod_input_dir)
             elif m1 == "sac":
-                pass
-                #gfun.create_sac_input(self.catids, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
+                gfun.create_sac_input(self.catids, mod_input_dir, ipe)
             elif m1 == 'noah':
                 pass
                 #gfun.create_noah_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
