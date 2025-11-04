@@ -1370,65 +1370,81 @@ class RealizationBuilder:
             #        "cat-11476": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
             #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0}}
 
-            # LASAM IPE
-            ipe = {"cat-11466": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-                   "cat-11467": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-                   "cat-11468": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-                   "cat-11469": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-                   "cat-11470": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-                   "cat-11475": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-                   "cat-11476": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-                                 "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-                                 "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-                                 "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-                                 "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"}}
+            # # LASAM IPE
+            # ipe = {"cat-11466": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+            #        "cat-11467": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+            #        "cat-11468": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+            #        "cat-11469": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+            #        "cat-11470": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+            #        "cat-11475": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
+            #        "cat-11476": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
+            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
+            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
+            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
+            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"}}
 
-            # SAC-SMA
-            ipe = {"cat-11466": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-                   "cat-11467": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-                   "cat-11468": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-                   "cat-11469": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-                   "cat-11470": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-                   "cat-11475": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-                                "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-                                "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-                   "cat-11476": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-                                 "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-                                 "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3}}
+            # # SAC-SMA
+            # ipe = {"cat-11466": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+            #        "cat-11467": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+            #        "cat-11468": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+            #        "cat-11469": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+            #        "cat-11470": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+            #        "cat-11475": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+            #                     "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+            #                     "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
+            #        "cat-11476": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
+            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
+            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3}}
+
+            # LSTM
+            ipe = {"cat-11466": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+                   "cat-11467": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+                   "cat-11468": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+                   "cat-11469": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+                   "cat-11470": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+                   "cat-11475": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+                   "cat-11476": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"}}
 
             # Create input file directory
             if m1 != 'troute':
@@ -1459,14 +1475,11 @@ class RealizationBuilder:
                 pass
                 #gfun.create_noah_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
             elif m1 == 'lstm':
-                pass
-                #gfun.create_lstm_input(self.catids, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
+                gfun.create_lstm_input(self.catids, self.conf3['lstm_parameter_dir'], mod_input_dir, ipe)
             elif m1 == 'sft':
-                sft_dir = os.path.join(self.input_dir, 'sft_input')
-                gfun.create_sft_input(self.catids, sft_dir, ipe)
+                gfun.create_sft_input(self.catids, mod_input_dir, ipe)
             elif m1 == 'smp':
-                smp_dir = os.path.join(self.input_dir, 'smp_input')
-                gfun.create_smp_input(self.catids, smp_dir, ipe)
+                gfun.create_smp_input(self.catids, mod_input_dir, ipe)
             elif m1 == 'lasam':
                 gfun.create_lasam_input(self.catids, mod_input_dir, self.conf3['lasam_parameter_dir'], ipe)
             elif m1 == 'troute':

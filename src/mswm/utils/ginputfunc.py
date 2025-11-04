@@ -1315,9 +1315,9 @@ def change_lstm_input(
 
 def create_lstm_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         lstm_input_dir: Union[str, Path],
+        ipe: dict
 ) -> None:
 
     """
@@ -1325,18 +1325,15 @@ def create_lstm_input(
     Parameters
     ----------
     catids: catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
-    divides_layer: geodataframe containing hydrofabric divides layer
     param_dir_source: direcetory for static lstm files
     lstm_input_dir: target directory for bmi configuration file output (lstm_input)
+    ipe: initial parameter estimates retrieved from icefabric api
 
     Returns
     ----------
     None
 
     """
-    # Create input directory
-    os.makedirs(lstm_input_dir, exist_ok=True)
 
     # Create static LSTM config yaml files
     create_lstm_config(param_dir_source, lstm_input_dir)
@@ -1344,35 +1341,22 @@ def create_lstm_input(
     # Create catchment specific LSTM bmi config files from scratch
     for catID in catids:
 
-        area = float(dfa.loc[catID]['areasqkm'])
-        slope = float(dfa.loc[catID]['mean.slope'])
-        elev = float(dfa.loc[catID]['mean.elevation'])
-        lat = float(dfa.loc[catID]['centroid_y'])
-        lon = float(dfa.loc[catID]['centroid_x'])
+        # Retrieve catchment parameters from icefabric
+        cat_ipe = ipe[catID]
 
-        namelist = {'area_sqkm': area,
-                    'basin_id': catID,
-                    'basin_name': catID,
-                    'elev_mean': elev,
-                    'initial_state': 'zero',
-                    'lat': lat,
-                    'lon': lon,
-                    'slope_mean': slope,
-                    'time_step': '1 hour',  # There's a disagreement between naming conventions between EDFS and createInputs, unclear which is used
-                    'timestep': '1 hour',
-                    'train_cfg_file': os.path.join(lstm_input_dir, 'config.yml'),
-                    'verbose': '1'}
+        # Set train_cfg_file path
+        cat_ipe['train_cfg_file'] = os.path.join(lstm_input_dir, 'config.yml')
 
-        # Write config to file
-        input_file = os.path.join(lstm_input_dir, catID + '.yml')
+        # Write bmi config to file
+        lstm_bmi_file = os.path.join(lstm_input_dir, catID + '.yml')
         try:
-            with open(input_file, "w") as f:
-                yaml.dump(namelist, f, default_flow_style=False)
+            with open(lstm_bmi_file, "w") as f:
+                yaml.dump(cat_ipe, f, default_flow_style=False)
         except yaml.YAMLError as e:
-            logger.critical(f"Error writing LSTM yaml to {input_file}: {e}")
+            logger.critical(f"Error writing LSTM yaml to {lstm_bmi_file}: {e}")
             raise
         except OSError as e:
-            logger.critical(f"Error writing LSTM yaml to {input_file}: {e}")
+            logger.critical(f"Error writing LSTM yaml to {lstm_bmi_file}: {e}")
             raise
 
 
