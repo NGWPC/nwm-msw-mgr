@@ -1445,36 +1445,60 @@ class RealizationBuilder:
             #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
             #        "cat-11476": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
             #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"}}
-            
-             # UEB
-            ipe = {"cat-11466": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
-                   "cat-11467": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
-                   "cat-11468": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
-                   "cat-11469": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
-                   "cat-11470": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
-                   "cat-11475": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
-                   "cat-11476": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-                                 "nov_temp_range": 9.5,"dec_temp_range":8.5}}        
+
+            # # UEB
+            # ipe = {"cat-11466": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
+            #        "cat-11467": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
+            #        "cat-11468": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
+            #        "cat-11469": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
+            #        "cat-11470": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
+            #        "cat-11475": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
+            #        "cat-11476": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5}}
+
+            # Snow17
+            ipe = {"cat-11466": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
+                                 "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
+                                 "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
+                   "cat-11467": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
+                                 "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
+                                 "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
+                   "cat-11468": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
+                                 "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
+                                 "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
+                   "cat-11469": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
+                                 "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
+                                 "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
+                   "cat-11470": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
+                                 "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
+                                 "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
+                   "cat-11475": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
+                                 "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
+                                 "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
+                   "cat-11476": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
+                                 "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
+                                 "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1}}
+
 
             # Create input file directory
             if m1 != 'troute':
@@ -1493,8 +1517,7 @@ class RealizationBuilder:
             elif m1 == 'ueb':
                 gfun.create_ueb_input(self.catids, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe)
             elif m1 == 'snow17':
-                pass
-                #gfun.create_snow17_input(self.catids, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
+                gfun.create_snow17_input(self.catids, mod_input_dir, ipe)
             elif m1 == "pet":
                 pass
                 #gfun.create_pet_input(self.catids, self.attr_file, mod_input_dir)

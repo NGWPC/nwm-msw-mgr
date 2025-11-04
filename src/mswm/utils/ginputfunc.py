@@ -775,67 +775,33 @@ def create_smp_input(
 
 def create_snow17_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
-        param_dir_source: Union[str, Path],
-        snow17_input_dir: str
+        snow17_input_dir: str,
+        ipe: dict
 ) -> None:
     """ Create BMI configuration file for Snow17
 
     Parameters
     ----------
     catids : catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
-    gpkg_file: GeoPackage hydrofabric file
-    param_dir_source : directory containing snow17 parameter files
     snow17_input_dir : directory for the snow17 bmi configuration files
+    ipe: initial parameter estimates retrieved from icefabric api
 
     Returns
     ----------
     None
 
    """
-    os.makedirs(snow17_input_dir, exist_ok=True)
-
-    # Read snow17 parameter file
-    param_filename = f'{param_dir_source}/snow17_params_2.2.csv'
-    params_df = pd.read_csv(param_filename)
-    params_df.set_index('divide_id', inplace=True)
 
     for catID in catids:
 
-        # Set catchment-specific snow17 config parameters
-        param_list = ['hru_id ' + catID,
-                      'hru_area ' + str(dfa.loc[catID]['areasqkm']),
-                      'latitude ' + str(dfa.loc[catID]['centroid_y']),
-                      'elev ' + str(dfa.loc[catID]['mean.elevation']),
-                      'scf 1.100',
-                      'mfmax ' + str(params_df.loc[catID]['MFMAX']),
-                      'mfmin ' + str(params_df.loc[catID]['MFMIN']),
-                      'uadj ' + str(params_df.loc[catID]['UADJ']),
-                      'si 500.00',
-                      'pxtemp 1.000',
-                      'nmf 0.150',
-                      'tipm 0.100',
-                      'mbase 0.000',
-                      'plwhc 0.030',
-                      'daygm 0.000',
-                      'adc1 0.050',
-                      'adc2 0.100',
-                      'adc3 0.200',
-                      'adc4 0.300',
-                      'adc5 0.400',
-                      'adc6 0.500',
-                      'adc7 0.600',
-                      'adc8 0.700',
-                      'adc9 0.800',
-                      'adc10 0.900',
-                      'adc11 1.000']
+        # Retrieve catchment parameters from icefabric
+        cat_ipe = ipe[catID]
 
-        input_file = os.path.join(snow17_input_dir, 'snow17-init-' + catID + '.namelist.input')
+        # Write Snow-17 param file
         param_file = os.path.join(snow17_input_dir, 'snow17_params-' + catID + '.txt')
-
         with open(param_file, "w") as f:
-            f.writelines('\n'.join(param_list))
+            for key, val in cat_ipe.items():
+                f.write(f"{key} {val}\n")
 
         # Namelist file is only used when module is run separately from ngen
         input_list = ['&SNOW17_CONTROL',
@@ -867,6 +833,8 @@ def create_snow17_input(
                       ''
                       ]
 
+        # Write Snow-17 namelist file
+        input_file = os.path.join(snow17_input_dir, 'snow17-init-' + catID + '.namelist.input')
         with open(input_file, "w") as f:
             f.writelines('\n'.join(input_list))
 
