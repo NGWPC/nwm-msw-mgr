@@ -874,11 +874,10 @@ def create_snow17_input(
 def create_ueb_input(
         catids: List[str],
         time_period: dict,
-        dfa: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         ueb_input_dir: str,
-        bmi_dir: Union[str, Path],
-        run_type: str
+        run_type: str,
+        ipe: dict
 ) -> None:
     """ Create BMI configuration file for ueb
 
@@ -891,14 +890,13 @@ def create_ueb_input(
     ueb_input_dir : directory for the UEB bmi configuration file
     bmi_dir: directory path containing existing sitevar files (e.g., from EDS)
     run_type: type of run (calib, regionalization, or default)
+    ipe: initial parameter estimates retrieved from icefabric api
 
     Returns
     ----------
     None
 
    """
-    os.makedirs(ueb_input_dir, exist_ok=True)
-
     # Create symlink for constant parameter files
     const_file_str = ['inputctr', 'outputctr', 'params']
     const_files = {}
@@ -912,6 +910,21 @@ def create_ueb_input(
                 raise
         dst = os.path.join(ueb_input_dir, 'ueb_' + par + '.dat')
         const_files.update({par: dst})
+<<<<<<< HEAD
+
+        # Remove existing file or symlink
+        if os.path.exists(dst) or os.path.islink(dst):
+            try:
+                os.unlink(dst)
+            except Exception as e:
+                logger.error(f"Failed to remove existing {dst}: {e}")
+                raise
+
+        # Create new symlink
+        os.symlink(src, dst)
+        logger.info(f'Creating symlink from {src} to {dst}')
+=======
+>>>>>>> 0b81004 (Implement UEB icefabric config writing)
 
         # Remove existing file or symlink
         if os.path.exists(dst) or os.path.islink(dst):
@@ -925,25 +938,15 @@ def create_ueb_input(
         os.symlink(src, dst)
         logger.info(f'Creating symlink from {src} to {dst}')
 
-    # sitevars file
+    # Create sitevars file
     for catID in catids:
-        # Set sitevars file from EDFS BMI dir if it exists
-        site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
-        if bmi_dir != '':
-            src = glob.glob(os.path.join(bmi_dir, 'ueb_sitevars*' + catID + '*'))
-            if len(src) == 0:
-                try:
-                    raise ValueError(f'No sitevars file found for {catID} in {bmi_dir}')
-                except ValueError as e:
-                    logger.critical(e)
-                    raise
-            elif len(src) > 1:
-                try:
-                    raise ValueError(f'More than one sitevars file found for {catID} in {bmi_dir}')
-                except ValueError as e:
-                    logger.critical(e)
-                    raise
 
+        # Retrieve catchment parameters from icefabric
+        cat_ipe = ipe[catID]
+
+        site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
+
+<<<<<<< HEAD
             with open(src[0]) as f:
                 # create a symbolic link
                 if os.path.exists(site_file) or os.path.islink(site_file):
@@ -955,25 +958,31 @@ def create_ueb_input(
 
                 os.symlink(src[0], site_file)
                 logger.info(f'Creating symlink from {src[0]} to {site_file}')
+=======
+        temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
+        with open(temp_file) as f:
+            lines = f.readlines()
+        lines[18] = f"{cat_ipe['standard_atm_pressure']}\n"  # Confirm this is needed and correct
+        lines[39] = f"{cat_ipe['slope']}\n"
+        lines[42] = f"{cat_ipe['aspect']}\n"
+        lines[45] = f"{cat_ipe['latitude']}\n"
+        lines[57] = f"{cat_ipe['jan_temp_range']}\n"
+        lines[60] = f"{cat_ipe['feb_temp_range']}\n"
+        lines[63] = f"{cat_ipe['mar_temp_range']}\n"
+        lines[66] = f"{cat_ipe['apr_temp_range']}\n"
+        lines[69] = f"{cat_ipe['may_temp_range']}\n"
+        lines[72] = f"{cat_ipe['jun_temp_range']}\n"
+        lines[75] = f"{cat_ipe['jul_temp_range']}\n"
+        lines[78] = f"{cat_ipe['aug_temp_range']}\n"
+        lines[81] = f"{cat_ipe['sep_temp_range']}\n"
+        lines[84] = f"{cat_ipe['oct_temp_range']}\n"
+        lines[87] = f"{cat_ipe['nov_temp_range']}\n"
+        lines[90] = f"{cat_ipe['dec_temp_range']}\n"
+        lines[96] = f"{cat_ipe['longitude']}\n"
+>>>>>>> 0b81004 (Implement UEB icefabric config writing)
 
-        else:  # create the sitevars file based on a template file
-
-            # retrieve slope, aspect, lat and lon from precomputed attributes file
-            tslp = dfa.loc[catID]['mean.slope']
-            azimuth = dfa.loc[catID]['circ_mean.aspect']
-            lat = dfa.loc[catID]['centroid_y']
-            lon = dfa.loc[catID]['centroid_x']
-
-            temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
-            with open(temp_file) as f:
-                lines = f.readlines()
-            lines[39] = f'{tslp}\n'
-            lines[42] = f'{azimuth}\n'
-            lines[45] = f'{lat}\n'
-            lines[96] = f'{lon}\n'
-
-            with open(site_file, 'w') as outfile:
-                outfile.writelines(lines)
+        with open(site_file, 'w') as outfile:
+            outfile.writelines(lines)
 
     # ueb-init files need to be created for both calibration and validation runs or regionalization runs
     if run_type == 'calibration':

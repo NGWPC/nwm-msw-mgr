@@ -1430,21 +1430,51 @@ class RealizationBuilder:
             #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
             #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3}}
 
-            # LSTM
-            ipe = {"cat-11466": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-                   "cat-11467": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-                   "cat-11468": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-                   "cat-11469": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-                   "cat-11470": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-                   "cat-11475": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-                   "cat-11476": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-                                 "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"}}
+            # # LSTM
+            # ipe = {"cat-11466": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+            #        "cat-11467": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+            #        "cat-11468": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+            #        "cat-11469": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+            #        "cat-11470": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+            #        "cat-11475": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
+            #        "cat-11476": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
+            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"}}
+            
+             # UEB
+            ipe = {"cat-11466": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
+                   "cat-11467": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
+                   "cat-11468": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
+                   "cat-11469": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
+                   "cat-11470": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
+                   "cat-11475": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+                                 "nov_temp_range": 9.5,"dec_temp_range":8.5},
+                   "cat-11476": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
+                                 "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
+                                 "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
+                                 "nov_temp_range": 9.5,"dec_temp_range":8.5}}        
 
             # Create input file directory
             if m1 != 'troute':
@@ -1461,8 +1491,7 @@ class RealizationBuilder:
                 pass
                 # gfun.create_topmodel_input(self.catids, self.attr_file, mod_input_dir)
             elif m1 == 'ueb':
-                pass
-                #gfun.create_ueb_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
+                gfun.create_ueb_input(self.catids, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe)
             elif m1 == 'snow17':
                 pass
                 #gfun.create_snow17_input(self.catids, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
