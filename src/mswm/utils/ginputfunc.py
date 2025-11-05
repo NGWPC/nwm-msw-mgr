@@ -1906,6 +1906,85 @@ def change_topmodel_input(
 
 def create_topmodel_input(
         catids: List[str],
+        inputDir: Union[str, Path],
+        ipe: dict
+) -> None:
+    """ Create BMI configuration file for Topmodel
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    inputDir: directory for writing topmodel bmi configuration files
+    ipe: initial parameter estimates retrieved from icefabric api
+
+    Returns
+    ----------
+    None
+
+    """
+
+    # loop through all catchments
+    for catID in catids:
+
+        # Retrieve catchment parameters from icefabric
+        cat_ipe = ipe[catID]
+
+        # Write subcatchment data to file
+        cfg_filename_subcat = f'{catID}_topmodel_subcat.dat'
+        cfg_filename_subcat_path = os.path.join(inputDir, cfg_filename_subcat)
+
+        with open(cfg_filename_subcat_path, 'w') as outfile:
+            outfile.write(f"{cat_ipe['num_sub_catchments']} {cat_ipe['imap']} {cat_ipe['yes_print_output']} \n")
+            outfile.write(f"Extracted study basin:  {catID} \n")
+            outfile.write(f"{cat_ipe['num_topodex_values']} {cat_ipe['area']} \n")
+        try:
+            cat_ipe['twi'].to_csv(cfg_filename_subcat_path, mode='a', sep=' ', index=False, header=False)
+        except Exception as e:
+            logger.error(f"Failed to write TopModel TWI data to {cfg_filename_subcat_path}: {e}")
+            raise
+        with open(cfg_filename_subcat_path, 'a') as outfile:
+            outfile.write(f"{cat_ipe['num_channels']}\n")
+            outfile.write(f"{cat_ipe['cum_dist_area_with_dist']} {cat_ipe['dist_from_outlet']}\n")  # Confirm dist_from_outlet is in meters
+
+        # Set topmodel_params.dat
+        param_keys = ["szm", "t0", "td", "chv", "rv", "srmax", "Q0", "sr0", "infex",
+                      "xk0", "hf", "dth"]
+        params = OrderedDict((key, cat_ipe[key]) for key in param_keys)
+
+        # Format parameters for output
+        line1 = catID + '\n'
+        line2 = " ".join([str(v) for v in params.values()])
+
+        # Write parameter data to file
+        cfg_filename_dat = f'{catID}_topmodel_params.dat'
+        cfg_filename_dat_path = os.path.join(inputDir, cfg_filename_dat)
+        with open(cfg_filename_dat_path, 'w') as outfile:
+            outfile.write(line1)
+            outfile.write(line2)
+
+        # Create primary configuration file
+        stand_alone = '0\n'  # Set to false for BMI
+        title = f'{catID}\n'
+        input_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_forcing.csv\n')
+        subcat_fptr = os.path.join(inputDir, '{}'.format(catID) + '_topmodel_subcat.dat\n')
+        params_fptr = os.path.join(inputDir, '{}'.format(catID) + '_topmodel_params.dat\n')
+        output_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_topmod.out\n')
+        out_hyd_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_hyd.out\n')
+
+        cfg_filename_run = f'{catID}_topmodel.run'
+        cfg_filename_path = os.path.join(inputDir, cfg_filename_run)
+        with open(cfg_filename_path, 'w') as outfile:
+            outfile.write(stand_alone)
+            outfile.write(title)
+            outfile.write(input_fptr)
+            outfile.write(subcat_fptr)
+            outfile.write(params_fptr)
+            outfile.write(output_fptr)
+            outfile.write(out_hyd_fptr)
+
+
+def create_topmodel_input_reg(
+        catids: List[str],
         dfa: gpd.GeoDataFrame,
         inputDir: Union[str, Path],
 ) -> None:
