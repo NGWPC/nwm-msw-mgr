@@ -2286,6 +2286,66 @@ def update_troute(
 
 def create_troute_config(
         gpkg_file: Union[str, Path],
+        time_period: dict,
+        rt_cfg_file: Union[str, Path],
+        run_configs: List[str],
+        run_type: str,
+        ipe: dict
+) -> None:
+    """ Create routing configuration YAML file
+
+    Parameters
+    ----------
+    gpkg_file :  GeoPackage hydrofabric file
+    time_period: simulation time period
+    rt_cfg_file : t-route configuration YAML file
+    run_configs: list of file name suffixes for varying run types
+    run_type: type of run (calib, regionalization, or default)
+    ipe: initial parameter estimates retrieved from icefabric api
+
+    Returns
+    ----------
+    None
+
+    """
+    # Set run names
+    if run_type == 'calibration':
+        run_names = ['calib', 'valid', 'valid']
+    elif run_type == 'default':
+        run_names = ['default']
+    elif run_type == 'regionalization':
+        run_names = ['region']
+
+    # Update nwtopo params
+    ipe['network_topology_parameters']['supernetwork_parameters']['geo_file_path'] = gpkg_file
+    ipe['network_topology_parameters']['waterbody_parameters']['level_pool']['level_pool_waterbody_parameter_file_path'] = gpkg_file
+
+    for file_name, run_name in zip(run_configs, run_names):
+        routing_config_file = os.path.join(rt_cfg_file + file_name)
+        run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
+        if len(time_period['run_time_period'][run_name][0]) != 0 & len(time_period['run_time_period'][run_name][0]):
+            run_range = pd.to_datetime(time_period['run_time_period'][run_name])
+            nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
+
+        # Remove 'rl_gages' and 'rl_NHDWaterbodyComID' from bmi_param API response
+        # Remove "waterbody": "rl_NHDWaterbodyComID", "gages": "rl_gages" from ntwk_columns API
+        # Rename output_param to output_parameters
+
+        # Update compute parameters
+        ipe['compute_parameters']['restart_parameters']['start_datetime'] = time_period['run_time_period'][run_name][0]
+        ipe['compute_parameters']['forcing_parameters']['max_loop_size'] = divmod(nts * 300, 3600)[0] + 1
+
+        # Update output parameters
+        ipe['output_param']['stream_output']['stream_output_time'] = divmod(nts * 300, 3600)[0] + 1
+
+        # Save configuration into yaml file
+        with open(routing_config_file, 'w') as file:
+            yaml.dump(ipe, file, sort_keys=False, default_flow_style=False, indent=4)
+        logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
+
+
+def create_troute_config_reg(
+        gpkg_file: Union[str, Path],
         rt_cfg_file: Union[str, Path],
         start_date: str,
         nts: int,

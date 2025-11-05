@@ -1564,28 +1564,196 @@ class RealizationBuilder:
             #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
             #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0}}
 
-            # Topmodel
-            ipe = {"cat-11466": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-                                 "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-                                 "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-                   "cat-11467": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-                                 "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-                                 "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-                   "cat-11468": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-                                 "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-                                 "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-                   "cat-11469": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-                                 "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-                                 "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-                   "cat-11470": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-                                 "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-                                 "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-                   "cat-11475": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-                                 "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-                                 "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-                   "cat-11476": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-                                 "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-                                 "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1}}
+            # # Topmodel
+            # ipe = {"cat-11466": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
+            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
+            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
+            #        "cat-11467": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
+            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
+            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
+            #        "cat-11468": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
+            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
+            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
+            #        "cat-11469": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
+            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
+            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
+            #        "cat-11470": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
+            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
+            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
+            #        "cat-11475": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
+            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
+            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
+            #        "cat-11476": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
+            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
+            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1}}
+
+            # T-route
+            # Default values
+            bmi_param = {
+                "flowpath_columns": ["id", "toid", "lengthkm"],
+                "attributes_columns": [
+                    "attributes_id",
+                    "rl_gages",
+                    "rl_NHDWaterbodyComID",
+                    "MusK",
+                    "MusX",
+                    "n",
+                    "So",
+                    "ChSlp",
+                    "BtmWdth",
+                    "nCC",
+                    "TopWdthCC",
+                    "TopWdth",
+                ],
+                "waterbody_columns": [
+                    "hl_link",
+                    "ifd",
+                    "LkArea",
+                    "LkMxE",
+                    "OrificeA",
+                    "OrificeC",
+                    "OrificeE",
+                    "WeirC",
+                    "WeirE",
+                    "WeirL",
+                ],
+                "network_columns": ["network_id", "hydroseq", "hl_uri"],
+            }
+
+            log_param = {"showtiming": True, "log_level": "DEBUG"}
+
+            ntwk_columns = {
+                "key": "id",
+                "downstream": "toid",
+                "dx": "lengthkm",
+                "n": "n",
+                "ncc": "nCC",
+                "s0": "So",
+                "bw": "BtmWdth",
+                "waterbody": "rl_NHDWaterbodyComID",
+                "gages": "rl_gages",
+                "tw": "TopWdth",
+                "twcc": "TopWdthCC",
+                "musk": "MusK",
+                "musx": "MusX",
+                "cs": "ChSlp",
+                "alt": "alt",
+            }
+
+            dupseg = [
+                "717696",
+                "1311881",
+                "3133581",
+                "1010832",
+                "1023120",
+                "1813525",
+                "1531545",
+                "1304859",
+                "1320604",
+                "1233435",
+                "11816",
+                "1312051",
+                "2723765",
+                "2613174",
+                "846266",
+                "1304891",
+                "1233595",
+                "1996602",
+                "2822462",
+                "2384576",
+                "1021504",
+                "2360642",
+                "1326659",
+                "1826754",
+                "572364",
+                "1336910",
+                "1332558",
+                "1023054",
+                "3133527",
+                "3053788",
+                "3101661",
+                "2043487",
+                "3056866",
+                "1296744",
+                "1233515",
+                "2045165",
+                "1230577",
+                "1010164",
+                "1031669",
+                "1291638",
+                "1637751",
+            ]
+
+            nwtopo_param = {
+                "supernetwork_parameters": {
+                    "network_type": "HYFeaturesNetwork",
+                    "geo_file_path": "",
+                    "columns": ntwk_columns,
+                    "duplicate_wb_segments": dupseg,
+                },
+                "waterbody_parameters": {
+                    "break_network_at_waterbodies": True,
+                    "level_pool": {"level_pool_waterbody_parameter_file_path": ""},
+                },
+            }
+
+            res_da = {
+                "reservoir_persistence_da": {
+                    "reservoir_persistence_usgs": False,
+                    "reservoir_persistence_usace": False,
+                },
+                "reservoir_rfc_da": {
+                    "reservoir_rfc_forecasts": False,
+                    "reservoir_rfc_forecasts_time_series_path": None,
+                    "reservoir_rfc_forecasts_lookback_hours": 28,
+                    "reservoir_rfc_forecasts_offset_hours": 28,
+                    "reservoir_rfc_forecast_persist_days": 11,
+                },
+                "reservoir_parameter_file": None,
+            }
+
+            stream_da = {
+                "streamflow_nudging": False,
+                "diffusive_streamflow_nudging": False,
+                "gage_segID_crosswalk_file": None,
+            }
+
+            comp_param = {
+                "parallel_compute_method": "by-subnetwork-jit-clustered",
+                "subnetwork_target_size": 10000,
+                "cpu_pool": 16,
+                "compute_kernel": "V02-structured",
+                "assume_short_ts": True,
+                "restart_parameters": {"start_datetime": ""},
+                "forcing_parameters": {
+                    "qts_subdivisions": 12,
+                    "dt": 300,
+                    "qlat_input_folder": ".",
+                    "qlat_file_pattern_filter": "nex-*",
+                    "nts": 5,
+                    "max_loop_size": divmod(5 * 300, 3600)[0] + 1,
+                },
+                "data_assimilation_parameters": {
+                    "usgs_timeslices_folder": None,
+                    "usace_timeslices_folder": None,
+                    "timeslice_lookback_hours": 48,
+                    "qc_threshold": 1,
+                    "streamflow_da": stream_da,
+                    "reservoir_da": res_da,
+                },
+            }
+
+            output_param = {
+                "stream_output": {
+                    "stream_output_directory": ".",
+                    "stream_output_time": divmod(5 * 300, 3600)[0] + 1,
+                    "stream_output_type": ".nc",
+                    "stream_output_internal_frequency": 60,
+                }
+            }
+
+            ipe = {"bmi_parameters": bmi_param, "log_parameters": log_param, "network_topology_parameters": nwtopo_param,
+                   "compute_parameters": comp_param, "output_param": output_param}
 
             # Create input file directory
             if m1 != 'troute':
@@ -1599,7 +1767,8 @@ class RealizationBuilder:
             if m1 in ['cfes', 'cfex']:
                 gfun.create_cfe_input(self.catids, mod_input_dir, self.run_type, self.is_aet_rootzone, ipe)
             elif m1 == 'topmodel':
-                gfun.create_topmodel_input(self.catids, mod_input_dir, ipe)
+                pass
+                #gfun.create_topmodel_input(self.catids, mod_input_dir, ipe)
             elif m1 == 'ueb':
                 gfun.create_ueb_input(self.catids, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe)
             elif m1 == 'snow17':
@@ -1620,20 +1789,8 @@ class RealizationBuilder:
             elif m1 == 'lasam':
                 gfun.create_lasam_input(self.catids, mod_input_dir, self.conf3['lasam_parameter_dir'], ipe)
             elif m1 == 'troute':
-                pass
-                # if self.run_type == 'calibration':
-                #     run_names = ['calib', 'valid', 'valid']
-                # elif self.run_type == 'default':
-                #     run_names = ['default']
-
-                # for file_name, run_name in zip(self.run_configs, run_names):
-                #     routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + file_name)
-                #     run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
-                #     if len(self.time_period['run_time_period'][run_name][0]) != 0 & len(self.time_period['run_time_period'][run_name][0]):
-                #         run_range = pd.to_datetime(self.time_period['run_time_period'][run_name])
-                #         nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
-                #         gfun.create_troute_config(self.cat_file, routing_config_file, self.time_period['run_time_period'][run_name][0], nts)
-                #         logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
+                routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
+                gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type, ipe)
 
                     # Modify existing BMI config files from EDFS or the user with correct time period and/or paths
                     if m1 == 'noah':
