@@ -4,14 +4,12 @@ This module contains a variety of functions to create different input files.
 @author: Jeffrey Wade, Xia Feng
 """
 
-import copy
 import datetime
 import glob
 import json
 import os
 import subprocess
 import logging
-import shutil
 import math
 from pathlib import Path
 from typing import List, Union, Dict, Any, Tuple
@@ -61,25 +59,30 @@ __all__ = [
     'create_fcst_times',
     'create_walk_file',
     'create_cfe_input',
+    'create_cfe_input_reg',
     'create_noah_input',
-    'create_noah_input_template',
+    'create_noah_input_reg',
     'create_sft_input',
     'create_smp_input',
+    'create_sft_smp_input_reg',
     'create_snow17_input',
+    'create_snow17_input_reg',
     'create_ueb_input',
+    'create_ueb_input_reg',
     'create_sac_input',
-    'change_sac_snow17_input',
+    'create_sac_input_reg',
     'create_pet_input',
+    'create_pet_input_reg',
     'create_lasam_input',
-    'change_lasam_input',
+    'create_lasam_input_reg',
     'create_lstm_input',
-    'change_smp_input',
-    'change_sft_input',
-    'change_topmodel_input',
+    'create_lstm_input_reg',
     'create_topmodel_input',
+    'create_topmodel_input_reg',
     'update_noah_ueb_times',
     'update_troute',
     'create_troute_config',
+    'create_troute_config_reg',
     'create_fcst_times',
     'replace_forcing_placeholders',
     'update_fcst_forcing_config',
@@ -428,6 +431,115 @@ def create_cfe_input(
                 f.write(f"{key}={val}\n")
 
 
+def create_cfe_input_reg(
+        catids: List[str],
+        modules: Union[List[str], List[List[str]]],
+        dfa: gpd.GeoDataFrame,
+        cfe_input_dir: Union[str, Path],
+        run_type: str,
+        is_aet_rootzone: Union[int, dict]
+) -> None:
+    """ Create BMI initial configuration file for CFE with Schaake or Xianjiang infiltration and runoff scheme
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    modules: list of modules in the formulation
+    dfa: dataframe containing model parameter attributes
+    cfe_input_dir: directory to save configuration files
+    run_type: type of run (calib, regionalization, or default)
+    is_aet_rootzone: flag for CFE rootzone option
+
+    Returns
+    ----------
+    None
+
+    Note
+    ----------
+    User needs to compute GIUH using other software like R whitebox package following the example
+    https://github.com/NOAA-OWP/SoilMoistureProfiles/blob/ajk/basin_workflow/basin_workflow/giuh_twi/giuh.R
+    and replace the fixed GIUH assigned in this code with the calculated value.
+
+    """
+
+    os.makedirs(cfe_input_dir, exist_ok=True)
+
+    # Set surface partitioning scheme and is_aet_rootzone flag
+    scheme = 'Schaake'
+    if run_type != 'regionalization':
+        mods = modules
+        if 'cfex' in mods:
+            scheme = 'Xinanjiang'
+        rootzone_flag = is_aet_rootzone
+
+    # Create bmi config files
+    for i in range(len(catids)):
+
+        catID = catids[i]
+
+        # Set module list and is_aet_rootzone flag for each catchment during regionalization
+        if run_type == 'regionalization':
+            mods = modules[i]
+            if ('cfex' in mods):
+                scheme = 'Xinanjiang'
+            rootzone_flag = is_aet_rootzone[catID]
+
+        # Set sft coupling
+        if 'sft' in mods:
+            sft_coupled = '1'
+        else:
+            sft_coupled = '0'
+
+        cfe_bmi_file = os.path.join(cfe_input_dir, catID + "_bmi_config_cfe.txt")
+        f = open(cfe_bmi_file, "w")
+        f.write("%s" % ("forcing_file=BMI\n"))
+        f.write("%s" % ("verbosity=1\n"))
+        f.write("%s" % ("surface_water_partitioning_scheme=" + scheme + "\n"))
+        f.write("%s" % ("surface_runoff_scheme=GIUH\n"))
+        f.write("%s" % ("DEBUG=0\n"))
+        f.write("%s" % ("num_timesteps=1\n"))
+        if 'cfes' in mods:
+            f.write("%s" % ("is_sft_coupled=" + sft_coupled + "\n"))
+            f.write("%s" % ("ice_content_threshold=0.15\n"))
+        f.write("%s" % ("alpha_fc=0.33\n"))  # TODO Update per soil type
+        f.write("%s" % ("Cgw=" + str(dfa.loc[catID]['mean.Coeff'] * 3600 * 1e-6) + "[m/hr]\n"))
+        f.write("%s" % ("expon=" + str(dfa.loc[catID]['mode.Expon']) + "[]\n"))
+        f.write("%s" % ("giuh_ordinates=0.55, 0.25, 0.2[]\n"))
+        f.write("%s" % ("gw_storage=0.05[m/m]\n"))
+        f.write("%s" % ("K_lf=0.01[]\n"))
+        f.write("%s" % ("K_nash=0.003[1/m]\n"))
+        f.write("%s" % ("max_gw_storage=" + str(dfa.loc[catID]['mean.Zmax'] / 1000.) + "[m]\n"))
+        f.write("%s" % ("nash_storage=0.0,0.0[]\n"))
+        f.write("%s" % ("refkdt=" + str(dfa.loc[catID]['mean.refkdt']) + "[]\n"))
+        f.write("%s" % ("soil_params.b=" + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + "[]\n"))
+        f.write("%s" % ("soil_params.depth=2.0[m]\n"))
+        f.write("%s" % ("soil_params.expon=1[]\n"))
+        f.write("%s" % ("soil_params.expon_secondary=1[]\n"))
+        f.write("%s" % ("soil_params.satdk=" + str(dfa.loc[catID]['geom_mean.dksat_soil_layers_stag=1']) + "[m/s]\n"))
+        f.write("%s" % ("soil_params.satpsi=" + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + "[m]\n"))
+        f.write("%s" % ("soil_params.slop=" + str(dfa.loc[catID]['mean.slope_1km']) + "[m/m]\n"))
+        f.write("%s" % ("soil_params.smcmax=" + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + "[m/m]\n"))
+        f.write("%s" % ("soil_params.wltsmc=" + str(dfa.loc[catID]['mean.smcwlt_soil_layers_stag=1']) + "[m/m]\n"))
+        f.write("%s" % ("soil_storage=0.5[m/m]\n"))
+
+        # Add aet_rootzone parameters if option is selected
+        if rootzone_flag == 1:
+            f.write("%s" % ("is_aet_rootzone=1\n"))
+            f.write("%s" % ("max_rootzone_layer=2\n"))
+            f.write("%s" % ("soil_layer_depths=0.1,0.4,1.0,2.0[m]\n"))
+
+        # add the new parameters for cfex
+        # TODO: read these catchment-specific parameters from the NWMv3 model attributes parquet file
+        # The current parquet file we have access to was likely based on NWMv2.1 and hence missing these XAJ parameters
+        if scheme == 'Xinanjiang':
+            f.write("%s" % ("a_Xinanjiang_inflection_point_parameter=-0.212938[]\n"))
+            f.write("%s" % ("b_Xinanjiang_shape_parameter=0.666238[]\n"))
+            f.write("%s" % ("x_Xinanjiang_shape_parameter=0.02414[]\n"))
+            f.write("%s" % ("urban_decimal_fraction=0.0[]\n"))
+
+        f.close()
+
+
 def create_noah_input(
         catids: List[str],
         time_period: dict,
@@ -575,7 +687,7 @@ def create_noah_input_reg(
         noah_input_dir: Union[str, Path],
         run_type: str
 ) -> None:
-    """ Create BMI configuration file for Noah-OWP-Modular regionalization
+    """ Create BMI configuration file for Noah-OWP-Modular
 
     Parameters
     ----------
@@ -739,7 +851,6 @@ def create_sft_input(
     for catID in catids:
 
         # Retrieve catchment parameters from icefabric
-<<<<<<< HEAD
         catID = catids[i]
 
         # Set module list for each catchment during regionalization
@@ -765,9 +876,6 @@ def create_sft_input(
                    "soil_z=" + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
                    'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
                    ]
-=======
-        cat_ipe = ipe[catID]
->>>>>>> e5912be (Implementation of SAC-SMA iceberg configs)
 
         # Write sft config to file
         sft_bmi_file = os.path.join(sft_dir, catID + '_bmi_config_sft.txt')
@@ -820,6 +928,96 @@ def create_smp_input(
         with open(smp_bmi_file, "w") as f:
             for key, val in cat_ipe.items():
                 f.write(f"{key}={val}\n")
+
+
+def create_sft_smp_input_reg(
+        catids: List[str],
+        modules: Union[List[str], List[List[str]]],
+        dfa: gpd.GeoDataFrame,
+        sft_dir: Union[str, Path],
+        smp_dir: Union[str, Path],
+        run_type: str,
+) -> None:
+    """ Create BMI configuration file for soil freeze and thaw module, and soil moisture profiles
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    modules: list of modules in the formulation
+    dfa: dataframe containing model parameter attributes
+    sft_dir : directory for writing sft bmi configuration files
+    smp_dir : directory for writing smp bmi configuration files
+    run_type: type of run (calib, regionalization, or default)
+
+    Returns
+    ----------
+    None
+
+    """
+
+    os.makedirs(sft_dir, exist_ok=True)
+    os.makedirs(smp_dir, exist_ok=True)
+
+    # Ice fraction scheme
+    icefscheme = 'Schaake'
+    if run_type != 'regionalization':
+        mods = modules
+        if ('cfex' in mods):
+            icefscheme = 'Xinanjiang'
+
+    # Create bmi config files
+    for i in range(len(catids)):
+
+        catID = catids[i]
+
+        # Set module list for each catchment during regionalization
+        if run_type == 'regionalization':
+            mods = modules[i]
+            if ('cfex' in mods):
+                icefscheme = 'Xinanjiang'
+
+        # Obtain annual mean surface temperature as proxy for initial soil temperature
+        # This value is just a reasonable estimate per new direction (Edwin)
+        mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
+
+        # Create sft list
+        sft_lst = ['verbosity=none',
+                   'soil_moisture_bmi=1',
+                   'end_time=1.[d]',
+                   'dt=1.0[h]',
+                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
+                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
+                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
+                   'soil_params.quartz=' + str(dfa.loc[catID]['quartz']),
+                   'ice_fraction_scheme=' + icefscheme,
+                   'soil_z=0.1,0.3,1.0,2.0[m]',
+                   'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
+                   ]
+
+        # Write sft config to file
+        sft_bmi_file = os.path.join(sft_dir, catID + '_bmi_config_sft.txt')
+        with open(sft_bmi_file, "w") as f:
+            f.writelines('\n'.join(sft_lst))
+
+        # Create smp list
+        smp_lst = ['verbosity=none',
+                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
+                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
+                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
+                   'soil_z=0.1,0.3,1.0,2.0[m]',
+                   'soil_moisture_fraction_depth=0.4[m]']
+
+        if 'cfes' in mods or 'cfex' in mods:
+            smp_lst += ['soil_storage_model=conceptual', 'soil_storage_depth=2.0']
+        elif 'topmodel' in mods:
+            smp_lst += ['soil_storage_model=TopModel', 'water_table_based_method=flux_based']
+        elif 'lasam' in mods:
+            smp_lst += ['soil_storage_model=layered', 'soil_moisture_profile_option=constant', 'soil_depth_layers=2.0', 'water_table_depth=10[m]']
+
+        # Write smp to to file
+        smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
+        with open(smp_bmi_file, "w") as f:
+            f.writelines('\n'.join(smp_lst))
 
 
 def create_snow17_input(
@@ -888,6 +1086,104 @@ def create_snow17_input(
             f.writelines('\n'.join(input_list))
 
 
+def create_snow17_input_reg(
+        catids: List[str],
+        dfa: gpd.GeoDataFrame,
+        param_dir_source: Union[str, Path],
+        snow17_input_dir: str
+) -> None:
+    """ Create BMI configuration file for Snow17
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    dfa: dataframe containing model parameter attributes
+    gpkg_file: GeoPackage hydrofabric file
+    param_dir_source : directory containing snow17 parameter files
+    snow17_input_dir : directory for the snow17 bmi configuration files
+
+    Returns
+    ----------
+    None
+
+   """
+    os.makedirs(snow17_input_dir, exist_ok=True)
+
+    # Read snow17 parameter file
+    param_filename = f'{param_dir_source}/snow17_params_2.2.csv'
+    params_df = pd.read_csv(param_filename)
+    params_df.set_index('divide_id', inplace=True)
+
+    for catID in catids:
+
+        # Set catchment-specific snow17 config parameters
+        param_list = ['hru_id ' + catID,
+                      'hru_area ' + str(dfa.loc[catID]['areasqkm']),
+                      'latitude ' + str(dfa.loc[catID]['centroid_y']),
+                      'elev ' + str(dfa.loc[catID]['mean.elevation']),
+                      'scf 1.100',
+                      'mfmax ' + str(params_df.loc[catID]['MFMAX']),
+                      'mfmin ' + str(params_df.loc[catID]['MFMIN']),
+                      'uadj ' + str(params_df.loc[catID]['UADJ']),
+                      'si 500.00',
+                      'pxtemp 1.000',
+                      'nmf 0.150',
+                      'tipm 0.100',
+                      'mbase 0.000',
+                      'plwhc 0.030',
+                      'daygm 0.000',
+                      'adc1 0.050',
+                      'adc2 0.100',
+                      'adc3 0.200',
+                      'adc4 0.300',
+                      'adc5 0.400',
+                      'adc6 0.500',
+                      'adc7 0.600',
+                      'adc8 0.700',
+                      'adc9 0.800',
+                      'adc10 0.900',
+                      'adc11 1.000']
+
+        input_file = os.path.join(snow17_input_dir, 'snow17-init-' + catID + '.namelist.input')
+        param_file = os.path.join(snow17_input_dir, 'snow17_params-' + catID + '.txt')
+
+        with open(param_file, "w") as f:
+            f.writelines('\n'.join(param_list))
+
+        # Namelist file is only used when module is run separately from ngen
+        input_list = ['&SNOW17_CONTROL',
+                      '! === run control file for snow17bmi v. 1.x ===',
+                      '',
+                      '! -- basin config and path information',
+                      'main_id             = "' + catID + '"     ! basin label or gage id',
+                      'n_hrus              = 1            ! number of sub-areas in model',
+                      'forcing_root        = "extern/snow17/test_cases/ex1/input/forcing/forcing.snow17bmi."',
+                      'output_root         = "data/output/output.snow17bmi."',
+                      'snow17_param_file   = "' + param_file + '"',
+                      'output_hrus         = 1            ! output HRU results? (1=yes; 0=no)',
+                      '',
+                      '! -- run period information',
+                      'start_datehr        = 2017120101   ! start date time, backward looking (check)',
+                      'end_datehr          = 2017120123   ! end date time',
+                      'model_timestep      = 3600        ! in seconds (86400 seconds = 1 day)',
+                      '',
+                      '! -- state start/write flags and files',
+                      'warm_start_run      = 0  ! is this run started from a state file?  (no=0 yes=1)',
+                      "write_states        = 0  ! write restart/state files for 'warm_start' runs (no=0 yes=1)",
+                      '',
+                      '! -- filenames only needed if warm_start_run = 1',
+                      'snow_state_in_root  = "data/state/snow17_states."  ! input state filename root',
+                      '',
+                      '! -- filenames only needed if write_states = 1',
+                      'snow_state_out_root = "data/state/snow17_states."  ! output states filename root',
+                      '/',
+                      ''
+                      ]
+
+        with open(input_file, "w") as f:
+            f.writelines('\n'.join(input_list))
+
+
 def create_ueb_input(
         catids: List[str],
         time_period: dict,
@@ -927,21 +1223,6 @@ def create_ueb_input(
                 raise
         dst = os.path.join(ueb_input_dir, 'ueb_' + par + '.dat')
         const_files.update({par: dst})
-<<<<<<< HEAD
-
-        # Remove existing file or symlink
-        if os.path.exists(dst) or os.path.islink(dst):
-            try:
-                os.unlink(dst)
-            except Exception as e:
-                logger.error(f"Failed to remove existing {dst}: {e}")
-                raise
-
-        # Create new symlink
-        os.symlink(src, dst)
-        logger.info(f'Creating symlink from {src} to {dst}')
-=======
->>>>>>> 0b81004 (Implement UEB icefabric config writing)
 
         # Remove existing file or symlink
         if os.path.exists(dst) or os.path.islink(dst):
@@ -963,19 +1244,6 @@ def create_ueb_input(
 
         site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
 
-<<<<<<< HEAD
-            with open(src[0]) as f:
-                # create a symbolic link
-                if os.path.exists(site_file) or os.path.islink(site_file):
-                    try:
-                        os.unlink(site_file)
-                    except Exception as e:
-                        logger.error(f"Failed to remove existing {site_file}: {e}")
-                        raise
-
-                os.symlink(src[0], site_file)
-                logger.info(f'Creating symlink from {src[0]} to {site_file}')
-=======
         temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
         with open(temp_file) as f:
             lines = f.readlines()
@@ -996,7 +1264,6 @@ def create_ueb_input(
         lines[87] = f"{cat_ipe['nov_temp_range']}\n"
         lines[90] = f"{cat_ipe['dec_temp_range']}\n"
         lines[96] = f"{cat_ipe['longitude']}\n"
->>>>>>> 0b81004 (Implement UEB icefabric config writing)
 
         with open(site_file, 'w') as outfile:
             outfile.writelines(lines)
@@ -1014,6 +1281,149 @@ def create_ueb_input(
             # Date
             startdate = time_period['run_time_period'][run_name][0]
             startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S")
+            startdate = startdate.strftime("%Y%m%d%H%M")
+            enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+            for catID in catids:
+                input_file = os.path.join(ueb_input_dir, 'ueb-init-' + catID + '_' + run_name + '.dat')
+                site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
+                input_list = [
+                    'UEBGrid Model Driver Test for TWDEF',  # TODO does this need to be updated?
+                    const_files['params'],
+                    site_file,
+                    const_files['inputctr'],
+                    const_files['outputctr'],
+                    param_dir_source + '/aggout.nc ',
+                    param_dir_source + '/watershed_onecell.nc',
+                    'watershed y x',
+                    f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0',
+                    f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0',
+                    '1.0',
+                    '-7.0',
+                    '0',
+                    '1 15 16',
+                    '1 1'
+                ]
+                with open(input_file, "w") as f:
+                    f.writelines('\n'.join(input_list))
+
+
+def create_ueb_input_reg(
+        catids: List[str],
+        time_period: dict,
+        dfa: gpd.GeoDataFrame,
+        param_dir_source: Union[str, Path],
+        ueb_input_dir: str,
+        bmi_dir: Union[str, Path],
+        run_type: str
+) -> None:
+    """ Create BMI configuration file for ueb
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    time_period: simulation time period
+    dfa: dataframe containing model parameter attributes
+    param_dir_source : directory containing UEB parameter files
+    ueb_input_dir : directory for the UEB bmi configuration file
+    bmi_dir: directory path containing existing sitevar files (e.g., from EDS)
+    run_type: type of run (calib, regionalization, or default)
+
+    Returns
+    ----------
+    None
+
+   """
+    os.makedirs(ueb_input_dir, exist_ok=True)
+
+    # Create symlink for constant parameter files
+    const_file_str = ['inputctr', 'outputctr', 'params']
+    const_files = {}
+    for par in const_file_str:
+        src = Path(param_dir_source, 'ueb_' + par + '.dat').absolute()
+        if not os.path.exists(src):
+            try:
+                raise FileNotFoundError(src)
+            except FileNotFoundError as e:
+                logger.critical(e)
+                raise
+        dst = os.path.join(ueb_input_dir, 'ueb_' + par + '.dat')
+        const_files.update({par: dst})
+
+        # Remove existing file or symlink
+        if os.path.exists(dst) or os.path.islink(dst):
+            try:
+                os.unlink(dst)
+            except Exception as e:
+                logger.error(f"Failed to remove existing {dst}: {e}")
+                raise
+
+        # Create new symlink
+        os.symlink(src, dst)
+        logger.info(f'Creating symlink from {src} to {dst}')
+
+    # sitevars file
+    for catID in catids:
+        # Set sitevars file from EDFS BMI dir if it exists
+        site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
+        if bmi_dir != '':
+            src = glob.glob(os.path.join(bmi_dir, 'ueb_sitevars*' + catID + '*'))
+            if len(src) == 0:
+                try:
+                    raise ValueError(f'No sitevars file found for {catID} in {bmi_dir}')
+                except ValueError as e:
+                    logger.critical(e)
+                    raise
+            elif len(src) > 1:
+                try:
+                    raise ValueError(f'More than one sitevars file found for {catID} in {bmi_dir}')
+                except ValueError as e:
+                    logger.critical(e)
+                    raise
+
+            with open(src[0]) as f:
+                # create a symbolic link
+                if os.path.exists(site_file) or os.path.islink(site_file):
+                    try:
+                        os.unlink(site_file)
+                    except Exception as e:
+                        logger.error(f"Failed to remove existing {site_file}: {e}")
+                        raise
+
+                os.symlink(src[0], site_file)
+                logger.info(f'Creating symlink from {src[0]} to {site_file}')
+
+        else:  # create the sitevars file based on a template file
+
+            # retrieve slope, aspect, lat and lon from precomputed attributes file
+            tslp = dfa.loc[catID]['mean.slope']
+            azimuth = dfa.loc[catID]['circ_mean.aspect']
+            lat = dfa.loc[catID]['centroid_y']
+            lon = dfa.loc[catID]['centroid_x']
+
+            temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
+            with open(temp_file) as f:
+                lines = f.readlines()
+            lines[39] = f'{tslp}\n'
+            lines[42] = f'{azimuth}\n'
+            lines[45] = f'{lat}\n'
+            lines[96] = f'{lon}\n'
+
+            with open(site_file, 'w') as outfile:
+                outfile.writelines(lines)
+
+    # ueb-init files need to be created for both calibration and validation runs or regionalization runs
+    if run_type == 'calibration':
+        run_list = ['calib', 'valid']
+    elif run_type == 'regionalization':
+        run_list = ['region']
+    elif run_type == 'default':
+        run_list = ['default']
+
+    for run_name in run_list:
+        if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
+            # Date
+            startdate = time_period['run_time_period'][run_name][0]
+            startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S") + datetime.timedelta(hours=1)
             startdate = startdate.strftime("%Y%m%d%H%M")
             enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
             for catID in catids:
@@ -1102,6 +1512,94 @@ def create_sac_input(
                       ''
                       ]
 
+        with open(input_file, "w") as f:
+            f.writelines('\n'.join(input_list))
+
+
+def create_sac_input_reg(
+        catids: List[str],
+        dfa: gpd.GeoDataFrame,
+        param_dir_source: Union[str, Path],
+        sac_input_dir: str
+) -> None:
+    """ Create BMI configuration file for sac-sma
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    dfa: dataframe containing model parameter attributes
+    param_dir_source : directory for sac parameter file
+    sac_input_dir : directory for the sac bmi configuration file
+
+    Returns
+    ----------
+    None
+
+    """
+    os.makedirs(sac_input_dir, exist_ok=True)
+
+    # Read sac-sma parameter file
+    param_filename = f'{param_dir_source}/sac_sma_params_2.2.csv'
+    params_df = pd.read_csv(param_filename)
+    params_df.set_index('divide_id', inplace=True)
+
+    for catID in catids:
+
+        # Set catchment-specific sac-sma config parameters
+        param_list = ['hru_id ' + catID,
+                      'hru_area ' + str(dfa.loc[catID]['areasqkm']),
+                      'uztwm ' + str(params_df.loc[catID]['UZTWM']),
+                      'uzfwm ' + str(params_df.loc[catID]['UZFWM']),
+                      'lztwm ' + str(params_df.loc[catID]['LZTWM']),
+                      'lzfpm ' + str(params_df.loc[catID]['LZFPM']),
+                      'lzfsm ' + str(params_df.loc[catID]['LZFSM']),
+                      'adimp 0.0000',
+                      'uzk ' + str(params_df.loc[catID]['UZK']),
+                      'lzpk ' + str(params_df.loc[catID]['LZPK']),
+                      'lzsk ' + str(params_df.loc[catID]['LZSK']),
+                      'zperc ' + str(params_df.loc[catID]['ZPERC']),
+                      'rexp ' + str(params_df.loc[catID]['REXP']),
+                      'pctim 0.0000',
+                      'pfree ' + str(params_df.loc[catID]['PFREE']),
+                      'riva 0.000',
+                      'side 0.0000',
+                      'rserv 0.3000']
+
+        input_file = os.path.join(sac_input_dir, 'sac-init-' + catID + '.namelist.input')
+        param_file = os.path.join(sac_input_dir, 'sac_params-' + catID + '.txt')
+
+        with open(param_file, "w") as f:
+            f.writelines('\n'.join(param_list))
+
+        # Namelist file is only used when module is run separately from ngen
+        input_list = ['&SAC_CONTROL',
+                      '! === run control file for sacbmi v. 1.x ===',
+                      '',
+                      '! -- basin config and path information',
+                      'main_id             = "' + catID + '"     ! basin label or gage id',
+                      'n_hrus              = 1            ! number of sub-areas in model',
+                      'forcing_root        = ""',
+                      'output_root         = ""',
+                      'sac_param_file   = "' + param_file + '"',
+                      'output_hrus         = 0            ! output HRU results? (1=yes; 0=no)',
+                      '',
+                      '! -- run period information',
+                      'start_datehr        = 2015120112   ! start date time, backward looking (check)',
+                      'end_datehr          = 2015123012   ! end date time',
+                      'model_timestep      = 3600        ! in seconds (86400 seconds = 1 day)',
+                      '',
+                      '! -- state start/write flags and files',
+                      'warm_start_run      = 0  ! is this run started from a state file?  (no=0 yes=1)',
+                      "write_states        = 0  ! write restart/state files for 'warm_start' runs (no=0 yes=1)",
+                      '',
+                      '! -- filenames only needed if warm_start_run = 1',
+                      'sac_state_in_root  = "../state/sac_states."  ! input state filename root',
+                      '',
+                      '! -- filenames only needed if write_states = 1',
+                      'sac_state_out_root = "../state/sac_states."  ! output states filename root',
+                      '/',
+                      ''
+                      ]
         with open(input_file, "w") as f:
             f.writelines('\n'.join(input_list))
 
@@ -1269,76 +1767,6 @@ def create_lstm_config(
     create_symlinks(data_files, lstm_train_dir, lstm_input_dir)
 
 
-def change_lstm_input(
-        catids: List[str],
-        param_dir_source: Union[str, Path],
-        lstm_input_dir: Union[str, Path],
-        lstm_bmi_dir: Union[str, Path],
-
-) -> None:
-
-    """
-    Create BMI configuration file for LSTM from existing EDFS files
-    Parameters
-    ----------
-    catids: catchment IDs in the basin
-    param_dir_source: direcetory for static lstm files
-    lstm_input_dir: directory for the existing lstm bmi configuration file
-    lstm_bmi_dir: target directory for bmi configuration file output
-
-    Returns
-    ----------
-    None
-
-    """
-    # Create input directory
-    os.makedirs(lstm_input_dir, exist_ok=True)
-
-    # Create static LSTM config yaml files
-    create_lstm_config(param_dir_source, lstm_input_dir)
-
-    # Create catchment specific BMI config files from EDFS files
-    for catID in catids:
-        edfs_bmi_file = os.path.join(lstm_bmi_dir, catID + '.yml')
-        if not os.path.isfile(edfs_bmi_file):
-            try:
-                raise FileNotFoundError(f"Required LSTM bmi file not found: {edfs_bmi_file}")
-            except Exception as e:
-                logger.critical(e)
-                raise
-
-        try:
-            with open(edfs_bmi_file, 'r') as f:
-                config = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            logger.critical(f"Error parsing LSTM yaml config at {edfs_bmi_file}: {e}")
-            raise
-        except FileNotFoundError:
-            logger.critical(f"LSTM yaml config file not found: {edfs_bmi_file}")
-            raise
-
-        params_to_update = {
-            "train_cfg_file": os.path.join(lstm_input_dir, 'config.yml'),
-            'time_step': '1 hour',
-            'initial_state': 'zero',
-            'basin_name': catID,
-            'basin_id': catID,
-            'verbose': 1,
-        }
-
-        config.update(params_to_update)
-        input_file = os.path.join(lstm_input_dir, catID + '.yml')
-        try:
-            with open(input_file, "w") as f:
-                yaml.dump(config, f, default_flow_style=False, Dumper=QuotedDumper)
-        except yaml.YAMLError as e:
-            logger.critical(f"Error writing LSTM yaml to {input_file}: {e}")
-            raise
-        except OSError as e:
-            logger.critical(f"Error writing LSTM yaml to {input_file}: {e}")
-            raise
-
-
 def create_lstm_input(
         catids: List[str],
         param_dir_source: Union[str, Path],
@@ -1386,107 +1814,122 @@ def create_lstm_input(
             raise
 
 
-def change_sac_snow17_input(
-        module: str,
+def create_lstm_input_reg(
         catids: List[str],
-        input_dir: Union[str, Path],
-        bmi_dir: Union[str, Path],
+        dfa: gpd.GeoDataFrame,
+        param_dir_source: Union[str, Path],
+        lstm_input_dir: Union[str, Path],
 ) -> None:
-    """ copy existing config files for snow17/sac-sma and change path to sac_param_file in snow17/sac-sma namelist input file
 
+    """
+    Create BMI configuration file for LSTM from existing EDFS files
     Parameters
     ----------
-    module: "sac" or "snow17"
-    catids : catchment IDs
-    input_dir : directory for storing new config files
-    bmi_dir: directory for existing config files
+    catids: catchment IDs in the basin
+    dfa: dataframe containing model parameter attributes
+    divides_layer: geodataframe containing hydrofabric divides layer
+    param_dir_source: direcetory for static lstm files
+    lstm_input_dir: target directory for bmi configuration file output (lstm_input)
 
     Returns
     ----------
     None
 
     """
-    if module not in ['sac', 'snow17']:
-        try:
-            raise Exception('change_sac_snow17_input: Model must be either "sac" or "snow17"')
-        except Exception as e:
-            logger.critical(e)
-            raise
+    # Create input directory
+    os.makedirs(lstm_input_dir, exist_ok=True)
 
-    # handle parameter file naming convention
-    str0 = module + '_params_' if module == 'sac' else module + '_params-'
+    # Create static LSTM config yaml files
+    create_lstm_config(param_dir_source, lstm_input_dir)
 
-    # parameter file entry in namelist file
-    str1 = module + "_param_file"
-
-    # create input directory for storing new config files
-    os.makedirs(input_dir, exist_ok=True)
-
-    # loop through all catchments
+    # Create catchment specific LSTM bmi config files from scratch
     for catID in catids:
 
-        # existing config files
-        namelist_file0 = os.path.join(bmi_dir, module + '-init-{}'.format(catID) + '.namelist.input')
-        param_file0 = os.path.join(bmi_dir, str0 + '{}'.format(catID) + '.txt')
+        area = float(dfa.loc[catID]['areasqkm'])
+        slope = float(dfa.loc[catID]['mean.slope'])
+        elev = float(dfa.loc[catID]['mean.elevation'])
+        lat = float(dfa.loc[catID]['centroid_y'])
+        lon = float(dfa.loc[catID]['centroid_x'])
 
-        # new config files to be created
-        namelist_file = os.path.join(input_dir, module + '-init-{}'.format(catID) + '.namelist.input')
-        param_file = os.path.join(input_dir, str0 + '{}'.format(catID) + '.txt')
+        namelist = {'area_sqkm': area,
+                    'basin_id': catID,
+                    'basin_name': catID,
+                    'elev_mean': elev,
+                    'initial_state': 'zero',
+                    'lat': lat,
+                    'lon': lon,
+                    'slope_mean': slope,
+                    'time_step': '1 hour',  # There's a disagreement between naming conventions between EDFS and createInputs, unclear which is used
+                    'timestep': '1 hour',
+                    'train_cfg_file': os.path.join(lstm_input_dir, 'config.yml'),
+                    'verbose': '1'}
 
-        # create symbolic link to the existing sac parameter file
-        if os.path.exists(param_file) or os.path.islink(param_file):
-            try:
-                os.unlink(param_file)
-            except Exception as e:
-                logger.error(f"Failed to remove existing {param_file}: {e}")
-                raise
-
-        if os.path.exists(param_file0):
-            try:
-                os.symlink(param_file0, param_file)
-            except OSError as e:
-                logger.critical(f"Failed to create symlink: {param_file0} -> {param_file}: {e}")
-                raise
-        else:
-            try:
-                raise Exception(f'Parameter file does not exist: {param_file0}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-
-        # correct the path to sac parameter file in namelist input file
-        if not os.path.exists(namelist_file0):
-            try:
-                raise Exception(f'Namelist file does not exist: {namelist_file0}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-
-        with open(namelist_file0) as f:
-            lines0 = f.readlines()
-        lines1 = copy.deepcopy(lines0)
-
-        idx = [i for i, s in enumerate(lines0) if str1 in s]
-        if len(idx) != 1:
-            try:
-                raise Exception(f'No entry or more than one entry found for "{str1}" in namelist input file: {namelist_file0}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        lines1[idx[0]] = f'{str1}      = "{param_file}"\n'
-
-        # Save to new namelist file
-        if os.path.exists(namelist_file):
-            try:
-                raise Exception(f'Namelist file {namelist_file} already exists')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        with open(namelist_file, 'w') as outfile:
-            outfile.writelines(lines1)
+        # Write config to file
+        input_file = os.path.join(lstm_input_dir, catID + '.yml')
+        try:
+            with open(input_file, "w") as f:
+                yaml.dump(namelist, f, default_flow_style=False)
+        except yaml.YAMLError as e:
+            logger.critical(f"Error writing LSTM yaml to {input_file}: {e}")
+            raise
+        except OSError as e:
+            logger.critical(f"Error writing LSTM yaml to {input_file}: {e}")
+            raise
 
 
 def create_pet_input(
+        catids: List[str],
+        dfa: gpd.GeoDataFrame,
+        pet_input_dir: str
+) -> None:
+    """ Create BMI configuration file for pet
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    dfa: dataframe containing model parameter attributes
+    pet_input_dir : directory for the pet input files
+
+    Returns
+    ----------
+    None
+
+    """
+    os.makedirs(pet_input_dir, exist_ok=True)
+
+    for catID in catids:
+
+        # Set PET parameters for catchment
+        ini_list = ['verbose=0',
+                    'pet_method=5',  # Where would this value be supplied in the inputs?
+                    'forcing_file=BMI',
+                    'run_unit_tests=0',
+                    'yes_aorc=1',
+                    'yes_wrf=0',
+                    'wind_speed_measurement_height_m=10.0',
+                    'humidity_measurement_height_m=10.0',
+                    'vegetation_height_m=0.12',
+                    'zero_plane_displacement_height_m=0.0003',
+                    'momentum_transfer_roughness_length=0.0',
+                    'heat_transfer_roughness_length_m=0.1',
+                    'surface_longwave_emissivity=1.0',
+                    'surface_shortwave_albedo=0.22',
+                    'cloud_base_height_known=FALSE',
+                    'latitude_degrees=' + str(dfa.loc[catID]['centroid_y']),
+                    'longitude_degrees=' + str(dfa.loc[catID]['centroid_x']),
+                    'site_elevation_m=' + str(dfa.loc[catID]['mean.elevation']),
+                    'time_step_size_s=3600',
+                    'num_timesteps=720',  # This needs to be set from the input files, possibly for calib and valid
+                    'shortwave_radiation_provided=0']
+
+        # Write PET bmi config files
+        ini_file = os.path.join(pet_input_dir, catID + '_bmi_config.ini')
+
+        with open(ini_file, "w") as f:
+            f.writelines('\n'.join(ini_list))
+
+
+def create_pet_input_reg(
         catids: List[str],
         dfa: gpd.GeoDataFrame,
         pet_input_dir: str
@@ -1583,20 +2026,24 @@ def create_lasam_input(
                 f.write(f"{key}={val}\n")
 
 
-def change_lasam_input(
+def create_lasam_input_reg(
         catids: List[str],
+        modules: Union[List[str], List[List[str]]],
+        dfa: gpd.GeoDataFrame,
         input_dir: Union[str, Path],
-        bmi_dir: Union[str, Path],
         param_dir: Union[str, Path],
+        run_type: str
 ) -> None:
-    """ copy existing config files for lasam and change path to soil_params_file in lasam config file
+    """ Create BMI configuration file for Lumped Arid and Semi-arid Model
 
     Parameters
     ----------
-    catids : catchment IDs
-    input_dir : directory for storing new config files
-    bmi_dir: directory for existing config files
-    param_dir: path to lasam parameter files
+    catids : catchment IDs in the basin
+    modules: list of modules or a list of formulations for each catchment
+    dfa: dataframe containing model parameter attributes
+    input_dir : directory for the lasam input configuration file
+    param_dir: directory for static lasam parameter files
+    run_type: type of run (calib, regionalization, or default)
 
     Returns
     ----------
@@ -1604,15 +2051,21 @@ def change_lasam_input(
 
     """
 
-    # create input directory for storing new config files
     os.makedirs(input_dir, exist_ok=True)
 
-    # make sure param_dir exists
+    # make sure param_dir and parameter files exist
     if param_dir and os.path.exists(param_dir):
-        param_file = os.path.join(param_dir, 'vG_default_params.dat')
-        if not os.path.exists(param_file):
+        soil_param_file = os.path.join(param_dir, 'vG_default_params.dat')
+        if not os.path.exists(soil_param_file):
             try:
-                raise Exception(f'Soil_params_file does not exist: {param_file}')
+                raise Exception(f'Soil params file does not exist: {soil_param_file}')
+            except Exception as e:
+                logger.critical(e)
+                raise
+        soil_class_file = os.path.join(param_dir, 'lasam_soil_class.txt')
+        if not os.path.exists(soil_class_file):
+            try:
+                raise Exception(f'Soil class file does not exist: {soil_class_file}')
             except Exception as e:
                 logger.critical(e)
                 raise
@@ -1623,11 +2076,29 @@ def change_lasam_input(
             logger.critical(e)
             raise
 
-    # loop through all catchments
-    for catID in catids:
+    # Check if sft is in use
+    sft_coupled_str = 'true' if 'sft' in modules else 'false'
 
-        # existing config file
-        config_file0 = os.path.join(bmi_dir, '{}_bmi_config_lasam'.format(catID) + '.txt')
+    # Create lasam list
+    lasam_lst = ['verbosity=none',
+                 'soil_params_file=' + soil_param_file,
+                 'layer_thickness=200.0[cm]',
+                 'initial_psi=2000.0[cm]',
+                 'timestep=300[sec]',  # Where should this be supplied from?
+                 'endtime=1000[hr]',  # Where should this be supplied from?
+                 'forcing_resolution=3600[sec]',
+                 'ponded_depth_max=1.1[cm]',
+                 'use_closed_form_G=false',
+                 'layer_soil_type=',
+                 'max_soil_types=15',
+                 'wilting_point_psi=15495.0[cm]',
+                 'field_capacity_psi=340.9[cm]',
+                 'giuh_ordinates=0.06,0.51,0.28,0.12,0.03',
+                 'calib_params=true',
+                 'adaptive_timestep=true',
+                 'sft_coupled=',
+                 'soil_z=10,30,100.0,200.0[cm]'
+                 ]
 
         # new config file to be created
         config_file = os.path.join(input_dir, '{}_bmi_config_lasam'.format(catID) + '.txt')
@@ -1792,36 +2263,24 @@ def change_sft_input(
     icefscheme = 'Schaake'
     if run_type != 'regionalization':
         mods = modules
-        if ('cfex' in mods):
-            icefscheme = 'Xinanjiang'
 
-    # Create bmi config files
+    # Create bmi config file
     for i in range(len(catids)):
-
         catID = catids[i]
 
         # Set module list for each catchment during regionalization
         if run_type == 'regionalization':
             mods = modules[i]
-            if ('cfex' in mods):
-                icefscheme = 'Xinanjiang'
 
-        # existing config files
-        param_file0 = os.path.join(bmi_dir, catID + '_bmi_config_sft.txt')
+        # Insert soil type
+        lasam_lst_catID = lasam_lst.copy()
+        lasam_lst_catID[9] = lasam_lst_catID[9] + str(int(dfa.loc[catID]['mode.ISLTYP']))
 
-        # new config files to be created
-        param_file = os.path.join(input_dir, catID + '_bmi_config_sft.txt')
+        # Check if sft is in use
+        sft_coupled_str = 'true' if 'sft' in mods else 'false'
+        lasam_lst_catID[16] += sft_coupled_str
 
-        # correct the ice_fraction_scheme depending on the catchments formulation
-        if not os.path.exists(param_file0):
-            try:
-                raise Exception(f'Param file does not exist: {param_file0}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        with open(param_file0) as f:
-            lines0 = f.readlines()
-        lines1 = copy.deepcopy(lines0)
+        lasam_bmi_file = os.path.join(input_dir, catID + '_bmi_config_lasam.txt')
 
         # Find index of ice_fraction_scheme line and update icefscheme
         idx = [i for i, s in enumerate(lines0) if s.startswith('ice')]
