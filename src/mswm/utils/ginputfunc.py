@@ -431,12 +431,151 @@ def create_cfe_input(
 def create_noah_input(
         catids: List[str],
         time_period: dict,
+        param_dir_source: Union[str, Path],
+        noah_input_dir: Union[str, Path],
+        run_type: str,
+        ipe: dict
+) -> None:
+    """ Create BMI configuration file for Noah-OWP-Modular
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    time_period : simulation and evaluation time period
+    param_dir_source : source directory containing Noah-OWP-Modular parameter files
+    noah_input_dir: directory to save configuration files
+    run_type: type of run (calib, regionalization, or default)
+    ipe: initial parameter estimates retrieved from icefabric api
+
+    Returns
+    ----------
+    None
+
+    """
+
+    # Create symlink for parameter directory
+    noah_par_tables = ['SOILPARM.TBL', 'MPTABLE.TBL', 'GENPARM.TBL']
+    for par in noah_par_tables:
+        src = os.path.join(param_dir_source, par)
+        dst = os.path.join(noah_input_dir, par)
+        # Remove existing symlink
+        if os.path.exists(dst) or os.path.islink(dst):
+            try:
+                os.unlink(dst)
+            except Exception as e:
+                logger.error(f"Failed to remove existing {dst}: {e}")
+                raise
+        try:
+            os.symlink(src, dst)
+        except OSError as e:
+            logger.critical(f"Failed to create symlink: {src} -> {dst}: {e}")
+            raise
+
+    # Files for either the calibration and validation run or the regionalization run
+    if run_type == 'calibration':
+        run_list = ['calib', 'valid']
+    elif run_type == 'regionalization':
+        run_list = ['region']
+    elif run_type == 'default':
+        run_list = ['default']
+
+    for run_name in run_list:
+        if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
+            # Date
+            startdate = time_period['run_time_period'][run_name][0]
+            startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S") + datetime.timedelta(hours=1)
+            startdate = startdate.strftime("%Y%m%d%H%M")
+            enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+
+            # Create NOAH input file
+            for catID in catids:
+
+                # Retrieve catchment parameters from icefabric
+                cat_ipe = ipe[catID]
+
+                nom_lst = ['&timing',
+                           "  " + "dt".ljust(19) + f"= {cat_ipe['dt']}                       ! timestep [seconds]",
+                           "  " + "startdate".ljust(19) + f"= '{startdate}'               ! UTC time start of simulation (YYYYMMDDhhmm)",
+                           "  " + "enddate".ljust(19) + f"= '{enddate}'               ! UTC time end of simulation (YYYYMMDDhhmm)",
+                           "  " + "forcing_filename".ljust(19) + f"= '{cat_ipe['forcing_filename']}'                          ! file containing forcing data",
+                           "  " + "output_filename".ljust(19) + f"= '{cat_ipe['output_filename']}'",
+                           '/',
+                           "",
+                           '&parameters',
+                           "  " + "parameter_dir".ljust(19) + f"= '{noah_input_dir}'",
+                           "  " + "general_table".ljust(19) + f"= '{cat_ipe['general_table']}'               ! general param tables and misc params",
+                           "  " + "soil_table".ljust(19) + f"= '{cat_ipe['soil_table']}'               ! soil param table",
+                           "  " + "noahowp_table".ljust(19) + f"= '{cat_ipe['noahowp_table']}'                ! model param tables (includes veg)",
+                           "  " + "soil_class_name".ljust(19) + f"= '{cat_ipe['soil_class_name']}'                       ! soil class data source - 'STAS' or 'STAS-RUC'",
+                           "  " + "veg_class_name".ljust(19) + f"= '{cat_ipe['veg_class_name']}'                       ! vegetation class data source - 'MODIFIED_IGBP_MODIS_NOAH' or 'USGS'",
+                           '/',
+                           "",
+                           '&location',
+                           "  " + "lat".ljust(19) + f"= {cat_ipe['lat']}           ! latitude [degrees]  (-90 to 90)",
+                           "  " + "lon".ljust(19) + f"= {cat_ipe['lon']}           ! longitude [degrees] (-180 to 180)",
+                           "  " + "terrain_slope".ljust(19) + f"= {cat_ipe['terrain_slope']}           ! terrain slope [degrees]",
+                           "  " + "azimuth".ljust(19) + f"= {cat_ipe['azimuth']}           ! terrain azimuth or aspect [degrees clockwise from north]",
+                           '/',
+                           "",
+                           "&forcing",
+                           "  " + "ZREF".ljust(19) + f"= {cat_ipe['ZREF']}                         ! measurement height for wind speed (m)",
+                           "  " + "rain_snow_thresh".ljust(19) + f"= {cat_ipe['rain_snow_thresh']}                          ! rain-snow temperature threshold (degrees Celcius)",
+                           "/",
+                           "",
+                           "&model_options",
+                           "  " + "precip_phase_option".ljust(34) + f"= {cat_ipe['precip_phase_option']}",
+                           "  " + "snow_albedo_option".ljust(34) + f"= {cat_ipe['snow_albedo_option']}",
+                           "  " + "dynamic_veg_option".ljust(34) + f"= {cat_ipe['dynamic_veg_option']}",
+                           "  " + "runoff_option".ljust(34) + f"= {cat_ipe['runoff_option']}",
+                           "  " + "drainage_option".ljust(34) + f"= {cat_ipe['drainage_option']}",
+                           "  " + "frozen_soil_option".ljust(34) + f"= {cat_ipe['frozen_soil_option']}",
+                           "  " + "dynamic_vic_option".ljust(34) + f"= {cat_ipe['dynamic_vic_option']}",
+                           "  " + "radiative_transfer_option".ljust(34) + f"= {cat_ipe['radiative_transfer_option']}",
+                           "  " + "sfc_drag_coeff_option".ljust(34) + f"= {cat_ipe['sfc_drag_coeff_option']}",
+                           "  " + "canopy_stom_resist_option".ljust(34) + f"= {cat_ipe['canopy_stom_resist_option']}",
+                           "  " + "crop_model_option".ljust(34) + f"= {cat_ipe['crop_model_option']}",
+                           "  " + "snowsoil_temp_time_option".ljust(34) + f"= {cat_ipe['snowsoil_temp_time_option']}",
+                           "  " + "soil_temp_boundary_option".ljust(34) + f"= {cat_ipe['soil_temp_boundary_option']}",
+                           "  " + "supercooled_water_option".ljust(34) + f"= {cat_ipe['supercooled_water_option']}",
+                           "  " + "stomatal_resistance_option".ljust(34) + f"= {cat_ipe['stomatal_resistance_option']}",
+                           "  " + "evap_srfc_resistance_option".ljust(34) + f"= {cat_ipe['evap_srfc_resistance_option']}",
+                           "  " + "subsurface_option".ljust(34) + f"= {cat_ipe['subsurface_option']}",
+                           "/",
+                           "",
+                           "&structure",
+                           "  " + "isltyp".ljust(17) + f"= {cat_ipe['isltyp']}              ! soil texture class",
+                           "  " + "nsoil".ljust(17) + f"= {cat_ipe['nsoil']}              ! number of soil levels",
+                           "  " + "nsnow".ljust(17) + f"= {cat_ipe['nsnow']}              ! number of snow levels",
+                           "  " + "nveg".ljust(17) + f"= {cat_ipe['nveg']}             ! number of vegetation type",
+                           "  " + "vegtyp".ljust(17) + f"= {cat_ipe['vegtyp']}             ! vegetation type",
+                           "  " + "croptype".ljust(17) + f"= {cat_ipe['croptype']}              ! crop type (0 = no crops; this option is currently inactive)",
+                           "  " + "sfctyp".ljust(17) + f"= {cat_ipe['sfctyp']}              ! land surface type, 1:soil, 2:lake",
+                           "  " + "soilcolor".ljust(17) + f"= {cat_ipe['soilcolor']}              ! soil color code",
+                           "/",
+                           "",
+                           "&initial_values",
+                           "  " + "dzsnso".ljust(10) + "= " + ", ".join(map(str, cat_ipe['dzsnso'])) + "      ! level thickness [m]",
+                           "  " + "sice".ljust(10) + "= " + ", ".join(map(str, cat_ipe['sice'])) + "                     ! initial soil ice profile [m3/m3]",
+                           "  " + "sh2o".ljust(10) + "= " + ", ".join(map(str, cat_ipe['sh2o'])) + "                     ! initial soil liquid profile [m3/m3]",
+                           "  " + "zwt".ljust(10) + f"= {cat_ipe['zwt']}                                   ! initial water table depth below surface [m]",
+                           "/",
+                           ]
+
+                namelst = os.path.join(noah_input_dir, '{}'.format(catID) + '_' + run_name + '.input')
+                with open(namelst, 'w') as outfile:
+                    outfile.writelines('\n'.join(nom_lst))
+                    outfile.write("\n")
+
+
+def create_noah_input_reg(
+        catids: List[str],
+        time_period: dict,
         dfa: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         noah_input_dir: Union[str, Path],
         run_type: str
 ) -> None:
-    """ Create BMI configuration file for Noah-OWP-Modular
+    """ Create BMI configuration file for Noah-OWP-Modular regionalization
 
     Parameters
     ----------
