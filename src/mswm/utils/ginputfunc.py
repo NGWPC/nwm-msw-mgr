@@ -419,6 +419,12 @@ def create_cfe_input(
         if run_type == 'regionalization':
             rootzone_flag = is_aet_rootzone[catID]
 
+        # Update parameters
+        cat_ipe["forcing_file"] = "BMI"
+        cat_ipe['verbosity'] = 1
+        cat_ipe['DEBUG'] = 0
+        cat_ipe['num_timesteps'] = 1
+
         # Add aet_rootzone parameters if option is selected
         if rootzone_flag == 1:
             cat_ipe["is_aet_rootzone"] = 1
@@ -607,11 +613,11 @@ def create_noah_input(
                 cat_ipe = ipe[catID]
 
                 nom_lst = ['&timing',
-                           f"  {'dt'.ljust(19)}= {cat_ipe['dt']}                       ! timestep [seconds]",
+                           f"  {'dt'.ljust(19)}= 3600.0                       ! timestep [seconds]",
                            f"  {'startdate'.ljust(19)}= '{startdate}'               ! UTC time start of simulation (YYYYMMDDhhmm)",
                            f"  {'enddate'.ljust(19)}= '{enddate}'               ! UTC time end of simulation (YYYYMMDDhhmm)",
-                           f"  {'forcing_filename'.ljust(19)}= '{cat_ipe['forcing_filename']}'                          ! file containing forcing data",
-                           f"  {'output_filename'.ljust(19)}= '{cat_ipe['output_filename']}'",
+                           f"  {'forcing_filename'.ljust(19)}= '.'                          ! file containing forcing data",
+                           f"  {'output_filename'.ljust(19)}= '.'",
                            '/',
                            "",
                            '&parameters',
@@ -878,6 +884,11 @@ def create_sft_input(
                    'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
                    ]
 
+        # Update parameters
+        cat_ipe['verbosity'] = 'none'
+        cat_ipe['end_time'] = '1.[d]'
+        cat_ipe['dt'] = '1.0[h]'
+
         # Write sft config to file
         sft_bmi_file = os.path.join(sft_dir, catID + '_bmi_config_sft.txt')
         with open(sft_bmi_file, "w") as f:
@@ -923,6 +934,9 @@ def create_smp_input(
         #     smp_lst += ['soil_storage_model=TopModel', 'water_table_based_method=flux_based']
         # elif 'lasam' in mods:
         #     smp_lst += ['soil_storage_model=layered', 'soil_moisture_profile_option=constant', 'soil_depth_layers=2.0', 'water_table_depth=10[m]']
+
+        # Update parameters
+        cat_ipe['verbosity'] = 'none'
 
         # Write smp to to file
         smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
@@ -1799,6 +1813,11 @@ def create_lstm_input(
         # Set train_cfg_file path
         cat_ipe['train_cfg_file'] = os.path.join(lstm_input_dir, 'config.yml')
 
+        # Update parameters
+        cat_ipe['basin_name'] = catID
+        cat_ipe['verbose'] = "'1'"
+        cat_ipe['timestep'] = '1 hour'
+
         # Write bmi config to file
         lstm_bmi_file = os.path.join(lstm_input_dir, catID + '.yml')
         try:
@@ -2015,7 +2034,10 @@ def create_lasam_input(
         # Retrieve catchment parameters from icefabric
         cat_ipe = ipe[catID]
 
-        # Update soil_params_file
+        # Update parameters
+        cat_ipe['verbosity'] = 'none'
+        cat_ipe['timestep'] = '300[sec]'
+        cat_ipe['endtime'] = '1000[hr]'
         cat_ipe['soil_params_file'] = soil_param_file
 
         lasam_bmi_file = os.path.join(input_dir, catID + '_bmi_config_lasam.txt')
@@ -2407,6 +2429,8 @@ def create_topoflow_input(
             # Update start and end time
             cat_ipe['start_time'] = start_time
             cat_ipe['end_time'] = end_time
+            cat_ipe['dt'] = 1
+            cat_ipe['forcing_file'] = "'.'"
 
             # Do we need to reference the forcing file for csv/bmi?
 
@@ -2443,6 +2467,9 @@ def create_topmodel_input(
 
         # Retrieve catchment parameters from icefabric
         cat_ipe = ipe[catID]
+
+        # Update parameters
+        cat_ipe['yes_print_output'] = 1
 
         # Write subcatchment data to file
         cfg_filename_subcat = f'{catID}_topmodel_subcat.dat'
