@@ -748,6 +748,11 @@ class RealizationBuilder:
             self.grp_to_form['group1'] = self.modules
             self.grp_to_form['group2'] = ['topoflow']
             logger.info(f"Final list of modules in formulation: 'group1': {self.modules}, 'group2': ['topoflow']")
+
+            # If CFE in modules, retrieve is_aet_rootzone flag
+            self.grp_is_aet_rootzone = {}
+            self.grp_is_aet_rootzone['group_1'] = self.is_aet_rootzone
+            self.grp_is_aet_rootzone['group_2'] = 0
         else:
             logger.info(f"Final list of modules in formulation: {self.modules}")
 
@@ -872,37 +877,77 @@ class RealizationBuilder:
             validate_formulation(self.modules)
             logger.info("Module processes validated")
 
+    def _get_glacier_pct(self):
+        """
+        Retrieve glacier percentage from Icefabric API if Topoflow is in use
+        """
+        if hasattr(self, 'grp_to_form') and self.grp_to_form:
+            if any('topoflow' in v for v in self.grp_to_form.values()):
+                # CALL API FOR TOPOFLOW
+                self.topoflow_ipe = {'cat-11466':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
+                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
+                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+                                     'cat-11467':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
+                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
+                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+                                     'cat-11468':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
+                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
+                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+                                     'cat-11469':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
+                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
+                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+                                     'cat-11470':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
+                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
+                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+                                     'cat-11475':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
+                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
+                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+                                     'cat-11476':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
+                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
+                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75}}
+
+                # Retrieve list of catchments where glaciated percent >= 50
+                topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glaciated_percent', 0) >= 50]
+                nontopo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glaciated_percent', 0) < 50]
+
+                # Create cat_to_grp and cat_to_form variables
+                self.grp_to_cat = {'group_1': topo_cats,
+                                   'group_2': nontopo_cats}
+
     def _map_cat_to_grp(self):
         """
-        Map catchments to regionalization groups and assign is_aet_rootzone flags for cfe
+        Map catchments to formulation groups and assign is_aet_rootzone flags for cfe
         """
         # Relate catchments and their groups
-        self.cat_to_grp = {}
-        self.cat_to_aet_rootzone = {}
-        for grp, cats in self.grp_to_cat.items():
-            for cat in cats:
-                self.cat_to_grp[cat] = grp
-                # Assign aet_rootzone flags for cfe
-                self.cat_to_aet_rootzone[cat] = self.grp_is_aet_rootzone.get(grp, 0)
+        if hasattr(self, 'grp_to_cat') and self.grp_to_cat:
+            self.cat_to_grp = {}
+            self.cat_to_aet_rootzone = {}
+            for grp, cats in self.grp_to_cat.items():
+                for cat in cats:
+                    self.cat_to_grp[cat] = grp
+                    # Assign aet_rootzone flags for cfe
+                    self.cat_to_aet_rootzone[cat] = self.grp_is_aet_rootzone.get(grp, 0)
 
     def _map_cat_to_form(self):
         """
-        Map catchments to formulations for regionalization
+        Map catchments to grouped formulations
         """
         # Relate catchments and their formulations
-        self.cat_to_form = {}
-        for cat, grp in self.cat_to_grp.items():
-            self.cat_to_form[cat] = self.grp_to_form[grp]
+        if hasattr(self, 'grp_to_cat') and self.grp_to_cat:
+            self.cat_to_form = {}
+            for cat, grp in self.cat_to_grp.items():
+                self.cat_to_form[cat] = self.grp_to_form[grp]
 
     def _map_mod_to_cat(self):
         """
         Map modules used in each catchment for regionalization
         """
         # Find the catchments that use each module
-        self.mod_to_cat = defaultdict(list)
-        for cat, modules in self.cat_to_form.items():
-            for module in modules:
-                self.mod_to_cat[module].append(cat)
+        if hasattr(self, 'grp_to_cat') and self.grp_to_cat:
+            self.mod_to_cat = defaultdict(list)
+            for cat, modules in self.cat_to_form.items():
+                for module in modules:
+                    self.mod_to_cat[module].append(cat)
 
     def _set_lib_paths(self):
         """
@@ -2311,6 +2356,10 @@ class RealizationBuilder:
         self._parse_calib_settings()
         self._parse_modules()
         self._validate_processes()
+        self._get_glacier_pct()
+        self._map_cat_to_grp()
+        self._map_cat_to_form()
+        self._map_mod_to_cat()
         self._set_lib_paths()
         self._extract_hydrofabric()
         self._extract_forcing()
