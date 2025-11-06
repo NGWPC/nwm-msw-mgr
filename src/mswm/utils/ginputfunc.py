@@ -75,6 +75,7 @@ __all__ = [
     'create_pet_input_reg',
     'create_lasam_input',
     'create_lasam_input_reg',
+    'create_topoflow_input',
     'create_lstm_input',
     'create_lstm_input_reg',
     'create_topmodel_input',
@@ -1198,10 +1199,7 @@ def create_ueb_input(
     ----------
     catids : catchment IDs in the basin
     time_period: simulation time period
-    dfa: dataframe containing model parameter attributes
-    param_dir_source : directory containing UEB parameter files
     ueb_input_dir : directory for the UEB bmi configuration file
-    bmi_dir: directory path containing existing sitevar files (e.g., from EDS)
     run_type: type of run (calib, regionalization, or default)
     ipe: initial parameter estimates retrieved from icefabric api
 
@@ -2361,6 +2359,64 @@ def change_topmodel_input(
         # Save file
         with open(new_runfile, 'w') as outfile:
             outfile.writelines(lst_lines)
+
+
+def create_topoflow_input(
+        catids: List[str],
+        time_period: dict,
+        topo_input_dir: str,
+        run_type: str,
+        ipe: dict
+) -> None:
+    """ Create BMI configuration file for ueb
+
+    Parameters
+    ----------
+    catids : catchment IDs in the basin
+    time_period: simulation time period
+    topo_input_dir : directory for the bmi configuration file
+    run_type: type of run (calib, regionalization, or default)
+    ipe: initial parameter estimates retrieved from icefabric api
+
+    Returns
+    ----------
+    None
+
+    """
+
+    # Topoflow files need to be created for both calibration and validation runs or regionalization runs
+    if run_type == 'calibration':
+        run_list = ['calib', 'valid']
+    elif run_type == 'regionalization':
+        run_list = ['region']
+    elif run_type == 'default':
+        run_list = ['default']
+
+    for run_name in run_list:
+        if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
+            # Retrieve datetimes
+            start_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+            end_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+
+        # Create sitevars file
+        for catID in catids:
+
+            # Retrieve catchment parameters from icefabric
+            cat_ipe = ipe[catID]
+
+            # Update start and end time
+            cat_ipe['start_time'] = start_time
+            cat_ipe['end_time'] = end_time
+
+            # Do we need to reference the forcing file for csv/bmi?
+
+            # Drop glaciated_percent
+            cat_ipe.pop('glaciated_percent', None)
+
+            # Write bmi to file
+            topo_bmi_file = os.path.join(topo_input_dir, catID + '.yml')
+            with open(topo_bmi_file, 'w') as f:
+                yaml.dump(cat_ipe, f, default_flow_style=False, sort_keys=False)
 
 
 def create_topmodel_input(
