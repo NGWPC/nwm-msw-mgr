@@ -3471,6 +3471,12 @@ def create_reg_realization_file(
             logger.critical(f"Failed to create symlink: {value} -> {lib_mod_link}: {e}")
             raise
 
+    # Abbreviate calibration run_type name for file names/time period
+    if run_type == 'calibration':
+        run_type = 'calib'
+    elif run_type == 'regionalization':
+        run_type == 'region'
+
     # Set model formulations for each regionalization group
     grp_main = {}
     grps = list(grp_to_form.keys())
@@ -3514,7 +3520,7 @@ def create_reg_realization_file(
                                                 "model_type_name": get_model_type_name('noah'),
                                                 "main_output_variable": "QINSUR",
                                                 "library_file": lib_mod['noah'],
-                                                "init_config": os.path.join(bmi_dir['noah'], '{{id}}_region.input'),
+                                                "init_config": os.path.join(bmi_dir['noah'], '{{id}}_' + run_type + '.input'),
                                                 "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
                                                 "variables_names_map": {"PRCPNONC": name_prcp.get(forcing_provider),
                                                                         "Q2": name_Q2.get(forcing_provider),
@@ -3523,8 +3529,7 @@ def create_reg_realization_file(
                                                                         "VV": name_ywind.get(forcing_provider),
                                                                         "LWDN": name_lw.get(forcing_provider),
                                                                         "SOLDN": name_sw.get(forcing_provider),
-                                                                        "SFCPRS": name_pressure.get(forcing_provider)},
-                                                "model_params": grp_params['noah'][grp]}}
+                                                                        "SFCPRS": name_pressure.get(forcing_provider)}}}
             if grp_params.get('noah', {}).get(grp):
                 model_configs['noah']['params']['model_params'] = grp_params['noah'][grp]
 
@@ -3579,7 +3584,7 @@ def create_reg_realization_file(
                 var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
 
             # module output variable for input to t-route
-            main_output_variable = "Qout" if 'smp' not in grp_mod else "sloth_soil_storage"
+            main_output_variable = "Qout"
 
         # sac-sma
         if 'sac' in grp_mod:
@@ -3624,7 +3629,7 @@ def create_reg_realization_file(
                                         "name": "bmi_c++",
                                         "model_type_name": get_model_type_name('ueb'),
                                         "library_file": lib_mod['ueb'],
-                                        "init_config": os.path.join(bmi_dir['ueb'], 'ueb-init-' + '{{id}}_region.dat'),
+                                        "init_config": os.path.join(bmi_dir['ueb'], 'ueb-init-{{id}}_' + run_type + '.dat'),
                                         "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
                                         "main_output_variable": "SWIT",
                                         "variables_names_map": {
@@ -3802,6 +3807,31 @@ def create_reg_realization_file(
             main_output_variable = "land_surface_water__runoff_depth"
             precip_output = "precipitation_rate"
 
+        if 'topoflow' in grp_mod:
+            model_configs['topoflow'] = {"name": "bmi_python",
+                                         "params": {"python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
+                                                    "model_type_name": get_model_type_name('topoflow'),
+                                                    "init_config": os.path.join(bmi_dir['topoflow'], "{{id}}.yaml"),
+                                                    "main_output_variable": "channel_water_x-section__volume_flow_rate",
+                                                    "uses_forcing_file": "false"}}
+
+            # variable name mapping section
+            variables_names_map = dict()
+            variables_names_map["streamflow_cms"] = "channel_water_x-section__volume_flow_rate"
+            variables_names_map["atmosphere_water__precipitation_leq-volume_flux"] = name_prcp.get(forcing_provider)
+
+            var_maps = dict()
+            var_maps['input'] = variables_names_map
+            var_maps['output'] = dict()
+            var_maps['output']['swe_out'] = ''
+            var_maps['output']['sm_out'] = ''
+
+            if grp_params.get('topoflow', {}).get(grp):
+                model_configs['topoflow']['params']['model_params'] = grp_params['topoflow'][grp]
+
+            # module output variable for input to t-route
+            main_output_variable = "channel_water_x-section__volume_flow_rate"
+
         # Store catchment model configs
         model_type_name = "bmi_multi"
         grp_configs = {"name": "bmi_multi",
@@ -3879,8 +3909,8 @@ def create_reg_realization_file(
     g = {}
 
     # time object
-    t = {"time": {"start_time": time_period['run_time_period']['region'][0],
-                  "end_time": time_period['run_time_period']['region'][1], "output_interval": 3600}}
+    t = {"time": {"start_time": time_period['run_time_period'][run_type][0],
+                  "end_time": time_period['run_time_period'][run_type][1], "output_interval": 3600}}
     g.update(t)
 
     # routing object
