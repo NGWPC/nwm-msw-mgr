@@ -18,6 +18,7 @@ from pyproj import Transformer
 import geopandas as gpd
 import pandas as pd
 import yaml
+import httpx
 
 from mswm.utils import settings
 from mswm.utils.log_level import MODULE_NAME
@@ -54,7 +55,11 @@ def is_probably_regex(pattern):
 
 
 __all__ = [
+<<<<<<< HEAD
     'init_ginput_logger',
+=======
+    'call_icefabric_api',
+>>>>>>> 7cec051 (Initial implementation of test icefabric api endpoint)
     'change_hydrofab_attr',
     'create_fcst_times',
     'create_walk_file',
@@ -96,12 +101,93 @@ __all__ = [
 ]
 
 
+<<<<<<< HEAD
 def init_ginput_logger():
     """"
     Initialize ginputfunc.py logger once MSWM named logger is created
     """
     global logger
     logger = logging.getLogger(MODULE_NAME)
+=======
+def call_icefabric_api(
+        mod: str,
+        all_mod: list,
+        basin: str,
+        domain: str,
+        rootzone_aet: int | None = None,
+        envca: bool | None = None
+) -> dict:
+    """ Query hydrofabric API for initial parameter estimates
+
+    Parameters
+    ----------
+    mod: module name string
+    all_mod: list of all modules in the formulation
+    basin: basin name string
+    domain: string of name of gage domain
+    rootzone_aet: boolean flag for cfe aetroozone flag
+    envca: boolean flag for envca gage
+
+    Returns
+    ----------
+    dictionary of initial parameter estimates
+    """
+    # Assemble API endpoint with module specific options
+    if mod in ('cfes', 'cfex'):
+        cfe_version = 'CFE-S' if mod == 'cfes' else 'CFE-X'
+        mod = 'cfe'
+
+    endpoint = f"http://edfs.test.nextgenwaterprediction.com:8000/v1/modules/{mod}/?identifier={basin}&domain={domain}"
+    if mod == 'cfe':
+        endpoint += f"&cfe_version={cfe_version}"
+    if mod in ('lasam', 'cfe') and 'sft' in all_mod:
+        endpoint += "&sft_included=True"
+    if rootzone_aet == 1:
+        endpoint += "&rootzone_aet=True"
+    if envca:
+        endpoint += f"&envca={envca}"
+    if mod == 'sft' and 'cfex' not in all_mod:
+        endpoint += "&use_schaake=True"
+    if mod == 'smp':
+        module_map = {"cfes": "CFE-S", "cfex": "CFE-X", "lasam": "LASAM", "topmodel": "TopModel"}
+        module_options = set(module_map.keys())
+        match = module_options.intersection(all_mod)
+        if len(match) != 1:
+            try:
+                raise Exception("One rainfall runoff model must be paired with SMP")
+            except Exception as e:
+                logger.critical(e)
+                raise
+        endpoint += f"&extra_module={module_map[match]}"
+    if mod == 'lasam':
+        endpoint += "&soil_params_file=vG_default_params_HYDRUS.dat"
+
+
+    # Call icefabric API endpoint
+    print(endpoint)
+    try:
+        icefabric_resp = httpx.get(
+            endpoint,
+            timeout=60.0)
+        icefabric_resp.raise_for_status()
+        ipe = icefabric_resp.json()
+    except httpx.HTTPStatusError as e:
+        logger.critical(f"Icefabric API call for {mod} failed: {e}")
+        raise
+    except ValueError:
+        logger.critical(f"Icefabric API call did not return valid results for {mod}")
+        raise
+
+    # Log status of API response
+    icefabric_status = f"Icefabric API Status code for {mod}: {icefabric_resp.status_code}"
+    logger.info(icefabric_status)
+
+    # Reformat IPE json by catchment
+    ipe_formatted = {item['catchment']: {k: v for k, v in item.items() if k != 'catchment'} for item in ipe}
+
+    # Return icefabric response
+    return ipe_formatted
+>>>>>>> 7cec051 (Initial implementation of test icefabric api endpoint)
 
 
 def change_hydrofab_attr(
@@ -380,7 +466,7 @@ def create_cfe_input(
         catids: List[str],
         cfe_input_dir: Union[str, Path],
         run_type: str,
-        is_aet_rootzone: Union[int, dict],
+        is_aet_rootzone: int,
         ipe: dict
 ) -> None:
     """ Create BMI initial configuration file for CFE with Schaake or Xianjiang infiltration and runoff scheme
@@ -405,19 +491,11 @@ def create_cfe_input(
 
     """
 
-    # Set surface partitioning scheme and is_aet_rootzone flag
-    if run_type != 'regionalization':
-        rootzone_flag = is_aet_rootzone
-
     # Create bmi config files
     for catID in catids:
 
         # Retrieve catchment parameters from icefabric
         cat_ipe = ipe[catID]
-
-        # Set module list and is_aet_rootzone flag for each catchment during regionalization
-        if run_type == 'regionalization':
-            rootzone_flag = is_aet_rootzone[catID]
 
         # Update parameters
         cat_ipe["forcing_file"] = "BMI"
@@ -426,7 +504,7 @@ def create_cfe_input(
         cat_ipe['num_timesteps'] = 1
 
         # Add aet_rootzone parameters if option is selected
-        if rootzone_flag == 1:
+        if is_aet_rootzone == 1:
             cat_ipe["is_aet_rootzone"] = 1
             cat_ipe["max_rootzone_layer"] = 2
             cat_ipe["soil_layer_depths"] = "0.1,0.4,1.0,2.0[m]"
