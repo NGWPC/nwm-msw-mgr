@@ -1559,69 +1559,69 @@ class RealizationBuilder:
             #                      "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1}}
 
             # # NOAH
-            # ipe = {"cat-11466": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":3,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11467": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":3,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11468": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":3,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11469": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":3,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11470": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":3,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11475": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":3,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11476": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":3,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0}}
+            ipe = {"cat-11466": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
+                                 "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
+                                 "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
+                                 "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
+                                 "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
+                                 "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
+                                 "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
+                                 "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
+                                 "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
+                   "cat-11467": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
+                                 "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
+                                 "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
+                                 "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
+                                 "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
+                                 "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
+                                 "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
+                                 "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
+                                 "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
+                   "cat-11468": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
+                                 "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
+                                 "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
+                                 "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
+                                 "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
+                                 "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
+                                 "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
+                                 "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
+                                 "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
+                   "cat-11469": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
+                                 "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
+                                 "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
+                                 "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
+                                 "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
+                                 "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
+                                 "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
+                                 "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
+                                 "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
+                   "cat-11470": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
+                                 "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
+                                 "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
+                                 "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
+                                 "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
+                                 "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
+                                 "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
+                                 "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
+                                 "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
+                   "cat-11475": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
+                                 "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
+                                 "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
+                                 "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
+                                 "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
+                                 "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
+                                 "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
+                                 "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
+                                 "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
+                   "cat-11476": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
+                                 "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
+                                 "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
+                                 "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
+                                 "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
+                                 "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
+                                 "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
+                                 "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
+                                 "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0}}
 
             # # Topmodel
             # ipe = {"cat-11466": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
@@ -1646,198 +1646,198 @@ class RealizationBuilder:
             #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
             #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1}}
 
-            # # T-route
-            # # Default values
-            # bmi_param = {
-            #     "flowpath_columns": ["id", "toid", "lengthkm"],
-            #     "attributes_columns": [
-            #         "attributes_id",
-            #         "rl_gages",
-            #         "rl_NHDWaterbodyComID",
-            #         "MusK",
-            #         "MusX",
-            #         "n",
-            #         "So",
-            #         "ChSlp",
-            #         "BtmWdth",
-            #         "nCC",
-            #         "TopWdthCC",
-            #         "TopWdth",
-            #     ],
-            #     "waterbody_columns": [
-            #         "hl_link",
-            #         "ifd",
-            #         "LkArea",
-            #         "LkMxE",
-            #         "OrificeA",
-            #         "OrificeC",
-            #         "OrificeE",
-            #         "WeirC",
-            #         "WeirE",
-            #         "WeirL",
-            #     ],
-            #     "network_columns": ["network_id", "hydroseq", "hl_uri"],
-            # }
+            # T-route
+            # Default values
+            bmi_param = {
+                "flowpath_columns": ["id", "toid", "lengthkm"],
+                "attributes_columns": [
+                    "attributes_id",
+                    "gage",
+                    "WaterbodyID",
+                    "MusK",
+                    "MusX",
+                    "n",
+                    "So",
+                    "ChSlp",
+                    "BtmWdth",
+                    "nCC",
+                    "TopWdthCC",
+                    "TopWdth",
+                ],
+                "waterbody_columns": [
+                    "hl_link",
+                    "ifd",
+                    "LkArea",
+                    "LkMxE",
+                    "OrificeA",
+                    "OrificeC",
+                    "OrificeE",
+                    "WeirC",
+                    "WeirE",
+                    "WeirL",
+                ],
+                "network_columns": ["network_id", "hydroseq", "hl_uri"],
+            }
 
-            # log_param = {"showtiming": True, "log_level": "DEBUG"}
+            log_param = {"showtiming": True, "log_level": "DEBUG"}
 
-            # ntwk_columns = {
-            #     "key": "id",
-            #     "downstream": "toid",
-            #     "dx": "lengthkm",
-            #     "n": "n",
-            #     "ncc": "nCC",
-            #     "s0": "So",
-            #     "bw": "BtmWdth",
-            #     "waterbody": "rl_NHDWaterbodyComID",
-            #     "gages": "rl_gages",
-            #     "tw": "TopWdth",
-            #     "twcc": "TopWdthCC",
-            #     "musk": "MusK",
-            #     "musx": "MusX",
-            #     "cs": "ChSlp",
-            #     "alt": "alt",
-            # }
+            ntwk_columns = {
+                "key": "id",
+                "downstream": "toid",
+                "dx": "lengthkm",
+                "n": "n",
+                "ncc": "nCC",
+                "s0": "So",
+                "bw": "BtmWdth",
+                "waterbody": "WaterbodyID",
+                "gages": "gage",
+                "tw": "TopWdth",
+                "twcc": "TopWdthCC",
+                "musk": "MusK",
+                "musx": "MusX",
+                "cs": "ChSlp",
+                "alt": "alt",
+            }
 
-            # dupseg = [
-            #     "717696",
-            #     "1311881",
-            #     "3133581",
-            #     "1010832",
-            #     "1023120",
-            #     "1813525",
-            #     "1531545",
-            #     "1304859",
-            #     "1320604",
-            #     "1233435",
-            #     "11816",
-            #     "1312051",
-            #     "2723765",
-            #     "2613174",
-            #     "846266",
-            #     "1304891",
-            #     "1233595",
-            #     "1996602",
-            #     "2822462",
-            #     "2384576",
-            #     "1021504",
-            #     "2360642",
-            #     "1326659",
-            #     "1826754",
-            #     "572364",
-            #     "1336910",
-            #     "1332558",
-            #     "1023054",
-            #     "3133527",
-            #     "3053788",
-            #     "3101661",
-            #     "2043487",
-            #     "3056866",
-            #     "1296744",
-            #     "1233515",
-            #     "2045165",
-            #     "1230577",
-            #     "1010164",
-            #     "1031669",
-            #     "1291638",
-            #     "1637751",
-            # ]
+            dupseg = [
+                "717696",
+                "1311881",
+                "3133581",
+                "1010832",
+                "1023120",
+                "1813525",
+                "1531545",
+                "1304859",
+                "1320604",
+                "1233435",
+                "11816",
+                "1312051",
+                "2723765",
+                "2613174",
+                "846266",
+                "1304891",
+                "1233595",
+                "1996602",
+                "2822462",
+                "2384576",
+                "1021504",
+                "2360642",
+                "1326659",
+                "1826754",
+                "572364",
+                "1336910",
+                "1332558",
+                "1023054",
+                "3133527",
+                "3053788",
+                "3101661",
+                "2043487",
+                "3056866",
+                "1296744",
+                "1233515",
+                "2045165",
+                "1230577",
+                "1010164",
+                "1031669",
+                "1291638",
+                "1637751",
+            ]
 
-            # nwtopo_param = {
-            #     "supernetwork_parameters": {
-            #         "network_type": "HYFeaturesNetwork",
-            #         "geo_file_path": "",
-            #         "columns": ntwk_columns,
-            #         "duplicate_wb_segments": dupseg,
-            #     },
-            #     "waterbody_parameters": {
-            #         "break_network_at_waterbodies": True,
-            #         "level_pool": {"level_pool_waterbody_parameter_file_path": ""},
-            #     },
-            # }
+            nwtopo_param = {
+                "supernetwork_parameters": {
+                    "network_type": "HYFeaturesNetwork",
+                    "geo_file_path": "",
+                    "columns": ntwk_columns,
+                    "duplicate_wb_segments": dupseg,
+                },
+                "waterbody_parameters": {
+                    "break_network_at_waterbodies": True,
+                    "level_pool": {"level_pool_waterbody_parameter_file_path": ""},
+                },
+            }
 
-            # res_da = {
-            #     "reservoir_persistence_da": {
-            #         "reservoir_persistence_usgs": False,
-            #         "reservoir_persistence_usace": False,
-            #     },
-            #     "reservoir_rfc_da": {
-            #         "reservoir_rfc_forecasts": False,
-            #         "reservoir_rfc_forecasts_time_series_path": None,
-            #         "reservoir_rfc_forecasts_lookback_hours": 28,
-            #         "reservoir_rfc_forecasts_offset_hours": 28,
-            #         "reservoir_rfc_forecast_persist_days": 11,
-            #     },
-            #     "reservoir_parameter_file": None,
-            # }
+            res_da = {
+                "reservoir_persistence_da": {
+                    "reservoir_persistence_usgs": False,
+                    "reservoir_persistence_usace": False,
+                },
+                "reservoir_rfc_da": {
+                    "reservoir_rfc_forecasts": False,
+                    "reservoir_rfc_forecasts_time_series_path": None,
+                    "reservoir_rfc_forecasts_lookback_hours": 28,
+                    "reservoir_rfc_forecasts_offset_hours": 28,
+                    "reservoir_rfc_forecast_persist_days": 11,
+                },
+                "reservoir_parameter_file": None,
+            }
 
-            # stream_da = {
-            #     "streamflow_nudging": False,
-            #     "diffusive_streamflow_nudging": False,
-            #     "gage_segID_crosswalk_file": None,
-            # }
+            stream_da = {
+                "streamflow_nudging": False,
+                "diffusive_streamflow_nudging": False,
+                "gage_segID_crosswalk_file": None,
+            }
 
-            # comp_param = {
-            #     "parallel_compute_method": "by-subnetwork-jit-clustered",
-            #     "subnetwork_target_size": 10000,
-            #     "cpu_pool": 16,
-            #     "compute_kernel": "V02-structured",
-            #     "assume_short_ts": True,
-            #     "restart_parameters": {"start_datetime": ""},
-            #     "forcing_parameters": {
-            #         "qts_subdivisions": 12,
-            #         "dt": 300,
-            #         "qlat_input_folder": ".",
-            #         "qlat_file_pattern_filter": "nex-*",
-            #         "nts": 5,
-            #         "max_loop_size": divmod(5 * 300, 3600)[0] + 1,
-            #     },
-            #     "data_assimilation_parameters": {
-            #         "usgs_timeslices_folder": None,
-            #         "usace_timeslices_folder": None,
-            #         "timeslice_lookback_hours": 48,
-            #         "qc_threshold": 1,
-            #         "streamflow_da": stream_da,
-            #         "reservoir_da": res_da,
-            #     },
-            # }
+            comp_param = {
+                "parallel_compute_method": "by-subnetwork-jit-clustered",
+                "subnetwork_target_size": 10000,
+                "cpu_pool": 16,
+                "compute_kernel": "V02-structured",
+                "assume_short_ts": True,
+                "restart_parameters": {"start_datetime": ""},
+                "forcing_parameters": {
+                    "qts_subdivisions": 12,
+                    "dt": 300,
+                    "qlat_input_folder": ".",
+                    "qlat_file_pattern_filter": "nex-*",
+                    "nts": 5,
+                    "max_loop_size": divmod(5 * 300, 3600)[0] + 1,
+                },
+                "data_assimilation_parameters": {
+                    "usgs_timeslices_folder": None,
+                    "usace_timeslices_folder": None,
+                    "timeslice_lookback_hours": 48,
+                    "qc_threshold": 1,
+                    "streamflow_da": stream_da,
+                    "reservoir_da": res_da,
+                },
+            }
 
-            # output_param = {
-            #     "stream_output": {
-            #         "stream_output_directory": ".",
-            #         "stream_output_time": divmod(5 * 300, 3600)[0] + 1,
-            #         "stream_output_type": ".nc",
-            #         "stream_output_internal_frequency": 60,
-            #     }
-            # }
+            output_param = {
+                "stream_output": {
+                    "stream_output_directory": ".",
+                    "stream_output_time": divmod(5 * 300, 3600)[0] + 1,
+                    "stream_output_type": ".nc",
+                    "stream_output_internal_frequency": 60,
+                }
+            }
 
-            # ipe = {"bmi_parameters": bmi_param, "log_parameters": log_param, "network_topology_parameters": nwtopo_param,
-            #        "compute_parameters": comp_param, "output_param": output_param}
+            ipe = {"bmi_parameters": bmi_param, "log_parameters": log_param, "network_topology_parameters": nwtopo_param,
+                   "compute_parameters": comp_param, "output_parameters": output_param}
 
             # #TopoFlow
             # ipe = {'cat-11466':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
             #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
             #        'cat-11467':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
             #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
             #        'cat-11468':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
             #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
             #        'cat-11469':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
             #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
+            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
             #        'cat-11470':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
             #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25},
+            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25},
             #        'cat-11475':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
             #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25},
+            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25},
             #        'cat-11476':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
             #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25}}
+            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25}}
 
-            # Subset IPE based on catchments using module
+            # # Subset IPE based on catchments using module
             ipe_sub = {k: ipe[k] for k in cat_mod if k in ipe}
 
             # Create input file directory
@@ -1850,7 +1850,8 @@ class RealizationBuilder:
 
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
-                gfun.create_cfe_input(cat_mod, mod_input_dir, self.run_type, aet_rootzone_input, ipe_sub)
+                pass
+                #gfun.create_cfe_input(cat_mod, mod_input_dir, self.run_type, aet_rootzone_input, ipe_sub)
             elif m1 == 'topmodel':
                 pass
                 #gfun.create_topmodel_input(self.catids, mod_input_dir, ipe)
@@ -1878,7 +1879,7 @@ class RealizationBuilder:
                 #gfun.create_topoflow_input(cat_mod, self.time_period, mod_input_dir, self.run_type, ipe_sub)
             elif m1 == 'troute':
                 routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
-                #gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type, ipe)
+                gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type, ipe)
 
                     # Modify existing BMI config files from EDFS or the user with correct time period and/or paths
                     if m1 == 'noah':

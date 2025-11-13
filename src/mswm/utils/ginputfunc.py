@@ -2417,8 +2417,8 @@ def create_topoflow_input(
     for run_name in run_list:
         if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
             # Retrieve datetimes
-            start_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
-            end_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+            start_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
+            end_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
 
         # Create sitevars file
         for catID in catids:
@@ -2430,7 +2430,7 @@ def create_topoflow_input(
             cat_ipe['start_time'] = start_time
             cat_ipe['end_time'] = end_time
             cat_ipe['dt'] = 1
-            cat_ipe['forcing_file'] = "'.'"
+            cat_ipe['forcing_file'] = '.'
 
             # Do we need to reference the forcing file for csv/bmi?
 
@@ -2438,7 +2438,7 @@ def create_topoflow_input(
             cat_ipe.pop('glaciated_percent', None)
 
             # Write bmi to file
-            topo_bmi_file = os.path.join(topo_input_dir, catID + '.yml')
+            topo_bmi_file = os.path.join(topo_input_dir, catID + '.yaml')
             with open(topo_bmi_file, 'w') as f:
                 yaml.dump(cat_ipe, f, default_flow_style=False, sort_keys=False)
 
@@ -2871,10 +2871,12 @@ def create_troute_config(
 
         # Remove 'rl_gages' and 'rl_NHDWaterbodyComID' from bmi_param API response
         # Remove "waterbody": "rl_NHDWaterbodyComID", "gages": "rl_gages" from ntwk_columns API
+        # Should be gage and WaterbodyID
         # Rename output_param to output_parameters
 
         # Update compute parameters
         ipe['compute_parameters']['restart_parameters']['start_datetime'] = time_period['run_time_period'][run_name][0]
+        ipe['compute_parameters']['forcing_parameters']['nts'] = nts
         ipe['compute_parameters']['forcing_parameters']['max_loop_size'] = divmod(nts * 300, 3600)[0] + 1
 
         # Update output parameters
