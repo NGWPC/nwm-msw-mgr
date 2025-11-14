@@ -1841,8 +1841,7 @@ class RealizationBuilder:
 
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
-                pass
-                #gfun.create_cfe_input(cat_mod, mod_input_dir, self.run_type, is_aet_rootzone, ipe_sub)
+                gfun.create_cfe_input(cat_mod, mod_input_dir, self.is_aet_rootzone, ipe_sub)
             elif m1 == 'topmodel':
                 gfun.create_topmodel_input(self.catids, mod_input_dir, ipe)
             elif m1 == 'ueb':
@@ -1854,8 +1853,7 @@ class RealizationBuilder:
             elif m1 == "sac":
                 gfun.create_sac_input(cat_mod, mod_input_dir, ipe_sub)
             elif m1 == 'noah':
-                pass
-                #gfun.create_noah_input(cat_mod, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe_sub)
+                gfun.create_noah_input(cat_mod, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe_sub)
             elif m1 == 'lstm':
                 gfun.create_lstm_input(cat_mod, self.conf3['lstm_parameter_dir'], mod_input_dir, ipe_sub)
             elif m1 == 'sft':

@@ -132,22 +132,30 @@ def call_icefabric_api(
     ----------
     dictionary of initial parameter estimates
     """
-    # Assemble API endpoint with module specific options
+    # Modify module names for icefabric
     if mod in ('cfes', 'cfex'):
         cfe_version = 'CFE-S' if mod == 'cfes' else 'CFE-X'
         mod = 'cfe'
+    if mod == 'noah':
+        mod = 'noahowp'
 
-    endpoint = f"http://edfs.test.nextgenwaterprediction.com:8000/v1/modules/{mod}/?identifier={basin}&domain={domain}"
+    # Base endpoint
+    url = f"http://edfs.test.nextgenwaterprediction.com:8000/v1/modules/{mod}/"
+
+    # Build query parameters
+    params = {"identifier": basin,
+              "domain": domain}
+
     if mod == 'cfe':
-        endpoint += f"&cfe_version={cfe_version}"
+        params["cfe_version"] = cfe_version
     if mod in ('lasam', 'cfe') and 'sft' in all_mod:
-        endpoint += "&sft_included=True"
+        params["sft_included"] = True
     if rootzone_aet == 1:
-        endpoint += "&rootzone_aet=True"
+        params["rootzone_aet"] = True
     if envca:
-        endpoint += f"&envca={envca}"
+        params["envca"] = envca
     if mod == 'sft' and 'cfex' not in all_mod:
-        endpoint += "&use_schaake=True"
+        params["use_schaake"] = True
     if mod == 'smp':
         module_map = {"cfes": "CFE-S", "cfex": "CFE-X", "lasam": "LASAM", "topmodel": "TopModel"}
         module_options = set(module_map.keys())
@@ -158,19 +166,17 @@ def call_icefabric_api(
             except Exception as e:
                 logger.critical(e)
                 raise
-        endpoint += f"&extra_module={module_map[match]}"
+        params["extra_module"] = module_map[match]
     if mod == 'lasam':
-        endpoint += "&soil_params_file=vG_default_params_HYDRUS.dat"
-
+        params["soil_params_file"] = "vG_default_params_HYDRUS.dat"
 
     # Call icefabric API endpoint
-    print(endpoint)
     try:
-        icefabric_resp = httpx.get(
-            endpoint,
-            timeout=60.0)
-        icefabric_resp.raise_for_status()
-        ipe = icefabric_resp.json()
+        with httpx.Client(timeout=60.0) as client:
+            resp = client.get(url, params=params)
+            resp.raise_for_status()
+            ipe = resp.json()
+            logger.info(f"Retrieved parameters from Icefabric API for {mod}")
     except httpx.HTTPStatusError as e:
         logger.critical(f"Icefabric API call for {mod} failed: {e}")
         raise
@@ -178,12 +184,9 @@ def call_icefabric_api(
         logger.critical(f"Icefabric API call did not return valid results for {mod}")
         raise
 
-    # Log status of API response
-    icefabric_status = f"Icefabric API Status code for {mod}: {icefabric_resp.status_code}"
-    logger.info(icefabric_status)
-
-    # Reformat IPE json by catchment
-    ipe_formatted = {item['catchment']: {k: v for k, v in item.items() if k != 'catchment'} for item in ipe}
+    # Reformat IPE json by catchment, dropping None Values
+    ipe_formatted = {item['catchment']: {k: (",".join(str(x) for x in v) if isinstance(v, list) else v)
+                                         for k, v in item.items() if k != 'catchment' and v is not None} for item in ipe}
 
     # Return icefabric response
     return ipe_formatted
@@ -465,7 +468,6 @@ def create_walk_file(
 def create_cfe_input(
         catids: List[str],
         cfe_input_dir: Union[str, Path],
-        run_type: str,
         is_aet_rootzone: int,
         ipe: dict
 ) -> None:
@@ -501,13 +503,13 @@ def create_cfe_input(
         cat_ipe["forcing_file"] = "BMI"
         cat_ipe['verbosity'] = 1
         cat_ipe['DEBUG'] = 0
-        cat_ipe['num_timesteps'] = 1
+        cat_ipe['num_timesteps'] = 10  # Set to default for Nash runoff
 
-        # Add aet_rootzone parameters if option is selected
-        if is_aet_rootzone == 1:
-            cat_ipe["is_aet_rootzone"] = 1
-            cat_ipe["max_rootzone_layer"] = 2
-            cat_ipe["soil_layer_depths"] = "0.1,0.4,1.0,2.0[m]"
+        # # Add aet_rootzone parameters if option is selected
+        # if is_aet_rootzone == 1:
+        #     cat_ipe["is_aet_rootzone"] = 1
+        #     cat_ipe["max_rootzone_layer"] = 2
+        #     cat_ipe["soil_layer_depths"] = "0.1,0.4,1.0,2.0[m]"
 
         # Write parameters to file
         cfe_bmi_file = os.path.join(cfe_input_dir, catID + "_bmi_config_cfe.txt")
@@ -751,9 +753,9 @@ def create_noah_input(
                            "/",
                            "",
                            "&initial_values",
-                           f"  {'dzsnso'.ljust(10)}= {', '.join(map(str, cat_ipe['dzsnso']))}      ! level thickness [m]",
-                           f"  {'sice'.ljust(10)}= {', '.join(map(str, cat_ipe['sice']))}                     ! initial soil ice profile [m3/m3]",
-                           f"  {'sh2o'.ljust(10)}= {', '.join(map(str, cat_ipe['sh2o']))}                     ! initial soil liquid profile [m3/m3]",
+                           f"  {'dzsnso'.ljust(10)}= {cat_ipe['dzsnso']}      ! level thickness [m]",
+                           f"  {'sice'.ljust(10)}= {cat_ipe['sice']}                     ! initial soil ice profile [m3/m3]",
+                           f"  {'sh2o'.ljust(10)}= {cat_ipe['sh2o']}                     ! initial soil liquid profile [m3/m3]",
                            f"  {'zwt'.ljust(10)}= {cat_ipe['zwt']}                                   ! initial water table depth below surface [m]",
                            "/",
                            ]
