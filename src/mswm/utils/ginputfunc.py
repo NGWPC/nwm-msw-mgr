@@ -6,6 +6,7 @@ This module contains a variety of functions to create different input files.
 
 import datetime
 import glob
+import ast
 import json
 import os
 import subprocess
@@ -136,8 +137,10 @@ def call_icefabric_api(
     if mod in ('cfes', 'cfex'):
         cfe_version = 'CFE-S' if mod == 'cfes' else 'CFE-X'
         mod = 'cfe'
-    if mod == 'noah':
+    elif mod == 'noah':
         mod = 'noahowp'
+    elif mod == 'sac':
+        mod = 'sacsma'
 
     # Base endpoint
     url = f"http://edfs.test.nextgenwaterprediction.com:8000/v1/modules/{mod}/"
@@ -158,15 +161,14 @@ def call_icefabric_api(
         params["use_schaake"] = True
     if mod == 'smp':
         module_map = {"cfes": "CFE-S", "cfex": "CFE-X", "lasam": "LASAM", "topmodel": "TopModel"}
-        module_options = set(module_map.keys())
-        match = module_options.intersection(all_mod)
+        match = set(all_mod).intersection(module_map.keys())
         if len(match) != 1:
             try:
                 raise Exception("One rainfall runoff model must be paired with SMP")
             except Exception as e:
                 logger.critical(e)
                 raise
-        params["extra_module"] = module_map[match]
+        params["module"] = module_map[list(match)[0]]
     if mod == 'lasam':
         params["soil_params_file"] = "vG_default_params_HYDRUS.dat"
 
@@ -184,9 +186,21 @@ def call_icefabric_api(
         logger.critical(f"Icefabric API call did not return valid results for {mod}")
         raise
 
-    # Reformat IPE json by catchment, dropping None Values
-    ipe_formatted = {item['catchment']: {k: (",".join(str(x) for x in v) if isinstance(v, list) else v)
-                                         for k, v in item.items() if k != 'catchment' and v is not None} for item in ipe}
+    # Reformat IPE json by catchment, dropping None Values and catchment
+    ipe_formatted = {}
+    for item in ipe:
+        if mod == 'topoflow':
+            key = item['site_prefix']
+            drop_keys = set()
+        else:
+            key = item["catchment"]
+            drop_keys = {"catchment"}
+
+        ipe_formatted[key] = {
+            k: (",".join(str(x) for x in v) if isinstance(v, list) else v)
+            for k, v in item.items()
+            if k not in drop_keys and v is not None
+        }
 
     # Return icefabric response
     return ipe_formatted
@@ -468,7 +482,6 @@ def create_walk_file(
 def create_cfe_input(
         catids: List[str],
         cfe_input_dir: Union[str, Path],
-        is_aet_rootzone: int,
         ipe: dict
 ) -> None:
     """ Create BMI initial configuration file for CFE with Schaake or Xianjiang infiltration and runoff scheme
@@ -504,12 +517,6 @@ def create_cfe_input(
         cat_ipe['verbosity'] = 1
         cat_ipe['DEBUG'] = 0
         cat_ipe['num_timesteps'] = 10  # Set to default for Nash runoff
-
-        # # Add aet_rootzone parameters if option is selected
-        # if is_aet_rootzone == 1:
-        #     cat_ipe["is_aet_rootzone"] = 1
-        #     cat_ipe["max_rootzone_layer"] = 2
-        #     cat_ipe["soil_layer_depths"] = "0.1,0.4,1.0,2.0[m]"
 
         # Write parameters to file
         cfe_bmi_file = os.path.join(cfe_input_dir, catID + "_bmi_config_cfe.txt")
@@ -1339,7 +1346,7 @@ def create_ueb_input(
         temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
         with open(temp_file) as f:
             lines = f.readlines()
-        lines[18] = f"{cat_ipe['standard_atm_pressure']}\n"  # Confirm this is needed and correct
+        lines[18] = f"{cat_ipe['standard_atm_pressure']}\n"
         lines[39] = f"{cat_ipe['slope']}\n"
         lines[42] = f"{cat_ipe['aspect']}\n"
         lines[45] = f"{cat_ipe['latitude']}\n"
@@ -1379,7 +1386,7 @@ def create_ueb_input(
                 input_file = os.path.join(ueb_input_dir, 'ueb-init-' + catID + '_' + run_name + '.dat')
                 site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
                 input_list = [
-                    'UEBGrid Model Driver Test for TWDEF',  # TODO does this need to be updated?
+                    'UEB site initial',
                     const_files['params'],
                     site_file,
                     const_files['inputctr'],
@@ -1895,7 +1902,7 @@ def create_lstm_input(
 
         # Update parameters
         cat_ipe['basin_name'] = catID
-        cat_ipe['verbose'] = "'1'"
+        cat_ipe['verbose'] = '1'
         cat_ipe['timestep'] = '1 hour'
 
         # Write bmi config to file
@@ -2510,12 +2517,12 @@ def create_topoflow_input(
             cat_ipe['start_time'] = start_time
             cat_ipe['end_time'] = end_time
             cat_ipe['dt'] = 1
-            cat_ipe['forcing_file'] = '.'
+            cat_ipe['forcing_file'] = "."
 
             # Do we need to reference the forcing file for csv/bmi?
 
             # Drop glaciated_percent
-            cat_ipe.pop('glaciated_percent', None)
+            cat_ipe.pop('glacier_percent', None)
 
             # Write bmi to file
             topo_bmi_file = os.path.join(topo_input_dir, catID + '.yaml')
@@ -2560,7 +2567,9 @@ def create_topmodel_input(
             outfile.write(f"Extracted study basin:  {catID} \n")
             outfile.write(f"{cat_ipe['num_topodex_values']} {cat_ipe['area']} \n")
         try:
-            cat_ipe['twi'].to_csv(cfg_filename_subcat_path, mode='a', sep=' ', index=False, header=False)
+            # Format twi
+            twi_df = pd.DataFrame(ast.literal_eval("[" + cat_ipe["twi"] + "]"))[["frequency", "v"]]
+            twi_df.to_csv(cfg_filename_subcat_path, mode='a', sep=' ', index=False, header=False)
         except Exception as e:
             logger.error(f"Failed to write TopModel TWI data to {cfg_filename_subcat_path}: {e}")
             raise
@@ -2939,8 +2948,8 @@ def create_troute_config(
         run_names = ['region']
 
     # Update nwtopo params
-    ipe['network_topology_parameters']['supernetwork_parameters']['geo_file_path'] = gpkg_file
-    ipe['network_topology_parameters']['waterbody_parameters']['level_pool']['level_pool_waterbody_parameter_file_path'] = gpkg_file
+    ipe['nwtopo_param']['supernetwork_parameters']['geo_file_path'] = gpkg_file
+    ipe['nwtopo_param']['waterbody_parameters']['level_pool']['level_pool_waterbody_parameter_file_path'] = gpkg_file
 
     for file_name, run_name in zip(run_configs, run_names):
         routing_config_file = os.path.join(rt_cfg_file + file_name)
@@ -2955,12 +2964,12 @@ def create_troute_config(
         # Rename output_param to output_parameters
 
         # Update compute parameters
-        ipe['compute_parameters']['restart_parameters']['start_datetime'] = time_period['run_time_period'][run_name][0]
-        ipe['compute_parameters']['forcing_parameters']['nts'] = nts
-        ipe['compute_parameters']['forcing_parameters']['max_loop_size'] = divmod(nts * 300, 3600)[0] + 1
+        ipe['comp_param']['restart_parameters']['start_datetime'] = time_period['run_time_period'][run_name][0]
+        ipe['comp_param']['forcing_parameters']['nts'] = nts
+        ipe['comp_param']['forcing_parameters']['max_loop_size'] = divmod(nts * 300, 3600)[0] + 1
 
         # Update output parameters
-        ipe['output_param']['stream_output']['stream_output_time'] = divmod(nts * 300, 3600)[0] + 1
+        ipe['output_parameters']['stream_output']['stream_output_time'] = divmod(nts * 300, 3600)[0] + 1
 
         # Save configuration into yaml file
         with open(routing_config_file, 'w') as file:

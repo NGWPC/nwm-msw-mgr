@@ -877,38 +877,48 @@ class RealizationBuilder:
             validate_formulation(self.modules)
             logger.info("Module processes validated")
 
+    def _create_input_dir(self):
+        """
+        Create input directory to store realization file and BMI config files
+        """
+        # Set run directory based on run_type
+        self.basin = self.conf1['basin']
+        obj_fnc = self.conf2.get('objective_function') or "none"
+        opt_alg = self.conf2.get('optimization_algorithm') or "none"
+        if self.run_type == 'calibration':
+            run_dir = os.path.join(self.conf1['main_dir'], '_'.join([obj_fnc, opt_alg]))
+        elif self.run_type == 'regionalization':
+            run_dir = os.path.join(self.conf1['main_dir'], 'regionalization')
+        elif self.run_type == 'default':
+            run_dir = os.path.join(self.conf1['main_dir'], 'default')
+
+        # Form input directory paths
+        self.work_dir = os.path.join(run_dir, self.conf1['formulation'] + '/' + self.basin)
+        self.input_dir = os.path.join(self.work_dir, 'Input/')
+
+        # Create directory
+        try:
+            os.makedirs(self.input_dir, exist_ok=True)
+        except Exception as e:
+            logger.critical(f"Invalid input directory: {e}. Check `main_dir` variable")
+            raise
+
+        logger.info(f"Input directory created at: {self.input_dir}")
+
     def _get_glacier_pct(self):
         """
         Retrieve glacier percentage from Icefabric API if Topoflow is in use
         """
         if hasattr(self, 'grp_to_form') and self.grp_to_form:
             if any('topoflow' in v for v in self.grp_to_form.values()):
-                # CALL API FOR TOPOFLOW
-                self.topoflow_ipe = {'cat-11466':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
-                                     'cat-11467':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
-                                     'cat-11468':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
-                                     'cat-11469':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
-                                     'cat-11470':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25},
-                                     'cat-11475':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25},
-                                     'cat-11476':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-                                                  "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-                                                  "h0_snow=":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25}}
+
+                # Call Icefabric API for TopoFlow
+                self.domain = 'conus_hf'
+                self.topoflow_ipe = gfun.call_icefabric_api('topoflow', ['topoflow'], self.basin, self.domain)
 
                 # Retrieve list of catchments where glaciated percent >= 50
-                topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glaciated_percent', 0) >= 50]
-                nontopo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glaciated_percent', 0) < 50]
+                topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= 50]
+                nontopo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) < 50]
 
                 # Create cat_to_grp and cat_to_form variables
                 self.grp_to_cat = {'group_1': topo_cats,
@@ -1280,11 +1290,14 @@ class RealizationBuilder:
         else:
             mod_all = self.modules.copy()
 
-        # Ensure cfes and cfex are first in mod_all
+        # Ensure cfes and cfex are first in mod_all, and troute last
         if 'cfes' in mod_all:
             mod_all = ['cfes'] + [m1 for m1 in mod_all if m1 != 'cfes']
         if 'cfex' in mod_all:
             mod_all = ['cfex'] + [m1 for m1 in mod_all if m1 != 'cfex']
+        if 'troute' in mod_all:
+            mod_all.remove('troute')
+            mod_all.append('troute')
 
         # loop through modules to create input files
         for m1 in mod_all:
@@ -1306,527 +1319,14 @@ class RealizationBuilder:
                 continue
 
             # Retrieve initial parameters from Icefabric API
-            # Pass gage and module
-            # CFE must retrieve "surface_water_partitioning_scheme" and "is_sft_coupled"
-            # Add some sort of support for identifying domain
-            domain = "conus_hf"
-            envca = None
-            print(f"Module: {m1}")
-            ipe = gfun.call_icefabric_api(m1, mod_all, self.basin, domain, self.is_aet_rootzone, envca)
-            print(f"IPE: {ipe}")
-
-            # Reformat to be a dictionary of catchments and their parameters
-            # CFE IPE
-            # ipe = {"cat-11466": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
-            #                             "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
-            #                             "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
-            #                             "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
-            #                             "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
-            #                             "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
-            #                             "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
-            #                             "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
-            #              "cat-11467": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
-            #                             "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
-            #                             "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
-            #                             "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
-            #                             "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
-            #                             "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
-            #                             "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
-            #                             "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
-            #              "cat-11468": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
-            #                             "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
-            #                             "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
-            #                             "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
-            #                             "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
-            #                             "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
-            #                             "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
-            #                             "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
-            #              "cat-11469": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
-            #                             "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
-            #                             "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
-            #                             "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
-            #                             "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
-            #                             "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
-            #                             "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
-            #                             "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
-            #              "cat-11470": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
-            #                             "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
-            #                             "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
-            #                             "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
-            #                             "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
-            #                             "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
-            #                             "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
-            #                             "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
-            #              "cat-11475": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
-            #                             "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
-            #                             "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
-            #                             "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
-            #                             "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
-            #                             "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
-            #                             "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
-            #                             "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"},
-            #              "cat-11476": {"forcing_file":"BMI","verbosity":1,"surface_water_partitioning_scheme":"Schaake",
-            #                             "surface_runoff_scheme":"GIUH","DEBUG":0,"num_timesteps":1,"is_sft_coupled":0,
-            #                             "ice_content_threshold":0.15,"alpha_fc":0.33,"Cgw":"1.8e-05[m/hr]","expon":"3.0[]",
-            #                             "giuh_ordinates":"0.55, 0.25, 0.2[]","gw_storage":"0.05[m/m]","K_lf":"0.01[]","K_nash":"0.003[1/m]",
-            #                             "max_gw_storage":"0.24849776[m]","nash_storage":"0.0,0.0[]","refkdt":"2.0[]","soil_params.b":"7.551834583282471[]",
-            #                             "soil_params.depth":"2.0[m]","soil_params.expon":"1[]","soil_params.expon_secondary":"1[]","soil_params.satdk":"1.5618577223186049e-06[m/s]",
-            #                             "soil_params.satpsi":"0.02034095055528136[m]","soil_params.slop":"0.1406199187040329[m/m]","soil_params.smcmax":"0.40821343660354614[m/m]",
-            #                             "soil_params.wltsmc":"0.04699999466538429[m/m]","soil_storage":"0.5[m/m]"}}
-
-            # # SFT IPE
-            # ipe = {"cat-11466": {"verbosity":"none","soil_moisture_bmi":1,"end_time": "1.[d]","dt":"1.0[h]",
-            #                      "soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_params.quartz":1.0,"ice_fraction_scheme":"Schaake","soil_z":"0.1,0.3,1.0,2.0[m]",
-            #                      "soil_temperature":"280.37,280.37,280.37,280.37[K]"},
-            #        "cat-11467": {"verbosity":"none","soil_moisture_bmi":1,"end_time": "1.[d]","dt":"1.0[h]",
-            #                      "soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_params.quartz":1.0,"ice_fraction_scheme":"Schaake","soil_z":"0.1,0.3,1.0,2.0[m]",
-            #                      "soil_temperature":"280.37,280.37,280.37,280.37[K]"},
-            #        "cat-11468": {"verbosity":"none","soil_moisture_bmi":1,"end_time": "1.[d]","dt":"1.0[h]",
-            #                      "soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_params.quartz":1.0,"ice_fraction_scheme":"Schaake","soil_z":"0.1,0.3,1.0,2.0[m]",
-            #                      "soil_temperature":"280.37,280.37,280.37,280.37[K]"},
-            #        "cat-11469": {"verbosity":"none","soil_moisture_bmi":1,"end_time": "1.[d]","dt":"1.0[h]",
-            #                      "soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_params.quartz":1.0,"ice_fraction_scheme":"Schaake","soil_z":"0.1,0.3,1.0,2.0[m]",
-            #                      "soil_temperature":"280.37,280.37,280.37,280.37[K]"},
-            #        "cat-11470": {"verbosity":"none","soil_moisture_bmi":1,"end_time": "1.[d]","dt":"1.0[h]",
-            #                      "soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_params.quartz":1.0,"ice_fraction_scheme":"Schaake","soil_z":"0.1,0.3,1.0,2.0[m]",
-            #                      "soil_temperature":"280.37,280.37,280.37,280.37[K]"},
-            #        "cat-11475": {"verbosity":"none","soil_moisture_bmi":1,"end_time": "1.[d]","dt":"1.0[h]",
-            #                      "soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_params.quartz":1.0,"ice_fraction_scheme":"Schaake","soil_z":"0.1,0.3,1.0,2.0[m]",
-            #                      "soil_temperature":"280.37,280.37,280.37,280.37[K]"},
-            #        "cat-11476": {"verbosity":"none","soil_moisture_bmi":1,"end_time": "1.[d]","dt":"1.0[h]",
-            #                      "soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_params.quartz":1.0,"ice_fraction_scheme":"Schaake","soil_z":"0.1,0.3,1.0,2.0[m]",
-            #                      "soil_temperature":"280.37,280.37,280.37,280.37[K]"}}
-
-            # # SMP IPE
-            # ipe = {"cat-11466": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-            #        "cat-11467": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-            #        "cat-11468": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-            #        "cat-11469": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-            #        "cat-11470": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-            #        "cat-11475": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0},
-            #        "cat-11476": {"verbosity":"none","soil_params.smcmax":0.434,"soil_params.b":4.05,"soil_params.satpsi":0.0355,
-            #                      "soil_z":"0.1,0.3,1.0,2.0[m]","soil_storage_model":"conceptual","soil_storage_depth":2.0}}
-
-            # # LASAM IPE
-            # ipe = {"cat-11466": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-            #        "cat-11467": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-            #        "cat-11468": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-            #        "cat-11469": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-            #        "cat-11470": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-            #        "cat-11475": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"},
-            #        "cat-11476": {"verbosity": "none","soil_params_file":"x","layer_thickness":"200.0[cm]","initial_psi":"2000.0[cm]",
-            #                      "timestep": "300[sec]","endtime":"1000[hr]","forcing_resolution":"3600[sec]","ponded_depth_max":"1.1[cm]",
-            #                      "use_closed_form_G":'false',"layer_soil_type":3,"max_soil_types":15,"wilting_point_psi":"15495.0[cm]",
-            #                      "field_capacity_psi":"340.0[cm]","giuh_ordinates":"0.06,0.51,0.28,0.12,0.03","calib_params":"true",
-            #                      "adaptive_timestep":"true","sft_coupled":"false","soil_z":"10,30,100.0,200.0[cm]"}}
-
-            # # SAC-SMA
-            # ipe = {"cat-11466": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-            #        "cat-11467": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-            #        "cat-11468": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-            #        "cat-11469": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-            #        "cat-11470": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-            #        "cat-11475": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-            #                     "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-            #                     "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3},
-            #        "cat-11476": {"hru_id":"cat-11466","hru_area":8.8,"uztwm":51.8,"uzfwm":47.1,"lztwm":146.9,"lzfpm":147.3,
-            #                      "lzfsm":10.8,"adimp":0.00,"uzk": 0.51,"lzpk":0.032,"lzsk":0.18,"zperc":55.9,"rexp":1.44,
-            #                      "pctim":0.00,"pfree":0.08,"riva":0.00,"side":0.00,"rserv":0.3}}
-
-            # # LSTM
-            # ipe = {"cat-11466": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-            #        "cat-11467": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-            #        "cat-11468": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-            #        "cat-11469": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-            #        "cat-11470": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-            #        "cat-11475": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"},
-            #        "cat-11476": {"area_sqkm":8.85,"basin_id":"cat-11466","basin_name":"cat-11466","elev_mean":188.1,"initial_state": "zero",
-            #                      "lat": 41.8,"lon":-72.1,"slope_mean":76.9,"timestep":"1 hour","train_cfg_file":"","verbose": "'1'"}}
-
-            # # UEB
-            # ipe = {"cat-11466": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
-            #        "cat-11467": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
-            #        "cat-11468": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
-            #        "cat-11469": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
-            #        "cat-11470": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
-            #        "cat-11475": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5},
-            #        "cat-11476": {"aspect":187.2,"slope":76.88,"longitude":-72.1,"latitude":41.8,"elevation":100,"standard_atm_pressure":74000,
-            #                      "jan_temp_range":7,"feb_temp_range":8,"mar_temp_range":9,"apr_temp_range":10,"may_temp_range":11,
-            #                      "jun_temp_range":12,"jul_temp_range":13,"aug_temp_range":12.5,"sep_temp_range":11.5,"oct_temp_range":10.5,
-            #                      "nov_temp_range": 9.5,"dec_temp_range":8.5}}
-
-            # # Snow17
-            # ipe = {"cat-11466": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
-            #                      "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
-            #                      "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
-            #        "cat-11467": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
-            #                      "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
-            #                      "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
-            #        "cat-11468": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
-            #                      "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
-            #                      "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
-            #        "cat-11469": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
-            #                      "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
-            #                      "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
-            #        "cat-11470": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
-            #                      "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
-            #                      "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
-            #        "cat-11475": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
-            #                      "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
-            #                      "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1},
-            #        "cat-11476": {"hru_id": "cat-11466","hru_area": 8.8,"latitude": 41.8,"elev": 188,"scf": 1.1,"mfmax":1.59,"mfmin": 0.42,
-            #                      "uadj":0.05,"si":500,"pxtemp":1,"nmf": 0.15,"tipm":0.1,"mbase":0,"plwhc":0.03,"daygm":0,"adc1":0.05,
-            #                      "adc2":0.1,"adc3":0.2,"adc4":0.3,"adc5":0.4,"adc6":0.5,"adc7":0.6,"adc8":0.7,"adc9":0.8,"adc10":0.9,"adc11":1}}
-
-            # # # NOAH
-            # ipe = {"cat-11466": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11467": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11468": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11469": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11470": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11475": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0},
-            #        "cat-11476": {"dt":3600,"startdate":"201510010100","enddate":"201510010100","forcing_filename":".","output_filename":".",
-            #                      "parameter_dir":".","general_table":"GENPARM.TBL","soil_table":"SOILPARM.TBL","noahowp_table":"MPTABLE.TBL",
-            #                      "soil_class_name":"STAS","veg_class_name":"USGS","lat":41.8,"lon":-72.05,"terrain_slope":76.88,"azimuth":187.2,
-            #                      "ZREF":10,"rain_snow_thresh":0.5,"precip_phase_option":6,"snow_albedo_option":1,"dynamic_veg_option":4,
-            #                      "runoff_option":3,"drainage_option":8,"frozen_soil_option":1,"dynamic_vic_option":1,"radiative_transfer_option":3,
-            #                      "sfc_drag_coeff_option":1,"canopy_stom_resist_option":1,"crop_model_option":0,"snowsoil_temp_time_option":3,
-            #                      "soil_temp_boundary_option":1,"supercooled_water_option":1,"stomatal_resistance_option":1,"evap_srfc_resistance_option":4,
-            #                      "subsurface_option":2,"isltyp":3,"nsoil":4,"nsnow":3,"nveg":27,"vegtyp":11,"croptype":0,"sfctyp":1,"soilcolor":4,
-            #                      "dzsnso":[0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0],"sice":[0.0, 0.0, 0.0, 0.0],"sh2o":[0.3, 0.3, 0.3, 0.3],"zwt":-2.0}}
-
-            # # Topmodel
-            # ipe = {"cat-11466": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-            #        "cat-11467": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-            #        "cat-11468": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-            #        "cat-11469": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-            #        "cat-11470": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-            #        "cat-11475": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1},
-            #        "cat-11476": {"catchment":"cat-11466","divide_id":"cat-11466","num_sub_catchments":1,"imap":1,"yes_print_output":1,"twi":pd.DataFrame([[0.25, 4.8], [0.25, 7.2], [0.25, 8.06], [0.25, 14.3]]),
-            #                      "num_topodex_values":4,"area":1,"num_channels":1,"cum_dist_area_with_dist":1.0,"dist_from_outlet":2926,"szm":0.0125,"t0":0.000075,"td":20,"chv":1000,
-            #                      "rv":1000,"srmax":0.04,"Q0":0.0000328,"sr0":0,"infex":0,"xk0":2,"hf":0.1,"dth":0.1}}
-
-            # # T-route
-            # # Default values
-            # bmi_param = {
-            #     "flowpath_columns": ["id", "toid", "lengthkm"],
-            #     "attributes_columns": [
-            #         "attributes_id",
-            #         "gage",
-            #         "WaterbodyID",
-            #         "MusK",
-            #         "MusX",
-            #         "n",
-            #         "So",
-            #         "ChSlp",
-            #         "BtmWdth",
-            #         "nCC",
-            #         "TopWdthCC",
-            #         "TopWdth",
-            #     ],
-            #     "waterbody_columns": [
-            #         "hl_link",
-            #         "ifd",
-            #         "LkArea",
-            #         "LkMxE",
-            #         "OrificeA",
-            #         "OrificeC",
-            #         "OrificeE",
-            #         "WeirC",
-            #         "WeirE",
-            #         "WeirL",
-            #     ],
-            #     "network_columns": ["network_id", "hydroseq", "hl_uri"],
-            # }
-
-            # log_param = {"showtiming": True, "log_level": "DEBUG"}
-
-            # ntwk_columns = {
-            #     "key": "id",
-            #     "downstream": "toid",
-            #     "dx": "lengthkm",
-            #     "n": "n",
-            #     "ncc": "nCC",
-            #     "s0": "So",
-            #     "bw": "BtmWdth",
-            #     "waterbody": "WaterbodyID",
-            #     "gages": "gage",
-            #     "tw": "TopWdth",
-            #     "twcc": "TopWdthCC",
-            #     "musk": "MusK",
-            #     "musx": "MusX",
-            #     "cs": "ChSlp",
-            #     "alt": "alt",
-            # }
-
-            # dupseg = [
-            #     "717696",
-            #     "1311881",
-            #     "3133581",
-            #     "1010832",
-            #     "1023120",
-            #     "1813525",
-            #     "1531545",
-            #     "1304859",
-            #     "1320604",
-            #     "1233435",
-            #     "11816",
-            #     "1312051",
-            #     "2723765",
-            #     "2613174",
-            #     "846266",
-            #     "1304891",
-            #     "1233595",
-            #     "1996602",
-            #     "2822462",
-            #     "2384576",
-            #     "1021504",
-            #     "2360642",
-            #     "1326659",
-            #     "1826754",
-            #     "572364",
-            #     "1336910",
-            #     "1332558",
-            #     "1023054",
-            #     "3133527",
-            #     "3053788",
-            #     "3101661",
-            #     "2043487",
-            #     "3056866",
-            #     "1296744",
-            #     "1233515",
-            #     "2045165",
-            #     "1230577",
-            #     "1010164",
-            #     "1031669",
-            #     "1291638",
-            #     "1637751",
-            # ]
-
-            # nwtopo_param = {
-            #     "supernetwork_parameters": {
-            #         "network_type": "HYFeaturesNetwork",
-            #         "geo_file_path": "",
-            #         "columns": ntwk_columns,
-            #         "duplicate_wb_segments": dupseg,
-            #     },
-            #     "waterbody_parameters": {
-            #         "break_network_at_waterbodies": True,
-            #         "level_pool": {"level_pool_waterbody_parameter_file_path": ""},
-            #     },
-            # }
-
-            # res_da = {
-            #     "reservoir_persistence_da": {
-            #         "reservoir_persistence_usgs": False,
-            #         "reservoir_persistence_usace": False,
-            #     },
-            #     "reservoir_rfc_da": {
-            #         "reservoir_rfc_forecasts": False,
-            #         "reservoir_rfc_forecasts_time_series_path": None,
-            #         "reservoir_rfc_forecasts_lookback_hours": 28,
-            #         "reservoir_rfc_forecasts_offset_hours": 28,
-            #         "reservoir_rfc_forecast_persist_days": 11,
-            #     },
-            #     "reservoir_parameter_file": None,
-            # }
-
-            # stream_da = {
-            #     "streamflow_nudging": False,
-            #     "diffusive_streamflow_nudging": False,
-            #     "gage_segID_crosswalk_file": None,
-            # }
-
-            # comp_param = {
-            #     "parallel_compute_method": "by-subnetwork-jit-clustered",
-            #     "subnetwork_target_size": 10000,
-            #     "cpu_pool": 16,
-            #     "compute_kernel": "V02-structured",
-            #     "assume_short_ts": True,
-            #     "restart_parameters": {"start_datetime": ""},
-            #     "forcing_parameters": {
-            #         "qts_subdivisions": 12,
-            #         "dt": 300,
-            #         "qlat_input_folder": ".",
-            #         "qlat_file_pattern_filter": "nex-*",
-            #         "nts": 5,
-            #         "max_loop_size": divmod(5 * 300, 3600)[0] + 1,
-            #     },
-            #     "data_assimilation_parameters": {
-            #         "usgs_timeslices_folder": None,
-            #         "usace_timeslices_folder": None,
-            #         "timeslice_lookback_hours": 48,
-            #         "qc_threshold": 1,
-            #         "streamflow_da": stream_da,
-            #         "reservoir_da": res_da,
-            #     },
-            # }
-
-            # output_param = {
-            #     "stream_output": {
-            #         "stream_output_directory": ".",
-            #         "stream_output_time": divmod(5 * 300, 3600)[0] + 1,
-            #         "stream_output_type": ".nc",
-            #         "stream_output_internal_frequency": 60,
-            #     }
-            # }
-
-            # ipe = {"bmi_parameters": bmi_param, "log_parameters": log_param, "network_topology_parameters": nwtopo_param,
-            #        "compute_parameters": comp_param, "output_parameters": output_param}
-
-            # #TopoFlow
-            # ipe = {'cat-11466':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-            #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
-            #        'cat-11467':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-            #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
-            #        'cat-11468':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-            #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
-            #        'cat-11469':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-            #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":75},
-            #        'cat-11470':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-            #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25},
-            #        'cat-11475':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-            #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25},
-            #        'cat-11476':{"site_prefix":"cat-11466","forcing_file":".","dt":1,"start_time":"2013032000", "end_time":"2013052000",
-            #                     "da":16.9,"slope":88.5,"aspect":196,"lon":-121.7,"lat":46.8,"elev":2365,"h_active_layer":0.125,
-            #                     "h0_snow":0.02,"h0_ice":2,"h0_swe":0.001,"h0_iwe":1.8,"T_rain_snow":0,"glaciated_percent":25}}
+            if m1 == 'topoflow':
+                ipe = self.topoflow_ipe.copy()
+            else:
+                self.domain = "conus_hf"
+                envca = None
+                print(f"Module: {m1}")
+                ipe = gfun.call_icefabric_api(m1, mod_all, self.basin, self.domain, self.is_aet_rootzone, envca)
+                print(f"IPE: {ipe}")
 
             # # Subset IPE based on catchments using module
             ipe_sub = {k: ipe[k] for k in cat_mod if k in ipe}
@@ -1841,7 +1341,7 @@ class RealizationBuilder:
 
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
-                gfun.create_cfe_input(cat_mod, mod_input_dir, self.is_aet_rootzone, ipe_sub)
+                gfun.create_cfe_input(cat_mod, mod_input_dir, ipe_sub)
             elif m1 == 'topmodel':
                 gfun.create_topmodel_input(self.catids, mod_input_dir, ipe)
             elif m1 == 'ueb':
@@ -1863,10 +1363,10 @@ class RealizationBuilder:
             elif m1 == 'lasam':
                 gfun.create_lasam_input(cat_mod, mod_input_dir, self.conf3['lasam_parameter_dir'], ipe_sub)
             elif m1 == 'topoflow':
-                pass
-                #gfun.create_topoflow_input(cat_mod, self.time_period, mod_input_dir, self.run_type, ipe_sub)
+                gfun.create_topoflow_input(cat_mod, self.time_period, mod_input_dir, self.run_type, ipe_sub)
             elif m1 == 'troute':
                 routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
+                ipe = ipe['cat-11466']  # Remove after troute endpoint is updated
                 gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type, ipe)
 
                     # Modify existing BMI config files from EDFS or the user with correct time period and/or paths
@@ -2211,10 +1711,10 @@ class RealizationBuilder:
         # Write realization file
         if hasattr(self, 'grp_to_form') and self.grp_to_form:
             gfun.create_reg_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
-                                         self.time_period, rt_dict, self.output_dict, self.run_type, self.cat_to_grp, self.grp_to_form, {})
+                                             self.time_period, rt_dict, self.output_dict, self.run_type, self.cat_to_grp, self.grp_to_form, {})
         else:
             gfun.create_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
-                                        self.modules, self.time_period, rt_dict, self.output_dict, self.run_type)
+                                         self.modules, self.time_period, rt_dict, self.output_dict, self.run_type)
 
     def _write_region_realization(self):
         """
@@ -2361,6 +1861,7 @@ class RealizationBuilder:
         self._parse_calib_settings()
         self._parse_modules()
         self._validate_processes()
+        self._create_input_dir()
         self._get_glacier_pct()
         self._map_cat_to_grp()
         self._map_cat_to_form()
