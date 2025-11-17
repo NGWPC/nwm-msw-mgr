@@ -17,7 +17,6 @@ import json
 import yaml
 from collections import defaultdict
 from pydantic import ValidationError, validate_call
-import shutil
 import subprocess
 
 from mswm.utils import ginputfunc as gfun
@@ -46,7 +45,7 @@ class RealizationBuilder:
     `config_overrides` (class argument and property): InputConfig
         When this is provided as an argument to class construction, it is used instead of
         reading configuration from disk, and `config_overrides_mode__amend` is set to False.
-        
+
         This can also be provided after class construction, in order to cause the configuration to be
         updated per-section, per-key, using the overrides, rather than fully replaced.
 
@@ -67,20 +66,20 @@ class RealizationBuilder:
 
         if config_overrides:
             if input_path:
-                raise ValueError(f"Must provide `input_path` or `config_overrides` (both were provided)")
+                raise ValueError("Must provide `input_path` or `config_overrides` (both were provided)")
             self.input_path = None
             self.config_overrides = config_overrides
             self.config_overrides_mode__amend = False
 
         elif input_path:
             if config_overrides:
-                raise ValueError(f"Must provide `input_path` or `config_overrides` (both were provided)")
+                raise ValueError("Must provide `input_path` or `config_overrides` (both were provided)")
             self.input_path = Path(input_path)
             self.config_overrides = None
             self.config_overrides_mode__amend = True
 
         else:
-            raise ValueError(f"Must provide `input_path` or `config_overrides`")
+            raise ValueError("Must provide `input_path` or `config_overrides`")
 
         self.valid_yaml = Path(valid_yaml) if valid_yaml else None
 
@@ -116,7 +115,7 @@ class RealizationBuilder:
         import configparser
 
         if self.input_path is None:
-            main_logger.debug(f"self.input_path is None")
+            main_logger.debug("self.input_path is None")
             if self.config_overrides is None:
                 raise ValueError(f"self.input_path = {self.input_path} and self.config_overrides = {self.config_overrides}")
             return
@@ -155,7 +154,6 @@ class RealizationBuilder:
                 raise
 
         self.__validate_config()
-
 
     def __validate_config(self):
         """
@@ -202,7 +200,7 @@ class RealizationBuilder:
         if not self.config_overrides:
             main_logger.info(f"self.config_overrides = {self.config_overrides}, will not apply overrides")
             return
-        
+
         main_logger.info(f"Will apply config overrides with self.config_overrides_mode__amend={self.config_overrides_mode__amend}")
 
         if self.config_overrides_mode__amend:
@@ -218,7 +216,7 @@ class RealizationBuilder:
             configs = self.config_overrides.model_dump()
 
         model = InputConfig(**configs)
-        main_logger.info(f"Applying config overrides")
+        main_logger.info("Applying config overrides")
         self.input_configs_class = model
         self.input_configs = model.model_dump()
 
@@ -877,34 +875,6 @@ class RealizationBuilder:
             validate_formulation(self.modules)
             logger.info("Module processes validated")
 
-    def _create_input_dir(self):
-        """
-        Create input directory to store realization file and BMI config files
-        """
-        # Set run directory based on run_type
-        self.basin = self.conf1['basin']
-        obj_fnc = self.conf2.get('objective_function') or "none"
-        opt_alg = self.conf2.get('optimization_algorithm') or "none"
-        if self.run_type == 'calibration':
-            run_dir = os.path.join(self.conf1['main_dir'], '_'.join([obj_fnc, opt_alg]))
-        elif self.run_type == 'regionalization':
-            run_dir = os.path.join(self.conf1['main_dir'], 'regionalization')
-        elif self.run_type == 'default':
-            run_dir = os.path.join(self.conf1['main_dir'], 'default')
-
-        # Form input directory paths
-        self.work_dir = os.path.join(run_dir, self.conf1['formulation'] + '/' + self.basin)
-        self.input_dir = os.path.join(self.work_dir, 'Input/')
-
-        # Create directory
-        try:
-            os.makedirs(self.input_dir, exist_ok=True)
-        except Exception as e:
-            logger.critical(f"Invalid input directory: {e}. Check `main_dir` variable")
-            raise
-
-        logger.info(f"Input directory created at: {self.input_dir}")
-
     def _get_glacier_pct(self):
         """
         Retrieve glacier percentage from Icefabric API if Topoflow is in use
@@ -914,7 +884,7 @@ class RealizationBuilder:
 
                 # Call Icefabric API for TopoFlow
                 self.domain = 'conus_hf'
-                self.topoflow_ipe = gfun.call_icefabric_api('topoflow', ['topoflow'], self.basin, self.domain)
+                self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain)
 
                 # Retrieve list of catchments where glaciated percent >= 50
                 topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= 50]
@@ -1035,32 +1005,33 @@ class RealizationBuilder:
         """
         Extract hydrofabric geopackage and form catchment, nexus, and crosswalk files
         """
-        # Extract hydrofabric files
-        self.gpkg_file = self.conf3['hydrofab_file']
-        if not os.path.exists(self.gpkg_file):
-            try:
-                raise Exception(f'Geo package file does not exist: {self.gpkg_file}')
-            except Exception as e:
-                logger.critical(e)
-                raise
 
-        # Set cat, nexus, and walk files
-        self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-        self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-        self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
+        # Retrieve gpkg from Icefabric API or symlink existing file if provided
+        self.gpkg_file = self.conf3.get('hydrofab_file')
+        if self.gpkg_file is None:
+            # If gpkg_file not provided, retrieve gpkg from icefabric and save to file
+            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.environment)
+        else:
+            # Ensure user provided geopackage file exists
+            if not os.path.exists(self.gpkg_file):
+                try:
+                    raise Exception(f'Geo package file does not exist: {self.gpkg_file}')
+                except Exception as e:
+                    logger.critical(e)
+                    raise
 
-        # Symlink gpkg_file to Input directory
-        if os.path.exists(self.cat_file) or os.path.islink(self.cat_file):
-            try:
-                os.unlink(self.cat_file)
-            except Exception as e:
-                logger.error(f"Failed to remove existing {self.cat_file}: {e}")
-                raise
+            # Set cat, nexus, and walk files
+            self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+            self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+            self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
 
         if self.file_crs_epsg(self.gpkg_file) in (4326, 5070):
             try:
-                os.symlink(self.gpkg_file, self.cat_file)
-                logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
+                # Symlink gpkg_file to Input directory if provided by user
+                if self.conf3.get('hydrofab_file') is not None:
+                    if not os.path.exists(self.cat_file):
+                        os.symlink(self.gpkg_file, self.cat_file)
+                        logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
             except OSError as e:
                 msg = f"Failed to create symlink: {self.gpkg_file} -> {self.cat_file}: {e}"
                 logger.critical(msg)
@@ -1278,7 +1249,6 @@ class RealizationBuilder:
         """
         Generate BMI config files for modules or link to existing config files
         """
-        # always create CFE inputs first since sft/smp need data from CFE inputs if they are selected
         if self.run_type == 'calibration':
             self.run_configs = ['_troute_config_calib.yaml', '_troute_config_valid_control.yaml', '_troute_config_valid_best.yaml']
         elif self.run_type == 'default':
@@ -1318,19 +1288,6 @@ class RealizationBuilder:
             if m1 in ['sloth']:
                 continue
 
-            # Retrieve initial parameters from Icefabric API
-            if m1 == 'topoflow':
-                ipe = self.topoflow_ipe.copy()
-            else:
-                self.domain = "conus_hf"
-                envca = None
-                print(f"Module: {m1}")
-                ipe = gfun.call_icefabric_api(m1, mod_all, self.basin, self.domain, self.is_aet_rootzone, envca)
-                print(f"IPE: {ipe}")
-
-            # # Subset IPE based on catchments using module
-            ipe_sub = {k: ipe[k] for k in cat_mod if k in ipe}
-
             # Create input file directory
             if m1 != 'troute':
                 try:
@@ -1341,127 +1298,39 @@ class RealizationBuilder:
 
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
-                gfun.create_cfe_input(cat_mod, mod_input_dir, ipe_sub)
+                gfun.create_cfe_input(cat_mod, mod_all, self.attr_file, mod_input_dir, self.run_type, self.is_aet_rootzone)
             elif m1 == 'topmodel':
-                gfun.create_topmodel_input(self.catids, mod_input_dir, ipe)
+                gfun.create_topmodel_input(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == 'ueb':
-                gfun.create_ueb_input(cat_mod, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe_sub)
+                gfun.create_ueb_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
             elif m1 == 'snow17':
-                gfun.create_snow17_input(cat_mod, mod_input_dir, ipe_sub)
+                gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
             elif m1 == "pet":
-                gfun.create_pet_input(cat_mod, self.attr_file, mod_input_dir)
+                pass
+                # gfun.create_pet_input(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == "sac":
-                gfun.create_sac_input(cat_mod, mod_input_dir, ipe_sub)
+                gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
             elif m1 == 'noah':
-                gfun.create_noah_input(cat_mod, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe_sub)
+                gfun.create_noah_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
             elif m1 == 'lstm':
-                gfun.create_lstm_input(cat_mod, self.conf3['lstm_parameter_dir'], mod_input_dir, ipe_sub)
+                gfun.create_lstm_input(cat_mod, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
             elif m1 == 'sft':
-                gfun.create_sft_input(cat_mod, mod_input_dir, ipe_sub)
+                sft_dir = os.path.join(self.input_dir, 'sft_input')
+                smp_dir = os.path.join(self.input_dir, 'smp_input')
+                gfun.create_sft_smp_input(cat_mod, self.modules, self.attr_file, sft_dir, smp_dir, self.run_type, self.output_dict['sm_frac_depth'],
+                                          self.output_dict['sm_profile_depth'])
             elif m1 == 'smp':
-                gfun.create_smp_input(cat_mod, mod_input_dir, ipe_sub)
+                pass
             elif m1 == 'lasam':
-                gfun.create_lasam_input(cat_mod, mod_input_dir, self.conf3['lasam_parameter_dir'], ipe_sub)
-            elif m1 == 'topoflow':
-                gfun.create_topoflow_input(cat_mod, self.time_period, mod_input_dir, self.run_type, ipe_sub)
+                gfun.create_lasam_input(cat_mod, self.modules, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
+            elif m1 == 'topoflow-glacier':
+                gfun.create_topoflow_glacier_input(cat_mod, self.attr_file, self.time_period, mod_input_dir, self.run_type)
             elif m1 == 'troute':
                 routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
-                ipe = ipe['cat-11466']  # Remove after troute endpoint is updated
-                gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type, ipe)
+                gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
 
-                    # Modify existing BMI config files from EDFS or the user with correct time period and/or paths
-                    if m1 == 'noah':
-                        gfun.create_noah_input_template(self.catids, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, bmi_dir, self.run_type)
-                    elif m1 == 'topmodel':
-                        gfun.change_topmodel_input(self.catids, bmi_dir, mod_input_dir)
-                    elif m1 in ['cfes', 'cfex']:
-                        gfun.change_cfe_input(self.catids, bmi_dir, mod_input_dir, self.run_type, self.is_aet_rootzone)
-                    elif m1 == 'ueb':
-                        gfun.create_ueb_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, bmi_dir, self.run_type)
-                    elif m1 in ['sac', 'snow17']:
-                        gfun.change_sac_snow17_input(m1, self.catids, mod_input_dir, bmi_dir)
-                    elif m1 == 'lasam':
-                        gfun.change_lasam_input(self.catids, mod_input_dir, bmi_dir, self.conf3['lasam_parameter_dir'])
-                    elif m1 == 'lstm':
-                        gfun.change_lstm_input(self.catids, self.conf3['lstm_parameter_dir'], mod_input_dir, bmi_dir)
-                    elif m1 == 'smp' and self.output_dict['output_sm']:
-                        # For SMP, the depth to output soil moisture may need to be adjusted
-                        gfun.change_smp_input(self.catids, self.modules, mod_input_dir, bmi_dir, self.run_type, self.output_dict['sm_frac_depth'],
-                                                                                     self.output_dict['sm_profile_depth'])
-                    elif m1 == 'sft':
-                        # Modify SFT inputs to ensure ice_fraction_scheme matches rainfall_runoff model
-                        gfun.change_sft_input(self.catids, modules1, mod_input_dir, bmi_dir, self.run_type,self.output_dict['sm_profile_depth'])
-                    else:
-                        # Create symbolic link
-                        logger.info(f'{m2}: create symlink from {bmi_dir} to {mod_input_dir}')
-                        if os.path.exists(mod_input_dir) or os.path.islink(mod_input_dir):
-                            if os.path.isdir(mod_input_dir) and not os.path.islink(mod_input_dir):
-                                shutil.rmtree(mod_input_dir)  # Remove existing bmi directory
-                            else:
-                                try:
-                                    os.unlink(mod_input_dir)
-                                except Exception as e:
-                                    logger.error(f"Failed to remove existing {mod_input_dir}: {e}")
-                                    raise
-
-                        try:
-                            os.symlink(bmi_dir, mod_input_dir, target_is_directory=True)
-                        except OSError as e:
-                            logger.critical(f"Failed to create symlink: {bmi_dir} -> {mod_input_dir}: {e}")
-                            raise
-
-            else:
-                # Create BMI config files from scratch if paths not provided
-                if m1 in ['cfes', 'cfex']:
-                    gfun.create_cfe_input(self.catids, self.modules, self.attr_file, mod_input_dir, self.run_type, self.is_aet_rootzone)
-                elif m1 == 'topmodel':
-                    gfun.create_topmodel_input(self.catids, self.attr_file, mod_input_dir)
-                elif m1 == 'ueb':
-                    gfun.create_ueb_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
-                elif m1 == 'snow17':
-                    gfun.create_snow17_input(self.catids, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
-                elif m1 == "pet":
-                    gfun.create_pet_input(self.catids, self.attr_file, mod_input_dir)
-                elif m1 == "sac":
-                    gfun.create_sac_input(self.catids, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
-                elif m1 == 'noah':
-                    gfun.create_noah_input(self.catids, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
-                elif m1 == 'lstm':
-                    gfun.create_lstm_input(self.catids, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
-                elif m1 == 'sft':
-                    sft_dir = os.path.join(self.input_dir, 'sft_input')
-                    smp_dir = os.path.join(self.input_dir, 'smp_input')
-                    gfun.create_sft_smp_input(
-                        self.catids,
-                        self.modules,
-                        self.attr_file,
-                        sft_dir,
-                        smp_dir,
-                        self.run_type,
-                        self.output_dict["sm_profile_depth"],
-                        self.output_dict["sm_frac_depth"],
-                    )                    
-                elif m1 == 'smp':
-                    continue
-                elif m1 == 'lasam':
-                    gfun.create_lasam_input(self.catids, self.modules, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
-                elif m1 == 'troute':
-                    if self.run_type == 'calibration':
-                        run_names = ['calib', 'valid', 'valid']
-                    elif self.run_type == 'default':
-                        run_names = ['default']
-
-                    for file_name, run_name in zip(self.run_configs, run_names):
-                        routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + file_name)
-                        run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
-                        if len(self.time_period['run_time_period'][run_name][0]) != 0 & len(self.time_period['run_time_period'][run_name][0]):
-                            run_range = pd.to_datetime(self.time_period['run_time_period'][run_name])
-                            nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
-                            gfun.create_troute_config(self.cat_file, routing_config_file, self.time_period['run_time_period'][run_name][0], nts)
-                            logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
-
-                if m1 != 'troute':
-                    logger.info(f'{m1}: input config files created at: {mod_input_dir}')
+            if m1 != 'troute':
+                logger.info(f'{m1}: input config files created at: {mod_input_dir}')
 
         logger.info("Created BMI config files for all modules in the formulation")
 
@@ -1509,29 +1378,38 @@ class RealizationBuilder:
             if m1 in ['sloth']:
                 pass
 
+            # Create input file directory
+            if m1 != 'troute':
+                try:
+                    os.makedirs(mod_input_dir, exist_ok=True)
+                except Exception as e:
+                    logger.critical(f"Failed to create input directory for {m1}: {mod_input_dir} - {e}")
+                    raise
+
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
-                gfun.create_cfe_input_reg(cat_mod, form_cat, self.attr_file, mod_input_dir, self.run_type, self.cat_to_aet_rootzone)
+                gfun.create_cfe_input(cat_mod, form_cat, self.attr_file, mod_input_dir, self.run_type, self.cat_to_aet_rootzone)
             elif m1 == 'topmodel':
-                gfun.create_topmodel_input_reg(cat_mod, self.attr_file, mod_input_dir)
+                gfun.create_topmodel_input(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == 'ueb':
-                gfun.create_ueb_input_reg(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
+                gfun.create_ueb_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
             elif m1 == 'snow17':
-                gfun.create_snow17_input_reg(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
+                gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
             elif m1 == "pet":
-                gfun.create_pet_input_reg(cat_mod, self.attr_file, mod_input_dir)
+                pass
+                # gfun.create_pet_input_reg(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == "sac":
-                gfun.create_sac_input_reg(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
+                gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
             elif m1 == 'noah':
-                gfun.create_noah_input_reg(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
+                gfun.create_noah_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
             elif m1 == 'lstm':
-                gfun.create_lstm_input_reg(cat_mod, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
+                gfun.create_lstm_input(cat_mod, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
             elif m1 == 'sft':
                 sft_dir = os.path.join(self.input_dir, 'sft_input')
                 smp_dir = os.path.join(self.input_dir, 'smp_input')
 
-                # Loop through schemes that could be paired with SFT (CFES/CFEX/LASAM)
-                # SFT could be paired with CFES/CFEX/LASAM simulatenously in different formulations, so configs must be generated separately
+                # Loop through schemes that could be paired with SMP/SFT (CFES/CFEX/LASAM)
+                # SMP/SFT could be paired with CFES/CFEX/LASAM simulatenously in different formulations, so configs must be generated separately
                 for scheme in ['cfes', 'cfex', 'lasam', 'topmodel']:
                     # Retrieve formulation groups where CFES/CFEX/LASAM co-occur with SFT
                     scheme_sft_grps = [grp for grp, mods in self.grp_to_form.items() if scheme in mods and 'sft' in mods]
@@ -1541,149 +1419,20 @@ class RealizationBuilder:
                         scheme_cat = [cat for grp in scheme_sft_grps for cat in self.grp_to_cat[grp]]
                         scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-                    # Modify existing BMI config files from EDFS or the user with correct time period and/or paths
-                    if m1 == 'noah':
-                        gfun.create_noah_input_template(cat_mod, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, bmi_dir, self.run_type)
-                    elif m1 == 'topmodel':
-                        gfun.change_topmodel_input(cat_mod, bmi_dir, mod_input_dir)
-                    elif m1 in ['cfes', 'cfex']:
-                        gfun.change_cfe_input(cat_mod, bmi_dir, mod_input_dir, self.run_type, self.cat_to_aet_rootzone)
-                    elif m1 == 'ueb':
-                        gfun.create_ueb_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, bmi_dir, self.run_type)
-                    elif m1 in ['sac', 'snow17']:
-                        gfun.change_sac_snow17_input(m1, cat_mod, mod_input_dir, bmi_dir)
-                    elif m1 == 'lasam':
-                        gfun.change_lasam_input(cat_mod, mod_input_dir, bmi_dir, self.conf3['lasam_parameter_dir'])
-                    elif m1 == 'lstm':
-                        gfun.change_lstm_input(cat_mod, self.conf3['lstm_parameter_dir'], mod_input_dir, bmi_dir)
-                    elif m1 == "smp" and self.output_dict['output_sm']:
-                        # For SMP, the depth to output soil moisture may need to be adjusted
-                        gfun.change_smp_input(cat_mod, form_cat, mod_input_dir, bmi_dir, self.run_type,
-                                                                                     self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
-                    # Modify existing SFT inputs to match rainfall runoff model
-                    elif m1 == "sft":
-                        # Loop through schemes that could be paired with SFT (CFES/CFEX/LASAM)
-                        # SFT could be paired with CFES/CFEX/LASAM simulatenously in different formulations, so configs must be generated separately
-                        for scheme in ['cfes', 'cfex', 'lasam', 'topmodel']:
-                            # Retrieve formulation groups where CFES/CFEX/LASAM co-occur with SFT
-                            scheme_sft_grps = [grp for grp, mods in self.grp_to_form.items() if scheme in mods and 'sft' in mods]
-
-                            if scheme_sft_grps:
-                                # Retrieve catchments and formulations corresponding to scheme
-                                scheme_cat = [cat for grp in scheme_sft_grps for cat in self.grp_to_cat[grp]]
-                                scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
-
-                        # Create SFT inputs
-                        gfun.change_sft_input(scheme_cat, scheme_form, mod_input_dir, bmi_dir, self.run_type, self.output_dict['sm_profile_depth'])
-
-                    else:
-                        # Create symbolic link to catchments with formulation
-                        os.makedirs(mod_input_dir, exist_ok=True)
-
-                        # Only link files for required catchments, rather than all files
-                        # Could go back to symlinking all files if this causes performance issues
-                        for cat in cat_mod:
-                            file_match = list(Path(bmi_dir).glob(f"*{cat}*"))
-                            for fp in file_match:
-                                dest = Path(mod_input_dir) / fp.name
-
-                                if os.path.exists(dest) or os.path.islink(dest):
-                                    try:
-                                        dest.unlink()
-                                    except Exception as e:
-                                        logger.error(f"Failed to remove existing {dest}: {e}")
-                                        raise
-
-                                try:
-                                    os.symlink(fp.resolve(), dest)
-                                except OSError as e:
-                                    logger.critical(f"Failed to create symlink: {fp} -> {dest}: {e}")
-                                    raise
-                        logger.info(f'{m2}: create symlink from {bmi_dir} to {mod_input_dir}')
-
-            else:
-                # Create BMI config files from scratch if paths not provided
-                if m1 in ['cfes', 'cfex']:
-                    gfun.create_cfe_input(cat_mod, form_cat, self.attr_file, mod_input_dir, self.run_type, self.cat_to_aet_rootzone)
-                elif m1 == 'topmodel':
-                    gfun.create_topmodel_input(cat_mod, self.attr_file, mod_input_dir)
-                elif m1 == 'ueb':
-                    gfun.create_ueb_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
-                elif m1 == 'snow17':
-                    gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
-                elif m1 == "pet":
-                    gfun.create_pet_input(cat_mod, self.attr_file, mod_input_dir)
-                elif m1 == "sac":
-                    gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
-                elif m1 == 'noah':
-                    gfun.create_noah_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
-                elif m1 == 'lstm':
-                    gfun.create_lstm_input(cat_mod, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
-                elif m1 == 'sft':
-                    sft_dir = os.path.join(self.input_dir, 'sft_input')
-                    smp_dir = os.path.join(self.input_dir, 'smp_input')
-
-                    # Loop through schemes that could be paired with SFT (CFES/CFEX/LASAM)
-                    # SFT could be paired with CFES/CFEX/LASAM simulatenously in different formulations, so configs must be generated separately
-                    for scheme in ['cfes', 'cfex', 'lasam', 'topmodel']:
-                        # Retrieve formulation groups where CFES/CFEX/LASAM co-occur with SFT
-                        scheme_sft_grps = [grp for grp, mods in self.grp_to_form.items() if scheme in mods and 'sft' in mods]
-
-                        if scheme_sft_grps:
-                            # Retrieve catchments and formulations corresponding to scheme
-                            scheme_cat = [cat for grp in scheme_sft_grps for cat in self.grp_to_cat[grp]]
-                            scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
-
-                            # Create SFT/SMP inputs
-                            gfun.create_sft_smp_input(
-                                scheme_cat,
-                                scheme_form,
-                                self.attr_file,
-                                sft_dir,
-                                smp_dir,
-                                self.run_type,
-                                self.output_dict["sm_profile_depth"],
-                                self.output_dict["sm_fraction_depth"],
-                            )
-
-                # Skip smp, inputs created in tandem with sft
-                elif m1 == 'smp':
-                    continue
-                elif m1 == 'lasam':
-                    gfun.create_lasam_input(cat_mod, form_cat, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
-                elif m1 == 'troute':
-                    for file_name, run_name in zip(self.run_configs, ['region']):
-                        routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + file_name)
-                        run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
-                        if len(self.time_period['run_time_period'][run_name][0]) != 0 & len(self.time_period['run_time_period'][run_name][0]):
-                            run_range = pd.to_datetime(self.time_period['run_time_period'][run_name])
-                            nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
-                            gfun.create_troute_config(self.gpkg_file, routing_config_file, self.time_period['run_time_period'][run_name][0], nts)
-                            logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
-                if m1 != 'troute':
-                    logger.info(f'{m1}: input config files created at: {mod_input_dir}')
-=======
-=======
->>>>>>> fd6da1f (Full implementation of grouped Topoflow realizations)
                         # Create SFT/SMP inputs
-                        gfun.create_sft_smp_input_reg(scheme_cat, scheme_form, self.attr_file, sft_dir, smp_dir, self.run_type)
+                        gfun.create_sft_smp_input(scheme_cat, scheme_form, self.attr_file, sft_dir, smp_dir, self.run_type,
+                                                  self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
 
             # Skip smp, inputs created in tandem with sft
             elif m1 == 'smp':
                 continue
             elif m1 == 'lasam':
-                gfun.create_lasam_input_reg(cat_mod, form_cat, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
+                gfun.create_lasam_input(cat_mod, form_cat, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
+            elif m1 == 'topoflow-glacier':
+                gfun.create_topoflow_glacier_input(cat_mod, self.attr_file, self.time_period, mod_input_dir, self.run_type)
             elif m1 == 'troute':
-                for file_name, run_name in zip(self.run_configs, ['region']):
-                    routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + file_name)
-                    run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
-                    if len(self.time_period['run_time_period'][run_name][0]) != 0 & len(self.time_period['run_time_period'][run_name][0]):
-                        run_range = pd.to_datetime(self.time_period['run_time_period'][run_name])
-                        nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
-                        gfun.create_troute_config_reg(self.gpkg_file, routing_config_file, self.time_period['run_time_period'][run_name][0], nts)
-                        logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
+                routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
+                gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
             if m1 != 'troute':
                 logger.info(f'{m1}: input config files created at: {mod_input_dir}')
 
@@ -1922,7 +1671,7 @@ class RealizationBuilder:
         """Load the config file from disk and apply overrides.
         If config overrides are applied with amend = False, then skip reading the config file."""
         if self.config_overrides and (not self.config_overrides_mode__amend):
-            logging.info(f"Skipping load of config file since overrides will replace entire config (no amend)")
+            logging.info("Skipping load of config file since overrides will replace entire config (no amend)")
         else:
             self.__load_config()
         self.__override_config()

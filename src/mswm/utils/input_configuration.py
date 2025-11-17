@@ -268,7 +268,7 @@ class DataFileConfig(StrictBaseModel):
     """
     obs_dir: Optional[str] = None
     nwmretro_file: Optional[str] = None
-    hydrofab_file: str
+    hydrofab_file: Optional[str] = None
     noah_parameter_dir: Optional[str] = None
     ueb_parameter_dir: Optional[str] = None
     lasam_parameter_dir: Optional[str] = None
