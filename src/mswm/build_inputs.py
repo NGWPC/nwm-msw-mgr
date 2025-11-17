@@ -912,7 +912,7 @@ class RealizationBuilder:
 
                 # Call Icefabric API for TopoFlow
                 self.domain = 'conus_hf'
-                self.topoflow_ipe = gfun.call_icefabric_api('topoflow', ['topoflow'], self.basin, self.domain)
+                self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain)
 
                 # Retrieve list of catchments where glaciated percent >= 50
                 topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= 50]
@@ -1027,20 +1027,15 @@ class RealizationBuilder:
         """
         Extract hydrofabric geopackage and form catchment, nexus, and crosswalk files
         """
-        # Extract hydrofabric files
-        self.gpkg_file = self.conf3['hydrofab_file']
-        if not os.path.exists(self.gpkg_file):
-            try:
-                raise Exception(f'Geo package file does not exist: {self.gpkg_file}')
-            except Exception as e:
-                logger.critical(e)
-                raise
 
-        # Set cat, nexus, and walk files
-        self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-        self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-        self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
+        # Retrieve gpkg from Icefabric API or symlink existing file if provided
+        self.gpkg_file = self.conf3.get('hydrofab_file')
+        if self.gpkg_file is None:
+            # If gpkg_file not provided, save gpkg from icefabric to file
+            self.domain = "conus_hf"
+            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir)
 
+<<<<<<< HEAD
         # Symlink gpkg_file to Input directory
         if os.path.exists(self.cat_file) or os.path.islink(self.cat_file):
             try:
@@ -1055,6 +1050,30 @@ class RealizationBuilder:
         except OSError as e:
             logger.critical(f"Failed to create symlink: {self.gpkg_file} -> {self.cat_file}: {e}")
             raise
+=======
+            # Set cat, nexus, and walk files
+            self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+            self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+            self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
+        else:
+            # Symlink existing file
+            if not os.path.exists(self.gpkg_file):
+                try:
+                    raise Exception(f'Geo package file does not exist: {self.gpkg_file}')
+                except Exception as e:
+                    logger.critical(e)
+                    raise
+
+            # Set cat, nexus, and walk files
+            self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+            self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+            self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
+
+            # Symlink gpkg_file to Input directory
+            if not os.path.exists(self.cat_file):
+                os.symlink(self.gpkg_file, self.cat_file)
+                logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
+>>>>>>> 206817a (Initial icefabric gpkg implementation)
 
         # Create crosswalk file between catchments and gages for calibration run
         if self.run_type == 'calibration':
@@ -1303,7 +1322,7 @@ class RealizationBuilder:
                 self.domain = "conus_hf"
                 envca = None
                 print(f"Module: {m1}")
-                ipe = gfun.call_icefabric_api(m1, mod_all, self.basin, self.domain, self.is_aet_rootzone, envca)
+                ipe = gfun.call_icefabric_ipe(m1, mod_all, self.basin, self.domain, self.is_aet_rootzone, envca)
                 print(f"IPE: {ipe}")
 
             # # Subset IPE based on catchments using module
