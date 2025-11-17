@@ -471,6 +471,10 @@ class RealizationBuilder:
         # reassign config sections for convenience
         self.conf1 = self.input_configs.get('General')
         self.run_type = self.conf1.get("run_type") if self.conf1 else None
+        self.domain = self.conf1.get("domain") + "_hf" if self.conf1 else None
+
+        # Set envca flag for CONUS Environment Canada gages
+        self.envca = self.conf1.get("envca") if self.conf1 else None
 
         # Load run_type specific config section or empty dict for default
         run_key = (self.run_type or "").capitalize()
@@ -1020,10 +1024,10 @@ class RealizationBuilder:
                     logger.critical(e)
                     raise
 
-            # Set cat, nexus, and walk files
-            self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-            self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-            self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
+        # Set cat, nexus, and walk files
+        self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+        self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+        self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
 
         if self.file_crs_epsg(self.gpkg_file) in (4326, 5070):
             try:
@@ -1083,9 +1087,9 @@ class RealizationBuilder:
             raise RuntimeError(msg)
 
         # Update hydrofabic attribute names based on region and minor parameter value fixes
-        self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
-
-        logger.info(f"Attribute file loaded from: {self.gpkg_file}")
+        if self.conf3.get('hydrofab_file') is not None:
+            self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
+            logger.info(f"Attribute file loaded from: {self.gpkg_file}")
 
     def _extract_forcing(self):
         """

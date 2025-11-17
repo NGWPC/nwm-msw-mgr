@@ -57,7 +57,8 @@ def is_probably_regex(pattern):
 
 __all__ = [
     'init_ginput_logger',
-    'call_icefabric_api',
+    'call_icefabric_ipe',
+    'call_icefabric_gpkg',
     'change_hydrofab_attr',
     'create_fcst_times',
     'create_walk_file',
@@ -111,8 +112,8 @@ def call_icefabric_ipe(
         all_mod: list,
         basin: str,
         domain: str,
-        rootzone_aet: int | None = None,
-        envca: bool | None = None
+        envca: bool | None = None,
+        rootzone_aet: int | None = None
 ) -> dict:
     """ Query icefabric API for initial parameter estimates
 
@@ -122,8 +123,8 @@ def call_icefabric_ipe(
     all_mod: list of all modules in the formulation
     basin: basin name string
     domain: string of name of gage domain
-    rootzone_aet: boolean flag for cfe aetroozone flag
     envca: boolean flag for envca gage
+    rootzone_aet: boolean flag for cfe aetroozone flag
 
     Returns
     ----------
@@ -151,8 +152,8 @@ def call_icefabric_ipe(
         params["sft_included"] = True
     if rootzone_aet == 1:
         params["rootzone_aet"] = True
-    if envca:
-        params["envca"] = envca
+    if mod in ('sacsma', 'ueb') and envca:
+        params["envca"] = True
     if mod == 'sft' and 'cfex' not in all_mod:
         params["use_schaake"] = True
     if mod == 'smp':
@@ -200,8 +201,6 @@ def call_icefabric_ipe(
 
     # Return icefabric response
     return ipe_formatted
->>>>>>> 7cec051 (Initial implementation of test icefabric api endpoint)
-
 
 def call_icefabric_gpkg(
         basin: str,
@@ -224,15 +223,16 @@ def call_icefabric_gpkg(
     """
 
     # Base endpoint
-    url = f"http://edfs.test.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/"
+    url = f"http://edfs.test.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/gpkg"
 
     # Build query parameters
     params = {"id_type": "hl_uri",
-              "domain": {domain},
-              "layers": ["divides", "flowpaths", "network", "nexus"]}
+              "domain": domain,
+              "layers": ["divides", "flowpaths", "network", "nexus", "hydrolocations"]}
 
     # Set output file path
-    gpkg_fp = os.path.join(input_dir, f"gages-{basin}")
+    gpkg_fp = os.path.join(input_dir, f"gages-{basin}.gpkg")
+    gpkg_fp = os.path.join(input_dir, f"gauge-{basin}.gpkg")
 
     # Call icefabric API endpoint to save geopackage
     try:
