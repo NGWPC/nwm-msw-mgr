@@ -116,7 +116,7 @@ def call_icefabric_gpkg(
     Parameters
     ----------
     basin: basin name string
-    domain: string of name of gage domain
+    domain: domain name string (conus, ak, hi, prvi)
     output_dir: location to save gpkg
     environment: environment for icefabric API ('test' or 'oe')
     source: hydrofabric version ('hf' or 'nhf')
@@ -126,20 +126,16 @@ def call_icefabric_gpkg(
     dictionary of initial parameter estimates
     """
 
-    # Transform domain names to API format
-    domain_mappings = {
-        'conus': 'conus_hf',
-        'alaska': 'ak_hf',
-        'ak': 'ak_hf',
-        'hawaii': 'hi_hf',
-        'hi': 'hf_hf',
-        'puerto_rico': 'prvi_hf',
-        'prvi': 'prvi_hf',
-        'gl': 'gl_hf'}
-    try:
-        domain = domain_mappings.get(domain.lower())
-    except KeyError:
-        raise ValueError(f"Invalid domain: '{domain}. Valid options are {list(domain_mappings.keys())}")
+    # TODO: Domain string in endpoint not yet implemented for NHF
+
+    # Check for VPU or gage basin input string
+    if basin.lower().startswith('vpu'):
+        basin = basin[3:]
+        id_type = 'vpu_id'
+        file_prefix = 'vpu'
+    else:
+        id_type = 'gage_id'
+        file_prefix = 'gauge_'
 
     # Check source value
     if source not in ('hf', 'nhf'):
@@ -156,14 +152,14 @@ def call_icefabric_gpkg(
         url = f"https://edfs.oe.nextgenwaterprediction.com/api/v1/hydrofabric/{basin}/gpkg"
 
     # Build query parameters
-    params = {"id_type": "gage_id",
-              "domain": domain,
-              "layers": ["divides", "divide-attributes", "flowpaths", "flowpath-attributes", "flowpath-attributes-ml", "network", "nexus", "hydrolocations", "pois"],
+    params = {"id_type": id_type,
+              "domain": "nhf",
+              "layers": ["divides", "flowpaths", "network", "nexus", "virtual_nexus", "virtual_flowpaths", "waterbodies", "gages", "reference_flowpaths", "hydrolocations"],
               "source": source,
               }
 
     # Set output file path
-    gpkg_fp = os.path.join(output_dir, f"gauge_{basin}.gpkg")
+    gpkg_fp = os.path.join(output_dir, f"{file_prefix}{basin}.gpkg")
 
     # Call icefabric API endpoint to save geopackage
     try:
