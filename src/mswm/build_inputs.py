@@ -1533,12 +1533,13 @@ class RealizationBuilder:
         save_plot_iter_freq = self.conf2.get('save_plot_iter_freq') or 0
         streamflow_threshold = self.conf2.get('streamflow_threshold') or 0.0
         user_email = self.conf2.get('user_email') or ''
+        strategy = 'grouped' if 'topoflow' in self.modules else 'uniform'
 
         # Create calibration configuration file
         self.calib_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + '_config_calib.yaml')
         self.model_dict = {'type': 'ngen', 'binary': self.conf3['ngen_exe_file'], 'realization': self.realization_file,
                            'catchments': self.cat_file, 'nexus': self.nexus_file,
-                           'crosswalk': self.walk_file, 'obsflow': self.obsflow_file, 'strategy': 'uniform', 'params': None,
+                           'crosswalk': self.walk_file, 'obsflow': self.obsflow_file, 'strategy': strategy, 'params': None,
                            'eval_params': {'objective': objective_function,
                                            'evaluation_start': self.time_period['evaluation_time_period']['calib'][0],
                                            'evaluation_stop': self.time_period['evaluation_time_period']['calib'][1],
