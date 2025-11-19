@@ -887,6 +887,7 @@ class RealizationBuilder:
         self.basin = self.conf1['basin']
         obj_fnc = self.conf2.get('objective_function') or "none"
         opt_alg = self.conf2.get('optimization_algorithm') or "none"
+        self.ngen_cerf = self.conf2.get('ngen_cerf') or False
         if self.run_type == 'calibration':
             run_dir = os.path.join(self.conf1['main_dir'], '_'.join([obj_fnc, opt_alg]))
         elif self.run_type == 'regionalization':
@@ -916,7 +917,7 @@ class RealizationBuilder:
 
                 # Call Icefabric API for TopoFlow
                 self.domain = 'conus_hf'
-                self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain)
+                self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain, self.ngen_cerf)
 
                 # Retrieve list of catchments where glaciated percent >= 50
                 topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= 50]
@@ -1036,31 +1037,8 @@ class RealizationBuilder:
         self.gpkg_file = self.conf3.get('hydrofab_file')
         if self.gpkg_file is None:
             # If gpkg_file not provided, save gpkg from icefabric to file
-            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir)
+            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.ngen_cerf)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-        # Symlink gpkg_file to Input directory
-        if os.path.exists(self.cat_file) or os.path.islink(self.cat_file):
-            try:
-                os.unlink(self.cat_file)
-            except Exception as e:
-                logger.error(f"Failed to remove existing {self.cat_file}: {e}")
-                raise
-
-        try:
-            os.symlink(self.gpkg_file, self.cat_file)
-            logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
-        except OSError as e:
-            logger.critical(f"Failed to create symlink: {self.gpkg_file} -> {self.cat_file}: {e}")
-            raise
-=======
-            # Set cat, nexus, and walk files
-            self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-            self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-            self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
-=======
->>>>>>> b6fe801 (Add domain and envca fields)
         else:
             # Ensure user provided geopackage file exists
             if not os.path.exists(self.gpkg_file):
@@ -1080,24 +1058,12 @@ class RealizationBuilder:
             if not os.path.exists(self.cat_file):
                 os.symlink(self.gpkg_file, self.cat_file)
                 logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
->>>>>>> 206817a (Initial icefabric gpkg implementation)
 
         # Create crosswalk file between catchments and gages for calibration run
         if self.run_type == 'calibration':
             gfun.create_walk_file(self.basin, self.gpkg_file, self.walk_file)
             logger.info(f"Crosswalk file created at: {self.walk_file}")
 
-<<<<<<< HEAD
-        # Read catchment parameter values from geopackage divide-attributes
-        attr_lyrname = "divide-attributes"
-        logger.info(f"Reading layer {repr(attr_lyrname)} from file: {repr(self.gpkg_file)}")
-        try:
-            self.attr_file = gpd.read_file(self.gpkg_file, layer=attr_lyrname)
-            self.attr_file.set_index("divide_id", inplace=True)
-        except Exception as e:
-            logger.critical(f"Error while reading geopackage file: {e}")
-            raise
-=======
         # Read catchment parameter values from geopackage divide-attributes (when not using icefabric API)
         if self.conf3.get('hydrofab_file') is not None:
             try:
@@ -1106,27 +1072,14 @@ class RealizationBuilder:
             except Exception as e:
                 logger.critical(f"Error while reading geopackage file: {e}")
                 raise
->>>>>>> b6fe801 (Add domain and envca fields)
 
         # Read catchment divide layer from hydrofabric
-        divides_lyrname = "divides"
-        logger.info(f"Reading layer {repr(divides_lyrname)} from file: {repr(self.gpkg_file)}")
         try:
-            self.divides_layer = gpd.read_file(self.gpkg_file, layer=divides_lyrname)
+            self.divides_layer = gpd.read_file(self.gpkg_file, layer='divides')
             self.catids = self.divides_layer['divide_id'].tolist()
         except Exception as e:
             logger.critical(f"Error while reading geopackage file: {e}")
             raise
-
-        # Assert records exist, assert equal lengths
-        if len(self.divides_layer) == 0:
-            msg = f"0 records in layer {repr(divides_lyrname)} from file: {repr(self.gpkg_file)}"
-            logger.critical(msg)
-            raise RuntimeError(msg)
-        if len(self.attr_file) != len(self.divides_layer):
-            msg = f"In file {repr(self.gpkg_file)}, layer {repr(attr_lyrname)} has {len(self.attr_file)} records but layer {repr(divides_lyrname)} has {len(self.divides_layer)} records (expected equality)"
-            logger.critical(msg)
-            raise RuntimeError(msg)
 
         # Update hydrofabic attribute names based on region and minor parameter value fixes
         if self.conf3.get('hydrofab_file') is not None:
@@ -1337,7 +1290,7 @@ class RealizationBuilder:
             if m1 == 'topoflow':
                 ipe = self.topoflow_ipe.copy()
             else:
-                ipe = gfun.call_icefabric_ipe(m1, mod_all, self.basin, self.domain, self.envca, self.is_aet_rootzone)
+                ipe = gfun.call_icefabric_ipe(m1, mod_all, self.basin, self.domain, self.ngen_cerf, self.envca, self.is_aet_rootzone)
 
             # # Subset IPE based on catchments using module
             ipe_sub = {k: ipe[k] for k in cat_mod if k in ipe}
