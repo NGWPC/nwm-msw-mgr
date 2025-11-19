@@ -112,8 +112,9 @@ def call_icefabric_ipe(
         all_mod: list,
         basin: str,
         domain: str,
+        ngen_cerf: bool,
         envca: bool | None = None,
-        rootzone_aet: int | None = None
+        rootzone_aet: int | None = None,
 ) -> dict:
     """ Query icefabric API for initial parameter estimates
 
@@ -123,6 +124,7 @@ def call_icefabric_ipe(
     all_mod: list of all modules in the formulation
     basin: basin name string
     domain: string of name of gage domain
+    ngen_cerf: boolean flag for using ngencerf
     envca: boolean flag for envca gage
     rootzone_aet: boolean flag for cfe aetroozone flag
 
@@ -139,8 +141,9 @@ def call_icefabric_ipe(
     elif mod == 'sac':
         mod = 'sacsma'
 
-    # Base endpoint
-    url = f"http://edfs.test.nextgenwaterprediction.com:8000/v1/modules/{mod}/"
+    # Set base endpoint (use Optimization endpoint for ngencerf, test for standalone)
+    icefabric_env = "oe" if ngen_cerf else "test"
+    url = f"https://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/modules/{mod}/"
 
     # Build query parameters
     params = {"identifier": basin,
@@ -205,7 +208,8 @@ def call_icefabric_ipe(
 def call_icefabric_gpkg(
         basin: str,
         domain: str,
-        input_dir
+        input_dir: str,
+        ngen_cerf: bool
 ) -> dict:
     """ Query icefabric API for geopackage
 
@@ -216,14 +220,16 @@ def call_icefabric_gpkg(
     basin: basin name string
     domain: string of name of gage domain
     input_dir: run directory location to save gpkg
+    ngen_cerf: boolean flag for using ngencerf
 
     Returns
     ----------
     dictionary of initial parameter estimates
     """
 
-    # Base endpoint
-    url = f"http://edfs.test.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/gpkg"
+    # Set base endpoint (use Optimization endpoint for ngencerf, test for standalone)
+    icefabric_env = "oe" if ngen_cerf else "test"
+    url = f"https://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/gpkg"
 
     # Build query parameters
     params = {"id_type": "hl_uri",

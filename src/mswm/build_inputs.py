@@ -888,7 +888,7 @@ class RealizationBuilder:
 
                 # Call Icefabric API for TopoFlow
                 self.domain = 'conus_hf'
-                self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain)
+                self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain, self.ngen_cerf)
 
                 # Retrieve list of catchments where glaciated percent >= 50
                 topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= 50]
@@ -1062,34 +1062,19 @@ class RealizationBuilder:
         try:
             self.attr_file = gpd.read_file(self.gpkg_file, layer=attr_lyrname)
             self.attr_file.set_index("divide_id", inplace=True)
+            # Update hydrofabic attribute names based on region and minor parameter value fixes
+            self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
         except Exception as e:
             logger.critical(f"Error while reading geopackage file: {e}")
             raise
 
         # Read catchment divide layer from hydrofabric
-        divides_lyrname = "divides"
-        logger.info(f"Reading layer {repr(divides_lyrname)} from file: {repr(self.gpkg_file)}")
         try:
-            self.divides_layer = gpd.read_file(self.gpkg_file, layer=divides_lyrname)
+            self.divides_layer = gpd.read_file(self.gpkg_file, layer='divides')
             self.catids = self.divides_layer['divide_id'].tolist()
         except Exception as e:
             logger.critical(f"Error while reading geopackage file: {e}")
             raise
-
-        # Assert records exist, assert equal lengths
-        if len(self.divides_layer) == 0:
-            msg = f"0 records in layer {repr(divides_lyrname)} from file: {repr(self.gpkg_file)}"
-            logger.critical(msg)
-            raise RuntimeError(msg)
-        if len(self.attr_file) != len(self.divides_layer):
-            msg = f"In file {repr(self.gpkg_file)}, layer {repr(attr_lyrname)} has {len(self.attr_file)} records but layer {repr(divides_lyrname)} has {len(self.divides_layer)} records (expected equality)"
-            logger.critical(msg)
-            raise RuntimeError(msg)
-
-        # Update hydrofabic attribute names based on region and minor parameter value fixes
-        if self.conf3.get('hydrofab_file') is not None:
-            self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
-            logger.info(f"Attribute file loaded from: {self.gpkg_file}")
 
     def _extract_forcing(self):
         """
