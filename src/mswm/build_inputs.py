@@ -1219,12 +1219,12 @@ class RealizationBuilder:
         self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.basename_opt)
         logger.info("Updated forecast realization file")
 
-    def _update_fcst_noah_ueb(self):
+    def _update_fcst_noah_ueb_topo(self):
         """
-        For UEB and Noah-OWP-Modular, create new BMI config files with new time info, and
+        For UEB, TopoFlow, and Noah-OWP-Modular, create new BMI config files with new time info, and
         update path to BMI configs in realization file accordingly
         """
-        self.real_config = gfun.update_noah_ueb_times(self.real_config, self.input_dir)
+        self.real_config = gfun.update_noah_ueb_topo_times(self.real_config, self.input_dir)
         logger.info("Updated noah and ueb config files for forecast if used")
 
     def _update_fcst_troute(self):
@@ -1681,7 +1681,7 @@ class RealizationBuilder:
         self._extract_forcing()
         self._configure_forcing_engine()
         self._update_fcst_realization()
-        self._update_fcst_noah_ueb()
+        self._update_fcst_noah_ueb_topo()
         self._update_fcst_troute()
         self._write_fcst_realization()
 

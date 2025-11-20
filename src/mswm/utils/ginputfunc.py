@@ -31,6 +31,10 @@ class QuotedDumper(yaml.SafeDumper):
     pass
 
 
+class QuotedValueDumper(yaml.SafeDumper):
+    pass
+
+
 class UnquotedDumper(yaml.SafeDumper):
     pass
 
@@ -47,8 +51,15 @@ def inline_list_presenter(dumper, data):
     return dumper.represent_sequence('tag:yaml.org,2002:seq', data, flow_style=True)
 
 
+def quoted_value_presenter(dumper, data):
+    if isinstance(data, str):
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style="'")
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+
 ForcingDumper.add_representer(list, inline_list_presenter)
 QuotedDumper.add_representer(str, quoted_str_presenter)
+QuotedValueDumper.add_representer(str, quoted_value_presenter)
 
 
 def is_probably_regex(pattern):
@@ -2803,12 +2814,12 @@ def create_topmodel_input_reg(
             outfile.write(out_hyd_fptr)
 
 
-def update_noah_ueb_times(
+def update_noah_ueb_topo_times(
         real_config: dict,
         input_dir: Path,
 ) -> dict:
     """
-    For noah-owp-modular & UEB, create new BMI config files with adjusted start/end times, and then
+    For noah-owp-modular, TopoFlow, & UEB, create new BMI config files with adjusted start/end times, and then
         update path to BMI config files in realization file accordingly
 
     Arguments
@@ -2821,13 +2832,12 @@ def update_noah_ueb_times(
     dictionary containing adjusted realization config
 
     """
-    try:
-        module_config = real_config['global']['formulations'][0]['params']['modules']
-        start_time = real_config['time']['start_time']
-        end_time = real_config['time']['end_time']
-    except Exception as e:
-        logger.critical(f"Yaml config calib file is missing fields: {e}")
-        raise
+    # Check for format of realization file
+    real_format = 'grouped' if 'formulation_groups' in real_config else 'uniform'
+
+    # Retrieve times from realization
+    start_time = real_config['time']['start_time']
+    end_time = real_config['time']['end_time']
 
     try:
         startdate = pd.to_datetime(start_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
@@ -2836,53 +2846,86 @@ def update_noah_ueb_times(
         logger.critical(f"Error converting yaml config times: {real_config['time']}\n{e}")
         raise
 
-    mod_dict = {'NoahOWP': 'noah-owp-modular', 'UEB': 'ueb'}
+    # Set modules to update
+    mod_dict = {'NoahOWP': 'noah-owp-modular', 'UEB': 'ueb', 'BmiTopoflowGlacier': 'topoflow'}
 
-    for i1, m1 in enumerate(module_config):
-        if m1['params']['model_type_name'] in ['NoahOWP', 'UEB']:
+    if real_format == 'uniform':
+        modules_list = real_config['global']['formulations'][0]['params']['modules']
+    else:
+        modules_list = []
+        for grp in real_config['formulation_groups'].values():
+            for form in grp:
+                modules_list.extend(form['params']['modules'])
+
+    # Loop through modules and update start/end times
+    for i1, form in enumerate(modules_list):
+        mod_params = form.get('params')
+        model_name = mod_params.get('model_type_name')
+        if model_name in ['NoahOWP', 'UEB', 'BmiTopoflowGlacier']:
 
             # read the BMI config files from the source directory in the realization file
-            src0 = m1['params']['init_config']
+            src0 = mod_params.get('init_config')
             src = Path(src0.replace('{{id}}', '*'))
-            dst = Path(input_dir, mod_dict[m1['params']['model_type_name']] + '_input')
+            dst = Path(input_dir, mod_dict.get(model_name) + '_input')
 
             try:
                 dst.mkdir(parents=True, exist_ok=True)
             except OSError as e:
                 logger.critical(f"Failed to create directory: {dst}\n{e}")
 
-            for f1 in glob.glob(f'{src}'):
-                with open(f1) as f:
-                    lines = f.readlines()
+            # Update times with line based editting for NoahOWP/UEB
+            if model_name in ['NoahOWP', 'UEB']:
+                for f1 in glob.glob(f'{src}'):
+                    with open(f1) as f:
+                        lines = f.readlines()
 
-                # update start/end times
-                for i2, l1 in enumerate(lines):
-                    if m1['params']['model_type_name'] == 'NoahOWP':
-                        if 'startdate' in l1:
-                            lines[i2] = "  " + "startdate".ljust(19) + "= " + "'" + startdate + "'" + "               ! UTC time start of simulation (YYYYMMDDhhmm)\n"
-                        elif 'enddate' in l1:
-                            lines[i2] = "  " + "enddate".ljust(19) + "= " + "'" + enddate + "'" + "               ! UTC time end of simulation (YYYYMMDDhhmm)\n"
-                    elif m1['params']['model_type_name'] == 'UEB':
-                        lines[8] = f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0\n'
-                        lines[9] = f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0\n'
+                    # update start/end times
+                    for i2, l1 in enumerate(lines):
+                        if model_name == 'NoahOWP':
+                            if 'startdate' in l1:
+                                lines[i2] = "  " + "startdate".ljust(19) + "= " + "'" + startdate + "'" + "               ! UTC time start of simulation (YYYYMMDDhhmm)\n"
+                            elif 'enddate' in l1:
+                                lines[i2] = "  " + "enddate".ljust(19) + "= " + "'" + enddate + "'" + "               ! UTC time end of simulation (YYYYMMDDhhmm)\n"
+                        elif model_name == 'UEB':
+                            lines[8] = f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0\n'
+                            lines[9] = f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0\n'
 
-                        # write to new BMI config files
-                try:
-                    with open(Path(dst, os.path.basename(f1)), 'w') as outfile:
-                        outfile.writelines(lines)
-                except FileNotFoundError as e:
-                    logger.critical(f"File not found error when writing to {dst}\n{e}")
-                    raise
-                except PermissionError as e:
-                    logger.critical(f"Permission denied when writing to {dst}\n{e}")
-                    raise
-                except OSError as e:
-                    logger.critical(f"OS error when writing to {dst}\n{e}")
-                    raise
+                    # write to new BMI config files
+                    try:
+                        with open(Path(dst, os.path.basename(f1)), 'w') as outfile:
+                            outfile.writelines(lines)
+                    except FileNotFoundError as e:
+                        logger.critical(f"File not found error when writing to {dst}\n{e}")
+                        raise
+                    except PermissionError as e:
+                        logger.critical(f"Permission denied when writing to {dst}\n{e}")
+                        raise
+                    except OSError as e:
+                        logger.critical(f"OS error when writing to {dst}\n{e}")
+                        raise
 
-            # replace path to BMI config file in realization file
-            module_config[i1]['params']['init_config'] = str(Path(dst, os.path.basename(src0)))
-            real_config['global']['formulations'][0]['params']['modules'] = module_config
+                # Update path in module
+                mod_params['init_config'] = str(Path(dst, os.path.basename(src0)))
+
+            # Update times with yaml-based editting for TopoflowGlacier
+            elif model_name == 'BmiTopoflowGlacier':
+                for f1 in glob.glob(f'{src}'):
+                    cfg_path = Path(dst, os.path.basename(f1))
+                    with open(f1, 'r') as yaml_file:
+                        cfg = yaml.safe_load(yaml_file)
+
+                    cfg['start_time'] = startdate
+                    cfg['end_time'] = enddate
+
+                    with open(cfg_path, 'w') as yaml_file:
+                        yaml.dump(cfg, yaml_file, default_flow_style=False, sort_keys=False)
+
+                    # Update path in realization
+                    mod_params['init_config'] = str(dst / os.path.basename(src0))
+
+            # Reassign modules back to realization
+            if real_format == 'uniform':
+                real_config['global']['formulations'][0]['params']['modules'] = modules_list
 
     return real_config
 
@@ -3434,22 +3477,34 @@ def update_forcing_in_realization(
 
     """
 
+    # Check for format of realization file
+    real_format = 'grouped' if 'formulation_groups' in real_config else 'uniform'
+
     # Update realization file for forcing
-    real_config['global']['forcing'] = {"path": str(forcing_path),
-                                        "provider": "ForcingsEngineLumpedDataProvider",
-                                        "params": {"init_config": str(forcing_config_file)}}
+    forcing_update = {"path": str(forcing_path),
+                      "provider": "ForcingsEngineLumpedDataProvider",
+                      "params": {"init_config": str(forcing_config_file)}}
+    if real_format == 'uniform':
+        real_config['global']['forcing'] = forcing_update
+    else:
+        forcing_grp_key = next(iter(real_config['forcing_groups']))
+        real_config['forcing_groups'][forcing_grp_key] = forcing_update
 
     # Update time period in realization file
     real_config['time']['start_time'] = fcst_start
     real_config['time']['end_time'] = fcst_end
 
-    # Update troute path
-    real_config['routing']['t_route_config_file_with_path'].replace('valid_best', basename_opt)
+    # Retrieve modules from realization
+    if real_format == 'uniform':
+        modules_list = real_config['global']['formulations'][0]['params']['modules']
+    else:
+        modules_list = []
+        for grp in real_config['formulation_groups'].values():
+            for form in grp:
+                modules_list.extend(form['params']['modules'])
 
     # Update variable names map for forcing engine
-    real_modules = real_config['global']['formulations'][0]['params']['modules']
-
-    for mod in real_modules:
+    for mod in modules_list:
 
         # Retrieve module name and variable names map for module
         mod_params = mod.get('params')
