@@ -1324,7 +1324,7 @@ class RealizationBuilder:
             elif m1 == 'sft':
                 gfun.create_sft_input(cat_mod, mod_input_dir, ipe_sub)
             elif m1 == 'smp':
-                gfun.create_smp_input(cat_mod, mod_input_dir, ipe_sub)
+                gfun.create_smp_input(cat_mod, mod_input_dir, ipe_sub, self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
             elif m1 == 'lasam':
                 gfun.create_lasam_input(cat_mod, mod_input_dir, self.conf3['lasam_parameter_dir'], ipe_sub)
             elif m1 == 'topoflow':
