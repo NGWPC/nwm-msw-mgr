@@ -1059,7 +1059,9 @@ def create_sft_input(
 def create_smp_input(
         catids: List[str],
         smp_dir: Union[str, Path],
-        ipe: dict
+        ipe: dict,
+        sm_frac_depth: float,
+        sm_profile_depth: float
 ) -> None:
     """ Create BMI configuration file for soil moisture profiles module
 
@@ -1068,10 +1070,12 @@ def create_smp_input(
     catids : catchment IDs in the basin
     smp_dir : directory for writing smp bmi configuration files
     ipe: initial parameter estimates retrieved from icefabric api
+    sm_frac_depth: depth at which to output soil moisture fraction
+    sm_profile_depth = depth at which to output soil moisture
 
     Returns
     ----------
-    None
+    sm_profile_depth (may be adjusted)
 
     """
 
@@ -1081,15 +1085,36 @@ def create_smp_input(
         # Retrieve catchment parameters from icefabric
         cat_ipe = ipe[catID]
 
-        # if 'cfes' in mods or 'cfex' in mods:
-        #     smp_lst += ['soil_storage_model=conceptual', 'soil_storage_depth=2.0']
-        # elif 'topmodel' in mods:
-        #     smp_lst += ['soil_storage_model=TopModel', 'water_table_based_method=flux_based']
-        # elif 'lasam' in mods:
-        #     smp_lst += ['soil_storage_model=layered', 'soil_moisture_profile_option=constant', 'soil_depth_layers=2.0', 'water_table_depth=10[m]']
-
         # Update parameters
         cat_ipe['verbosity'] = 'none'
+
+        # Adjust soil_moisture_fraction_depth
+        cat_ipe['soil_moisture_fraction_depth'] = f'{sm_frac_depth}[m]'
+
+        # Parse soil_z depth
+        soil_z_str = str(cat_ipe['soil_z'])
+        depths_str, unit = soil_z_str.split('[')
+        depths = [float(d.strip()) for d in depths_str.split(',')]
+
+        # Adjust soil_z for soil_moisture_fraction_depth
+        if not any(abs(value - sm_frac_depth) < 1e-6 for value in depths):
+            # Insert sm_frac_depth in correct ascending order
+            for j, d in enumerate(depths):
+                if d > sm_frac_depth:
+                    depths.insert(j, sm_frac_depth)
+                    break
+        else:
+            # If it wasn't inserted, append to end
+            depths.append(sm_frac_depth)
+
+        # Adjust 1st element of soil_z for soil_moisture_profile output depth
+        if sm_profile_depth != depths[0]:
+            if len(depths) > 1 and sm_profile_depth > depths[1]:
+                logger.warning(f'sm_profile_depth ({sm_profile_depth}m) is greater than soil_z[1] ({depths[1]}m);'
+                               f'using soil_z[0] {depths[0]}m) instead')
+            else:
+                depths[0] = sm_profile_depth
+        cat_ipe['soil_z'] = f"{','.join(map(str, depths))}[m]"
 
         # Write smp to to file
         smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
