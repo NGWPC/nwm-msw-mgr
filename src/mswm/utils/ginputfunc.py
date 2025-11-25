@@ -95,7 +95,7 @@ __all__ = [
     'create_lstm_input_reg',
     'create_topmodel_input',
     'create_topmodel_input_reg',
-    'update_noah_ueb_times',
+    'update_noah_ueb_topo_times',
     'update_troute',
     'create_troute_config',
     'create_troute_config_reg',
@@ -2644,7 +2644,7 @@ def create_topoflow_input(
             cat_ipe.pop('glacier_percent', None)
 
             # Write bmi to file
-            topo_bmi_file = os.path.join(topo_input_dir, catID + '.yaml')
+            topo_bmi_file = os.path.join(topo_input_dir, catID + '_' + run_name + '.yaml')
             with open(topo_bmi_file, 'w') as f:
                 yaml.dump(cat_ipe, f, default_flow_style=False, sort_keys=False)
 

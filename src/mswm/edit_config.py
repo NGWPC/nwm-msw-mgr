@@ -95,9 +95,9 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
         config_valid['global']['forcing']['params']['init_config'] = fe_config.with_name(fe_config.stem + '_valid' + fe_config.suffix)
 
     # correct path for init_config for validation runs for modules with time periods info in these files
-    # (currently Noah-OWP-Modular and UEB)
+    # (currently Noah-OWP-Modular, UEB, and TopoFlow)
     for m in config_valid['global']['formulations'][0]['params']['modules']:
-        if m['params']['model_type_name'] in ['NoahOWP', 'UEB']:
+        if m['params']['model_type_name'] in ['NoahOWP', 'UEB', 'BmiTopoflowGlacier']:
             m1 = m['params']['init_config']
             m['params']['init_config'] = os.path.join(os.path.dirname(m1), os.path.basename(m1).replace('calib', 'valid'))
 
