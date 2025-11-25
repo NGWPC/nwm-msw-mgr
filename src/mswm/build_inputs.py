@@ -1324,7 +1324,7 @@ class RealizationBuilder:
             elif m1 == 'sft':
                 gfun.create_sft_input(cat_mod, mod_input_dir, ipe_sub)
             elif m1 == 'smp':
-                gfun.create_smp_input(cat_mod, mod_input_dir, ipe_sub, self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
+                self.output_dict['sm_profile_depth'] = gfun.create_smp_input(cat_mod, mod_input_dir, ipe_sub, self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
             elif m1 == 'lasam':
                 gfun.create_lasam_input(cat_mod, mod_input_dir, self.conf3['lasam_parameter_dir'], ipe_sub)
             elif m1 == 'topoflow':
@@ -1416,7 +1416,7 @@ class RealizationBuilder:
                         scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
 
                         # Create SFT/SMP inputs
-                        gfun.create_sft_smp_input_reg(scheme_cat, scheme_form, self.attr_file, sft_dir, smp_dir, self.run_type)
+                        self.output_dict['sm_profile_depth'] = gfun.create_sft_smp_input_reg(scheme_cat, scheme_form, self.attr_file, sft_dir, smp_dir, self.run_type)
 
             # Skip smp, inputs created in tandem with sft
             elif m1 == 'smp':
