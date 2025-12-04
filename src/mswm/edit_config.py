@@ -68,14 +68,17 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
     valid_output_index = general_dict.get("valid_output_index", [])
 
     if valid_run_name == "valid_control":
-        agent.model.update_config(0, params, path=Path(agent.valid_path))
+        agent.model.update_config(0, params, id=None)
     elif valid_run_name == "valid_best":
         if agent.algorithm != "dds":
-            agent.model.update_config("global_best", params, path=Path(agent.valid_path))
+            agent.model.update_config("global_best")
         else:
-            agent.model.update_config(eval_params._best_params_iteration, params, path=Path(agent.valid_path))
+            agent.model.update_config(eval_params._best_params_iteration, params)
     else:
-        agent.model.update_config(valid_run_name, params, path=Path(agent.valid_path))
+        agent.model.update_config(valid_run_name, params)
+
+    # Write realization to file after updating configuration
+    agent.model.strategy.write_realization_file(path=Path(agent.valid_path))
 
     # Create realization file for validation run
     # agent.model.update_config(0, params, path = Path(agent.valid_path))
@@ -96,10 +99,18 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
 
     # correct path for init_config for validation runs for modules with time periods info in these files
     # (currently Noah-OWP-Modular, UEB, and TopoFlow)
-    for m in config_valid['global']['formulations'][0]['params']['modules']:
-        if m['params']['model_type_name'] in ['NoahOWP', 'UEB', 'BmiTopoflowGlacier']:
-            m1 = m['params']['init_config']
-            m['params']['init_config'] = os.path.join(os.path.dirname(m1), os.path.basename(m1).replace('calib', 'valid'))
+    if 'global' in config_valid and config_valid['global']:
+        formulations = config_valid['global']['formulations']
+    elif 'formulation_groups' in config_valid and config_valid['formulation_groups']:
+        formulations = []
+        for grp_name, grp_formulations in config_valid['formulation_groups'].items():
+            formulations.extend(grp_formulations)
+
+    for formulation in formulations:
+        for m in formulation['params']['modules']:
+            if m['params']['model_type_name'] in ['NoahOWP', 'UEB', 'BmiTopoflowGlacier']:
+                m1 = m['params']['init_config']
+                m['params']['init_config'] = os.path.join(os.path.dirname(m1), os.path.basename(m1).replace('calib', 'valid'))
 
     # Replace t-route yaml file
     rt = os.path.basename(config_valid['routing']['t_route_config_file_with_path']).replace('calib', valid_run_name)
