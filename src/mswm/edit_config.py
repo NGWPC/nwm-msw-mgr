@@ -68,10 +68,10 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
     valid_output_index = general_dict.get("valid_output_index", [])
 
     if valid_run_name == "valid_control":
-        agent.model.update_config(0, params, id=None)
+        agent.model.update_config(0, params)
     elif valid_run_name == "valid_best":
         if agent.algorithm != "dds":
-            agent.model.update_config("global_best")
+            agent.model.update_config("global_best", params)
         else:
             agent.model.update_config(eval_params._best_params_iteration, params)
     else:

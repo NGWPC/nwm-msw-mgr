@@ -1641,7 +1641,7 @@ def create_ueb_input_reg(
         if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
             # Date
             startdate = time_period['run_time_period'][run_name][0]
-            startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S") + datetime.timedelta(hours=1)
+            startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S")
             startdate = startdate.strftime("%Y%m%d%H%M")
             enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
             for catID in catids:
