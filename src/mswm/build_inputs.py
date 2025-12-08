@@ -923,6 +923,15 @@ class RealizationBuilder:
                 topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= 50]
                 nontopo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) < 50]
 
+                # Throw error if user selects TopoFlow-Glacier formulation but no catchments will use Topoflow-Glacier
+                if len(topo_cats) == 0:
+                    try:
+                        raise Exception("No catchments in basin have >50% glaciated percentage for Topoflow-Glacier application.\n"
+                                        "Remove Topoflow-Glacier from the formulation.")
+                    except Exception as e:
+                        logger.critical(e)
+                        raise
+
                 # Create cat_to_grp and cat_to_form variables
                 self.grp_to_cat = {'group_1': topo_cats,
                                    'group_2': nontopo_cats}
@@ -1246,7 +1255,6 @@ class RealizationBuilder:
         """
         Generate BMI config files for modules or link to existing config files
         """
-        # always create CFE inputs first since sft/smp need data from CFE inputs if they are selected
         if self.run_type == 'calibration':
             self.run_configs = ['_troute_config_calib.yaml', '_troute_config_valid_control.yaml', '_troute_config_valid_best.yaml']
         elif self.run_type == 'default':

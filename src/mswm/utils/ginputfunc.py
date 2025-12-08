@@ -154,7 +154,7 @@ def call_icefabric_ipe(
 
     # Set base endpoint (use Optimization endpoint for ngencerf, test for standalone)
     icefabric_env = "oe" if ngen_cerf else "test"
-    url = f"https://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/modules/{mod}/"
+    url = f"http://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/modules/{mod}/"
 
     # Build query parameters
     params = {"identifier": basin,
@@ -240,7 +240,7 @@ def call_icefabric_gpkg(
 
     # Set base endpoint (use Optimization endpoint for ngencerf, test for standalone)
     icefabric_env = "oe" if ngen_cerf else "test"
-    url = f"https://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/gpkg"
+    url = f"http://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/gpkg"
 
     # Build query parameters
     params = {"id_type": "hl_uri",
