@@ -703,161 +703,12 @@ def create_noah_input(
                     outfile.write("\n")
 
 
-<<<<<<< HEAD
 def create_sft_smp_input(
-=======
-def create_sft_input(
-        catids: List[str],
-        sft_dir: Union[str, Path],
-        smp_dir: Union[str, Path],
-        run_type: str,
-        sm_profile_depth: List[float] = [0.1, 0.4, 1.0, 2.0],
-        sm_fraction_depth: float = 0.4,
-) -> None:
-    """ Create BMI configuration file for soil freeze and thaw module
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    sft_dir : directory for writing sft bmi configuration files
-    smp_dir : directory for writing smp bmi configuration files
-    run_type: type of run (calib, regionalization, or default)
-    sm_profile_depth: list of soil moisture profile depths
-    sm_fraction_depth: depth at which soil moisture fraction is defined
-
-    Returns
-    ----------
-    None
-
-    """
-
-    # Create bmi config files
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        catID = catids[i]
-
-        # Set module list for each catchment during regionalization
-        if run_type == 'regionalization':
-            mods = modules[i]
-            if ('cfex' in mods):
-                icefscheme = 'Xinanjiang'
-
-        # Obtain annual mean surface temperature as proxy for initial soil temperature
-        # This value is just a reasonable estimate per new direction (Edwin)
-        mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
-
-        # Create sft list
-        sft_lst = ['verbosity=none',
-                   'soil_moisture_bmi=1',
-                   'end_time=1.[d]',  # We may need to set this, and then create separate cal/val sft files
-                   'dt=1.0[h]',
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
-                   'soil_params.quartz=' + str(dfa.loc[catID]['quartz']),
-                   'ice_fraction_scheme=' + icefscheme,
-                   "soil_z=" + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
-                   'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
-                   ]
-
-        # Update parameters
-        cat_ipe['verbosity'] = 'none'
-        cat_ipe['end_time'] = '1.[d]'
-        cat_ipe['dt'] = '1.0[h]'
-
-        # Write sft config to file
-        sft_bmi_file = os.path.join(sft_dir, catID + '_bmi_config_sft.txt')
-        with open(sft_bmi_file, "w") as f:
-            for key, val in cat_ipe.items():
-                f.write(f"{key}={val}\n")
-
-        # Create smp list
-        smp_lst = ['verbosity=none',
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
-                   "soil_z=" + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
-                   "soil_moisture_fraction_depth=" + f"{float(sm_fraction_depth):g}" + "[m]"]
-
-def create_smp_input(
-        catids: List[str],
-        smp_dir: Union[str, Path],
-        ipe: dict,
-        sm_frac_depth: float,
-        sm_profile_depth: float
-) -> None:
-    """ Create BMI configuration file for soil moisture profiles module
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    smp_dir : directory for writing smp bmi configuration files
-    ipe: initial parameter estimates retrieved from icefabric api
-    sm_frac_depth: depth at which to output soil moisture fraction
-    sm_profile_depth = depth at which to output soil moisture
-
-    Returns
-    ----------
-    sm_profile_depth (may be adjusted)
-
-    """
-
-    # Create bmi config files
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        # Update parameters
-        cat_ipe['verbosity'] = 'none'
-
-        # Adjust soil_moisture_fraction_depth
-        cat_ipe['soil_moisture_fraction_depth'] = f'{sm_frac_depth}[m]'
-
-        # Parse soil_z depth
-        soil_z_str = str(cat_ipe['soil_z'])
-        depths_str, unit = soil_z_str.split('[')
-        depths = [float(d.strip()) for d in depths_str.split(',')]
-
-        # Adjust soil_z for soil_moisture_fraction_depth
-        if not any(abs(value - sm_frac_depth) < 1e-6 for value in depths):
-            # Insert sm_frac_depth in correct ascending order
-            for j, d in enumerate(depths):
-                if d > sm_frac_depth:
-                    depths.insert(j, sm_frac_depth)
-                    break
-        else:
-            # If it wasn't inserted, append to end
-            depths.append(sm_frac_depth)
-
-        # Adjust 1st element of soil_z for soil_moisture_profile output depth
-        if sm_profile_depth != depths[0]:
-            if len(depths) > 1 and sm_profile_depth > depths[1]:
-                logger.warning(f'sm_profile_depth ({sm_profile_depth}m) is greater than soil_z[1] ({depths[1]}m);'
-                               f'using soil_z[0] {depths[0]}m) instead')
-            else:
-                depths[0] = sm_profile_depth
-        cat_ipe['soil_z'] = f"{','.join(map(str, depths))}[m]"
-
-        # Write smp to to file
-        smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
-        with open(smp_bmi_file, "w") as f:
-            for key, val in cat_ipe.items():
-                f.write(f"{key}={val}\n")
-
-        return depths[0]
-
-
-def create_sft_smp_input_reg(
->>>>>>> c61d645 (Update smp config creation with output variables)
         catids: List[str],
         modules: Union[List[str], List[List[str]]],
         dfa: gpd.GeoDataFrame,
         sft_dir: Union[str, Path],
         smp_dir: Union[str, Path],
-        sm_frac_depth: float,
-        sm_profile_depth: float,
         run_type: str,
         sm_frac_depth: float = 0.4,
         sm_profile_depth: List[float] = [0.1, 0.4, 1.0, 2.0],
@@ -872,11 +723,7 @@ def create_sft_smp_input_reg(
     sft_dir : directory for writing sft bmi configuration files
     smp_dir : directory for writing smp bmi configuration files
     sm_frac_depth: depth at which to output soil moisture fraction
-<<<<<<< HEAD
-    sm_profile_depth = list of soil moisture profile depths
-=======
     sm_profile_depth = depth at which to output soil moisture
->>>>>>> a45a6e4 (Update smp soil depths for regionalization)
     run_type: type of run (calib, regionalization, or default)
 
     Returns
@@ -894,14 +741,9 @@ def create_sft_smp_input_reg(
         if ('cfex' in mods):
             icefscheme = 'Xinanjiang'
 
-<<<<<<< HEAD
     # Obtain annual mean surface temperature as proxy for initial soil temperature
     # This value is just a reasonable estimate per new direction (Edwin)
     mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
-=======
-    # Define base soil depths
-    base_soil_depths = [0.1, 0.3, 1.0, 2.0]
->>>>>>> a45a6e4 (Update smp soil depths for regionalization)
 
     # Create bmi config files
     for i in range(len(catids)):
@@ -914,32 +756,6 @@ def create_sft_smp_input_reg(
             if ('cfex' in mods):
                 icefscheme = 'Xinanjiang'
 
-<<<<<<< HEAD
-=======
-        # Obtain annual mean surface temperature as proxy for initial soil temperature
-        # This value is just a reasonable estimate per new direction (Edwin)
-        mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
-
-        # Prepare soil_depths for sft, ensuring sm_profile_depth is included
-        depths = base_soil_depths.copy()
-        if not any(abs(value - sm_profile_depth) < 1e-6 for value in depths):
-            for j, d in enumerate(depths):
-                if d > sm_profile_depth:
-                    depths.insert(j, sm_profile_depth)
-                    break
-        else:
-            depths.append(sm_profile_depth)
-        depths.sort()
-
-        # Adjust 1st element of soil_z for soil_moisture_profile output depth
-        if sm_profile_depth != depths[0]:
-            if len(depths) > 1 and sm_profile_depth > depths[1]:
-                logger.warning(f'sm_profile_depth ({sm_profile_depth}m) is greater than soil_z[1] ({depths[1]}m);'
-                               f'using soil_z[0] {depths[0]}m) instead')
-            else:
-                depths[0] = sm_profile_depth
-
->>>>>>> a45a6e4 (Update smp soil depths for regionalization)
         # Create sft list
         sft_lst = ['verbosity=none',
                    'soil_moisture_bmi=1',
@@ -950,13 +766,8 @@ def create_sft_smp_input_reg(
                    'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + '[m]',
                    'soil_params.quartz=' + str(dfa.loc[catID]['quartz']) + '[m]',
                    'ice_fraction_scheme=' + icefscheme,
-<<<<<<< HEAD
                    'soil_z=' + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
                    'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
-=======
-                   'soil_z=' + ','.join(map(str, depths)) + '[m]',
-                   'soil_temperature=' + ','.join([str(mtemp)] * len(depths)) + '[K]'
->>>>>>> a45a6e4 (Update smp soil depths for regionalization)
                    ]
 
         # Write sft config to file
@@ -966,17 +777,10 @@ def create_sft_smp_input_reg(
 
         # Create smp list
         smp_lst = ['verbosity=none',
-<<<<<<< HEAD
                    'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + '[m/m]',
                    'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + '[]',
                    'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + '[m]',
                    'soil_z=' + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
-=======
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
-                   'soil_z=' + ','.join(map(str, depths)) + '[m]',
->>>>>>> a45a6e4 (Update smp soil depths for regionalization)
                    'soil_moisture_fraction_depth=' + str(sm_frac_depth) + '[m]']
 
         if 'cfes' in mods or 'cfex' in mods or 'sac' in mods:
