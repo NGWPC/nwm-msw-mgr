@@ -25,6 +25,23 @@ If you already have an environment for running ngen, you can use the same venv.
 where `[VENV_ROOT]` is the location of your Python virtual environment.
 
 
+### Topoflow-Glacier Validation
+To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called:
+1. python -m mswm.manager validate_topoflow 01123000 conus False
+
+The mswm.manager script in topoflow validation mode takes two command line arguments:
+1. Command for topoflow validation mode (validate_topoflow)
+2. Basin id
+3. Domain id (conus, prvi, ak, hi, gl)
+4. NgenCERF Flag (True = running inside NgenCERF, False = running outside NgenCERF)
+
+The validate_topoflow function will return a JSON with a status of True if there are catchments in the basin where Topoflow-Glacier can be applied (>=50% glacier coverage).
+The validate_topoflow function will return a JSON with a status of False if there are no catchments in the basin where Topoflow-Glacier can be applied.
+
+Within Python scripts, regionalization input files can be generated calling the build_region realization function:
+1. from mswm.build_inputs import validate_topoflow
+2. validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
+
 ## Docker container
 
 ### Requirements

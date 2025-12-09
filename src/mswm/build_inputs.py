@@ -472,6 +472,7 @@ class RealizationBuilder:
         self.conf1 = self.input_configs.get('General')
         self.run_type = self.conf1.get("run_type") if self.conf1 else None
         self.domain = self.conf1.get("domain") + "_hf" if self.conf1 else None
+        self.basin = self.conf1['basin']
 
         # Set envca flag for CONUS Environment Canada gages
         self.envca = self.conf1.get("envca") if self.conf1 else None
@@ -479,6 +480,7 @@ class RealizationBuilder:
         # Load run_type specific config section or empty dict for default
         run_key = (self.run_type or "").capitalize()
         self.conf2 = self.input_configs.get(run_key, {})
+        self.ngen_cerf = self.conf2.get('ngen_cerf') or False
 
         # Retrieve input.config sections
         self.conf3 = self.input_configs.get('DataFile')
@@ -742,21 +744,41 @@ class RealizationBuilder:
         # Retrieve is_aet_rootzone flag for cfe
         self.is_aet_rootzone = self.conf1.get('is_aet_rootzone') or 0
 
-        # If Topoflow in modules, create grouped realizations
+        # If Topoflow in modules,validate glacier coverage and create grouped realizations
         if 'topoflow' in self.modules:
-            mod_notopo = self.modules.copy()
-            mod_notopo.remove('topoflow')
-            self.grp_to_form = {}
-            self.grp_to_form['group_1'] = mod_notopo
-            self.grp_to_form['group_2'] = ['topoflow']
-            logger.info(f"Final list of modules in formulation: 'group1': {mod_notopo}, 'group2': ['topoflow']")
+            # Call Icefabric API to check glacier coverage
+            self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain, self.ngen_cerf)
 
-            # If CFE in modules, retrieve is_aet_rootzone flag
-            self.grp_is_aet_rootzone = {}
-            self.grp_is_aet_rootzone['group_1'] = self.is_aet_rootzone
-            self.grp_is_aet_rootzone['group_2'] = 0
-        else:
-            logger.info(f"Final list of modules in formulation: {self.modules}")
+            # Retrieve list of catchments where glaciated percent >= 50
+            glacier_thresh = 50
+            topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= glacier_thresh]
+
+            # Ensure catchments exist where topoflow-glacier can be applied
+            if len(topo_cats) == 0:
+                logger.warning(f"No catchments with >={glacier_thresh}% glacier coverage. "
+                               "Removing Topoflow from formulation.")
+                self.modules.remove('topoflow')
+                logger.info(f"Updated module list (TopoFlow removed): {self.modules}")
+            else:
+                # Create grouped realizations if glaciated catchments exist
+                mod_notopo = self.modules.copy()
+                mod_notopo.remove('topoflow')
+                self.grp_to_form = {}
+                self.grp_to_form['group_1'] = mod_notopo
+                self.grp_to_form['group_2'] = ['topoflow']
+
+                # Map catchments to groups based on glacier coverage
+                nontopo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) < glacier_thresh]
+
+                self.grp_to_cat = {'group_1': topo_cats,
+                                   'group_2': nontopo_cats}
+
+                # If CFE in modules, retrieve is_aet_rootzone flag
+                self.grp_is_aet_rootzone = {}
+                self.grp_is_aet_rootzone['group_1'] = self.is_aet_rootzone
+                self.grp_is_aet_rootzone['group_2'] = 0
+
+                logger.info(f"Final list of modules in formulation: 'group1': {mod_notopo}, 'group2': ['topoflow']")
 
     def _parse_reg_modules(self):
         """
@@ -878,34 +900,6 @@ class RealizationBuilder:
         else:
             validate_formulation(self.modules)
             logger.info("Module processes validated")
-
-    def _get_glacier_pct(self):
-        """
-        Retrieve glacier percentage from Icefabric API if Topoflow is in use
-        """
-        if hasattr(self, 'grp_to_form') and self.grp_to_form:
-            if any('topoflow' in v for v in self.grp_to_form.values()):
-
-                # Call Icefabric API for TopoFlow
-                self.domain = 'conus_hf'
-                self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain, self.ngen_cerf)
-
-                # Retrieve list of catchments where glaciated percent >= 50
-                topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= 50]
-                nontopo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) < 50]
-
-                # Throw error if user selects TopoFlow-Glacier formulation but no catchments will use Topoflow-Glacier
-                if len(topo_cats) == 0:
-                    try:
-                        raise Exception("No catchments in basin have >50% glaciated percentage for Topoflow-Glacier application.\n"
-                                        "Remove Topoflow-Glacier from the formulation.")
-                    except Exception as e:
-                        logger.critical(e)
-                        raise
-
-                # Create cat_to_grp and cat_to_form variables
-                self.grp_to_cat = {'group_1': topo_cats,
-                                   'group_2': nontopo_cats}
 
     def _map_cat_to_grp(self):
         """
@@ -1610,7 +1604,6 @@ class RealizationBuilder:
         self._parse_modules()
         self._validate_processes()
         self._create_input_dir()
-        self._get_glacier_pct()
         self._map_cat_to_grp()
         self._map_cat_to_form()
         self._map_mod_to_cat()
@@ -1719,7 +1712,6 @@ class RealizationBuilder:
         self._parse_time()
         self._parse_modules()
         self._validate_processes()
-        self._get_glacier_pct()
         self._map_cat_to_grp()
         self._map_cat_to_form()
         self._map_mod_to_cat()

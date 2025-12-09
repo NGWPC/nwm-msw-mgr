@@ -47,7 +47,6 @@ def validate_topo(basin_id: str, domain: str, ngen_cerf: bool = False):
     Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
     """
     result = validate_topoflow(basin_id, domain, ngen_cerf)
-    # print(json.dumps(result, index=2))
     print(result)
 
 
