@@ -1734,3 +1734,32 @@ class RealizationBuilder:
         self._write_partition()
 
         logger.info("Default run set up successfully")
+
+
+def validate_topoflow(basin_id: str, domain: str, ngen_cerf: bool) -> dict:
+    """Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
+
+    Retrieves glacier coverage from Icefabric API and identifies catchments with >50% glacier coverage
+    that are suitable for Topflow-Glacier application
+
+    Args:
+        basin_id: basin identifier
+        domain: domain identifier
+    """
+
+    # Retrieve glacier coverage data from Icefabric API
+    domain_hf = domain + "_hf"
+    ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], basin_id, domain_hf, ngen_cerf)
+
+    # Filter catchments by glacier percent >50%
+    glacier_thresh = 50
+    glacier_cat = sum(1 for val in ipe.values() if val.get('glacier_percent', ) >= glacier_thresh)
+
+    # Return json message for Topoflow-Glacier applicability
+    if glacier_cat >= 1:
+        return {'result': True}
+    else:
+        return {
+            'result': False,
+            'message': f'No catchments meet glacier coverage threshold of {glacier_thresh}% for Topoflow-Glacier Application'
+        }
