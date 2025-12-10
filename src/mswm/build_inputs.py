@@ -472,7 +472,7 @@ class RealizationBuilder:
         self.conf1 = self.input_configs.get('General')
         self.run_type = self.conf1.get("run_type") if self.conf1 else None
         self.domain = self.conf1.get("domain") + "_hf" if self.conf1 else None
-        self.basin = self.conf1['basin']
+        self.basin = self.conf1['basin'] if self.conf1 else None
 
         # Set envca flag for CONUS Environment Canada gages
         self.envca = self.conf1.get("envca") if self.conf1 else None

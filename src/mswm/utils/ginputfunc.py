@@ -2967,8 +2967,11 @@ def update_noah_ueb_topo_times(
                     with open(f1, 'r') as yaml_file:
                         cfg = yaml.safe_load(yaml_file)
 
-                    cfg['start_time'] = startdate
-                    cfg['end_time'] = enddate
+                    startdate_topo = pd.to_datetime(start_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
+                    enddate_topo = pd.to_datetime(end_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
+
+                    cfg['start_time'] = startdate_topo
+                    cfg['end_time'] = enddate_topo
 
                     with open(cfg_path, 'w') as yaml_file:
                         yaml.dump(cfg, yaml_file, default_flow_style=False, sort_keys=False)
