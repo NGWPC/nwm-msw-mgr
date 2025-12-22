@@ -243,15 +243,9 @@ class ForcingConfig(StrictBaseModel):
             if self.forcing_configuration is None:
                 raise ValueError("`forcing_configuration` must be specified for a run using bmi forcing provider.")
             else:
-<<<<<<< HEAD
                 if self.forcing_configuration not in valid_configs:
-                    raise ValueError(f"Invalid `forcing_configuration` value: '{self.forcing_configuration}'."
-                                    f"Valid options are: {', '.join(valid_configs)}.")
-=======
-                if self.forecast_configuration not in valid_configs:
-                    raise ValueError(f"Invalid `forecast_configuration` value: '{self.forecast_configuration}'."
+                    raise ValueError(f"Invalid `forecast_configuration` value: '{self.forcing_configuration}'."
                                      f"Valid options are: {', '.join(valid_configs)}.")
->>>>>>> fe6f8dd (Implemented Topmodel icefabric config writing)
 
         # forcing template dir required if forcing_provider is csv
         if self.forcing_provider == 'bmi' and self.forcing_template_dir is None:

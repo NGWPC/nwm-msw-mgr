@@ -1451,11 +1451,11 @@ class RealizationBuilder:
 
         # Write realization file
         if hasattr(self, 'grp_to_form') and self.grp_to_form:
-            gfun.create_reg_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
-                                             self.time_period, rt_dict, self.output_dict, self.run_type, self.cat_to_grp, self.grp_to_form, {})
+            self.output_config = gfun.create_reg_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
+                                                                  self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.run_type, self.cat_to_grp, self.grp_to_form, {})
         else:
-            gfun.create_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
-                                         self.modules, self.time_period, rt_dict, self.output_dict, self.run_type)
+            self.output_config = gfun.create_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
+                                                              self.modules, self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.run_type)
 
     def _write_region_realization(self):
         """
@@ -1603,7 +1603,6 @@ class RealizationBuilder:
         self._parse_calib_settings()
         self._parse_modules()
         self._validate_processes()
-        self._create_input_dir()
         self._map_cat_to_grp()
         self._map_cat_to_form()
         self._map_mod_to_cat()

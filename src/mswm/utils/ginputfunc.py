@@ -4171,7 +4171,7 @@ def create_reg_realization_file(
                 output_vars.append(entry)
             grp_configs['params']['output_variables'] = output_vars if output_vars else []
         else:
-            grp_configs['params']['output_variables'] = []
+            gbmain['params']['output_variables'] = []
 
         # determine the RR module in the current formulation
         rr_mod1 = [m1 for m1 in grp_mod if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m1, 'process'].values[0]]
@@ -4228,6 +4228,7 @@ def create_reg_realization_file(
         json.dump(g, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
     logger.info(f'Realization file is created at {realization_file}')
 
+    return output_config
 
 def create_realization_file(
         workdir: Union[str, Path],
@@ -4621,7 +4622,7 @@ def create_realization_file(
         output_config["output_index"] = output_config["output_index"] + ["0"]
 
     # Write output variables section if requested, otherwise write empty section
-    if calib_output_vars:
+    if calib_output_vars or run_type != 'calib':
         output_vars = []
         for var, hdr, unit, idx in zip(
             output_config["output_variables"],
