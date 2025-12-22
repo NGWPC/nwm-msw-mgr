@@ -923,10 +923,10 @@ class RealizationBuilder:
         try:
             os.makedirs(self.input_dir, exist_ok=True)
         except Exception as e:
-            logger.critical(f"Invalid input directory: {e}. Check `main_dir` variable")
+            main_logger.critical(f"Invalid input directory: {e}. Check `main_dir` variable")
             raise
 
-        logger.info(f"Input directory created at: {self.input_dir}")
+        main_logger.info(f"Input directory created at: {self.input_dir}")
 
     def _map_cat_to_grp(self):
         """
@@ -1458,11 +1458,11 @@ class RealizationBuilder:
 
         # Write realization file
         if hasattr(self, 'grp_to_form') and self.grp_to_form:
-            gfun.create_reg_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
-                                             self.time_period, rt_dict, self.output_dict, self.run_type, self.cat_to_grp, self.grp_to_form, {})
+            self.output_config = gfun.create_reg_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
+                                                                  self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.run_type, self.cat_to_grp, self.grp_to_form, {})
         else:
-            gfun.create_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
-                                         self.modules, self.time_period, rt_dict, self.output_dict, self.run_type)
+            self.output_config = gfun.create_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
+                                                              self.modules, self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.run_type)
 
     def _write_region_realization(self):
         """
@@ -1480,8 +1480,8 @@ class RealizationBuilder:
         rt_dict = {"routing": {"t_route_config_file_with_path": routing_config_file}}
 
         # Write realization file
-        gfun.create_reg_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
-                                         self.time_period, rt_dict, self.output_dict, self.cat_to_grp, self.grp_to_form, self.grp_params)
+        self.output_config = gfun.create_reg_realization_file(self.work_dir, self.lib_file, bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file, self.realization_file,
+                                                              self.time_period, rt_dict, self.output_dict, self.cat_to_grp, self.grp_to_form, self.grp_params)
 
     def _write_fcst_realization(self):
         """
@@ -1609,7 +1609,6 @@ class RealizationBuilder:
         self._parse_calib_settings()
         self._parse_modules()
         self._validate_processes()
-        self._create_input_dir()
         self._map_cat_to_grp()
         self._map_cat_to_form()
         self._map_mod_to_cat()

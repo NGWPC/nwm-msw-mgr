@@ -3422,6 +3422,7 @@ def create_reg_realization_file(
         time_period: dict,
         rt_dict: dict,
         output_dict: dict,
+        calib_output_vars: dict,
         run_type: str,
         cat_to_grp: dict,
         grp_to_form: dict,
@@ -3441,6 +3442,7 @@ def create_reg_realization_file(
     time_period : simulation and evaluation time period
     rt_dict : routing model source file directory and configuration file
     output_dict: whether to output certain variables (currently SWE and soil moisture)
+    calib_output_vars: boolean flag for writing calibration output variables
     run_type: type of run (calib, regionalization, or default)
     cat_to_grp: dictionary mapping catchments to regionalization groups
     grp_to_form: dictionary mapping regionalization groups to formulations
@@ -3854,14 +3856,17 @@ def create_reg_realization_file(
                     output_config['output_variables'] = output_config['output_variables'] + var_maps['output']['sm_out']
                     output_config['output_header_fields'] = output_config['output_header_fields'] + var_maps['output']['sm_out_header']
 
-        output_vars = [
-            {"name": var, "header": hdr}
-            for var, hdr in zip(output_config['output_variables'], output_config['output_header_fields'])
-        ]
-        if output_vars != []:
-            grp_configs['params']['output_variables'] = output_vars
+        if calib_output_vars or run_type != 'calib':
+            output_vars = [
+                {"name": var, "header": hdr}
+                for var, hdr in zip(output_config['output_variables'], output_config['output_header_fields'])
+            ]
+            if output_vars != []:
+                grp_configs['params']['output_variables'] = output_vars
+            else:
+                grp_configs['params']['output_variables'] = []
         else:
-            grp_configs['params']['output_variables'] = []
+            gbmain['params']['output_variables'] = []
 
         # determine the RR module in the current formulation
         rr_mod1 = [m1 for m1 in grp_mod if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m1, 'process'].values[0]]
@@ -3918,6 +3923,7 @@ def create_reg_realization_file(
         json.dump(g, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
     logger.info(f'Realization file is created at {realization_file}')
 
+    return output_config
 
 def create_realization_file(
         workdir: Union[str, Path],
@@ -4293,7 +4299,7 @@ def create_realization_file(
         output_config['output_units'] = output_config['output_units'] + ["mm/s"]
 
     # Write output variables section if requested, otherwise write empty section
-    if calib_output_vars:
+    if calib_output_vars or run_type != 'calib':
         output_vars = [
             {"name": var, "header": hdr, "units": unit}
             for var, hdr, unit in zip(output_config['output_variables'], output_config['output_header_fields'], output_config['output_units'])
