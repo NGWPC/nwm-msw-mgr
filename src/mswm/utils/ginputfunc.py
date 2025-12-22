@@ -3859,6 +3859,12 @@ def create_reg_realization_file(
                     output_config['output_variables'] = output_config['output_variables'] + var_maps['output']['sm_out']
                     output_config['output_header_fields'] = output_config['output_header_fields'] + var_maps['output']['sm_out_header']
 
+        # Add precipitation to output_config
+        if output_dict['output_precip']:
+            output_config['output_variables'] = output_config['output_variables'] + ["QRAIN"]
+            output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainrate"]
+            output_config['output_units'] = output_config['output_units'] + ["mm/s"]
+
         if calib_output_vars or run_type != 'calib':
             output_vars = [
                 {"name": var, "header": hdr}
