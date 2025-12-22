@@ -117,11 +117,19 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
         logger.critical("Realization file type not recognized.")
 
     # Replace forcing engine config file path with validation path
+<<<<<<< HEAD
     if real_type == 'global':
         if config_valid['global']['forcing']['provider'] == 'ForcingsEngineLumpedDataProvider':
             fe_config = Path(config_valid['global']['forcing']['params']['init_config'])
             config_valid['global']['forcing']['params']['init_config'] = fe_config.with_name(fe_config.stem + '_valid' + fe_config.suffix)
     elif real_type == 'grouped':
+=======
+    if 'global' in config_valid and config_valid['global']:
+        if config_valid['global']['forcing']['provider'] == 'ForcingsEngineLumpedDataProvider':
+            fe_config = Path(config_valid['global']['forcing']['params']['init_config'])
+            config_valid['global']['forcing']['params']['init_config'] = fe_config.with_name(fe_config.stem + '_valid' + fe_config.suffix)
+    elif 'formulation_groups' in config_valid and config_valid['formulation_groups']:
+>>>>>>> 59a5fff (Update output variable writing for grouped realizations and forcing engine)
         if config_valid['forcing_groups']['forcing_grp1']['provider'] == 'ForcingsEngineLumpedDataProvider':
             fe_config = Path(config_valid['forcing_groups']['forcing_grp1']['params']['init_config'])
             config_valid['forcing_groups']['forcing_grp1']['params']['init_config'] = fe_config.with_name(fe_config.stem + '_valid' + fe_config.suffix)

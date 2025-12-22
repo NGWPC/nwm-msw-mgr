@@ -3162,6 +3162,7 @@ def create_reg_realization_file(
                         output_config["output_units"].append(var_maps["output"]["sm_out_units"][i])
                         output_config["output_index"].append(var_maps["output"]["sm_out_index"][i])
 
+<<<<<<< HEAD
         # Add precipitation to output_config
         if output_dict['output_precip']:
             output_config['output_variables'] = output_config['output_variables'] + [precip_output]
@@ -3183,8 +3184,19 @@ def create_reg_realization_file(
                     entry["index"] = idx
                 output_vars.append(entry)
             grp_configs['params']['output_variables'] = output_vars if output_vars else []
+=======
+        if calib_output_vars or run_type != 'calib':
+            output_vars = [
+                {"name": var, "header": hdr}
+                for var, hdr in zip(output_config['output_variables'], output_config['output_header_fields'])
+            ]
+            if output_vars != []:
+                grp_configs['params']['output_variables'] = output_vars
+            else:
+                grp_configs['params']['output_variables'] = []
+>>>>>>> 59a5fff (Update output variable writing for grouped realizations and forcing engine)
         else:
-            grp_configs['params']['output_variables'] = []
+            gbmain['params']['output_variables'] = []
 
         # Store group's output_config
         output_config_grp[grp] = output_config
@@ -3247,8 +3259,12 @@ def create_reg_realization_file(
         json.dump(g, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
     logger.info(f'Realization file is created at {realization_file}')
 
+<<<<<<< HEAD
     return output_config_grp
 
+=======
+    return output_config
+>>>>>>> 59a5fff (Update output variable writing for grouped realizations and forcing engine)
 
 def create_realization_file(
         workdir: Union[str, Path],
