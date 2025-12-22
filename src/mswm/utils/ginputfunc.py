@@ -3213,7 +3213,10 @@ def create_reg_realization_file(
                 output_vars.append(entry)
             grp_configs['params']['output_variables'] = output_vars if output_vars else []
         else:
-            gbmain['params']['output_variables'] = []
+            grp_configs['params']['output_variables'] = []
+
+        # Store group's output_config
+        output_config_grp[grp] = output_config
 
         # Store group's output_config
         output_config_grp[grp] = output_config
