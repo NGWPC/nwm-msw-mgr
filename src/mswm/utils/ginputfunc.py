@@ -3482,6 +3482,9 @@ def create_reg_realization_file(
     grp_main = {}
     grps = list(grp_to_form.keys())
 
+    # Initialize output_config dict for output variables
+    output_config_grp = {}
+
     # Set variable name mapping based on forcing provider
     name_prcp = {"csv": "atmosphere_water__liquid_equivalent_precipitation_rate",
                  "bmi": "RAINRATE_ELEMENT"}
@@ -3866,7 +3869,10 @@ def create_reg_realization_file(
             else:
                 grp_configs['params']['output_variables'] = []
         else:
-            gbmain['params']['output_variables'] = []
+            grp_configs['params']['output_variables'] = []
+
+        # Store group's output_config
+        output_config_grp[grp] = output_config
 
         # determine the RR module in the current formulation
         rr_mod1 = [m1 for m1 in grp_mod if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m1, 'process'].values[0]]
@@ -3923,7 +3929,7 @@ def create_reg_realization_file(
         json.dump(g, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
     logger.info(f'Realization file is created at {realization_file}')
 
-    return output_config
+    return output_config_grp
 
 def create_realization_file(
         workdir: Union[str, Path],

@@ -1580,9 +1580,25 @@ class RealizationBuilder:
 
         # Set output variables
         if self.valid_output_vars:
-            general_dict['valid_output_vars'] = self.output_config['output_variables']
-            general_dict['valid_output_headers'] = self.output_config['output_header_fields']
-            general_dict['valid_output_units'] = self.output_config['output_units']
+            if self.output_config and isinstance(next(iter(self.output_config.values())), dict):
+                # Per group output variables
+                general_dict['valid_output_vars_grp'] = {
+                    grp: config['output_variables']
+                    for grp, config in self.output_config.items()
+                }
+                general_dict['valid_output_headers_grp'] = {
+                    grp: config['output_header_fields']
+                    for grp, config in self.output_config.items()
+                }
+                general_dict['valid_output_units_grp'] = {
+                    grp: config['output_units']
+                    for grp, config in self.output_config.items()
+                }
+            else:
+                # Global output variables
+                general_dict['valid_output_vars'] = self.output_config['output_variables']
+                general_dict['valid_output_headers'] = self.output_config['output_header_fields']
+                general_dict['valid_output_units'] = self.output_config['output_units']
 
         # Create calibration config file
         gfun.create_calib_config_file(self.conf2['calib_parameter_file'], self.modules, self.work_dir, general_dict, self.model_dict, self.calib_config_file)
