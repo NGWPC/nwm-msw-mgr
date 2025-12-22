@@ -4154,12 +4154,19 @@ def create_reg_realization_file(
 
         # Add precipitation to output_config
         if output_dict['output_precip']:
+<<<<<<< HEAD
             output_config['output_variables'] = output_config['output_variables'] + [precip_output]
             output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainrate"]
             output_config['output_units'] = output_config['output_units'] + ["mm/s"]
             output_config["output_index"] = output_config["output_index"] + ["0"]
 
         # Write output variables section if requested, otherwise write empty section
+=======
+            output_config['output_variables'] = output_config['output_variables'] + ["QRAIN"]
+            output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainrate"]
+            output_config['output_units'] = output_config['output_units'] + ["mm/s"]
+
+>>>>>>> 0f98ab0 (Add precipitation output variable handling for grouped topoflow formulations)
         if calib_output_vars or run_type != 'calib':
             output_vars = []
             for var, hdr, unit, idx in zip(
