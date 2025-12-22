@@ -3658,14 +3658,16 @@ def var_mapping(
             var_maps['output']['swe_out_units'] = 'mm'
         else:
             var_maps['output']['swe_out'] = ''
-    elif 'topmodel' in modules:
-        if output_dict['output_swe']:
-            var_maps['output']['swe_out'] = 'soil_water_table'
-            var_maps['output']['swe_out_units'] = 'm'
-        else:
-            var_maps['output']['swe_out'] = ''
-    else:
-        var_maps['output']['swe_out'] = ''
+
+    # TODO: soil_water_table doesn't seem like the correct SWE variable for Topmodel?
+    # elif 'topmodel' in modules:
+    #     if output_dict['output_swe']:
+    #         var_maps['output']['swe_out'] = 'soil_water_table'
+    #         var_maps['output']['swe_out_units'] = 'm'
+    #     else:
+    #         var_maps['output']['swe_out'] = ''
+    # else:
+    #     var_maps['output']['swe_out'] = ''
 
     # soil moisture fraction
     if 'smp' in modules and output_dict['output_sm']:
@@ -4096,7 +4098,7 @@ def create_reg_realization_file(
                                          "params": {"python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
                                                     "model_type_name": get_model_type_name('topoflow'),
                                                     "init_config": os.path.join(bmi_dir['topoflow'], "{{id}}.yaml"),
-                                                    "main_output_variable": "channel_water_x-section__volume_flow_rate",
+                                                    "main_output_variable": "land_surface_water__runoff_depth",
                                                     "uses_forcing_file": "false"}}
 
             # variable name mapping section
@@ -4107,14 +4109,19 @@ def create_reg_realization_file(
             var_maps = dict()
             var_maps['input'] = variables_names_map
             var_maps['output'] = dict()
-            var_maps['output']['swe_out'] = ''
+            if output_dict['output_swe']:
+                var_maps['output']['swe_out'] = 'snowpack__liquid-equivalent_depth'
+                var_maps['output']['swe_out_header'] = 'SWE_m'
+                var_maps['output']['swe_out_units'] = 'm'
+            else:
+                var_maps['output']['swe_out'] = ''
             var_maps['output']['sm_out'] = ''
 
             if grp_params.get('topoflow', {}).get(grp):
                 model_configs['topoflow']['params']['model_params'] = grp_params['topoflow'][grp]
 
             # module output variable for input to t-route
-            main_output_variable = "channel_water_x-section__volume_flow_rate"
+            main_output_variable = "land_surface_water__runoff_depth"
 
         # Store catchment model configs
         model_type_name = "bmi_multi"
