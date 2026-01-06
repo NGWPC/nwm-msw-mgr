@@ -62,14 +62,6 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
         y = yaml.safe_load(file)
 
     general_dict = y.get('general', {})
-    valid_output_vars = general_dict.get('valid_output_vars', [])
-    valid_output_headers = general_dict.get('valid_output_headers', [])
-    valid_output_units = general_dict.get('valid_output_units', [])
-
-    # Support per-group output variables for Topoflow Glacier calibration
-    valid_output_vars_grp = general_dict.get('valid_output_vars_grp', {})
-    valid_output_headers_grp = general_dict.get('valid_output_headers_grp', {})
-    valid_output_units_grp = general_dict.get('valid_output_units_grp', {})
 
     if valid_run_name == "valid_control":
         agent.model.update_config(0, params)
@@ -137,6 +129,9 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
     # Add output variables to validation realization
     logger.info("Setting validation output variables")
     if real_type == "global":
+        valid_output_vars = general_dict.get('valid_output_vars', [])
+        valid_output_headers = general_dict.get('valid_output_headers', [])
+        valid_output_units = general_dict.get('valid_output_units', [])
         if len(valid_output_vars) != 0:
             output_vars = [
                 {"name": var, "header": hdr, "units": unit}
@@ -145,25 +140,29 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
             config_valid['global']['formulations'][0]['params']['output_variables'] = output_vars
         else:
             config_valid['global']['formulations'][0]['params']['output_variables'] = []
-    elif real_type =="grouped":
+    elif real_type == "grouped":
+        # Support per-group output variables for Topoflow Glacier calibration
+        valid_output_vars_grp = general_dict.get('valid_output_vars_grp', {})
+        valid_output_headers_grp = general_dict.get('valid_output_headers_grp', {})
+        valid_output_units_grp = general_dict.get('valid_output_units_grp', {})
         for grp_name, grp_formulations in config_valid['formulation_groups'].items():
             # Get output vars for this group from yaml
             grp_valid_vars = valid_output_vars_grp.get(grp_name, [])
             grp_valid_headers = valid_output_headers_grp.get(grp_name, [])
             grp_valid_units = valid_output_units_grp.get(grp_name, [])
-        if len(valid_output_vars) != 0:
-            output_vars = [
-                {"name": var, "header": hdr, "units": unit}
-                for var, hdr, unit in zip(grp_valid_vars, grp_valid_headers, grp_valid_units)
-            ]
-            for formulation in grp_formulations:
-                formulation['params']['output_variables'] = output_vars
-            logger.info(f"valid_output_vars set for group {grp_name}: {output_vars}")
-        else:
-            for formulation in grp_formulations:
-                formulation['params']['output_variables'] = []
+            if len(grp_valid_vars) != 0:
+                output_vars = [
+                    {"name": var, "header": hdr, "units": unit}
+                    for var, hdr, unit in zip(grp_valid_vars, grp_valid_headers, grp_valid_units)
+                ]
+                for formulation in grp_formulations:
+                    formulation['params']['output_variables'] = output_vars
+                logger.info(f"valid_output_vars set for group {grp_name}: {output_vars}")
+            else:
+                for formulation in grp_formulations:
+                    formulation['params']['output_variables'] = []
 
-    logger.info(f"valid_output_vars set in realization: {config_valid['global']['formulations'][0]['params']['output_variables']}")
+    logger.info("Valid output variables set in realization file")
 
     # Write realization file for validation run
     with open(config_valid_file, 'w') as outfile:

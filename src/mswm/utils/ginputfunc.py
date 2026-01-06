@@ -3556,6 +3556,8 @@ def create_reg_realization_file(
             if grp_params.get('noah', {}).get(grp):
                 model_configs['noah']['params']['model_params'] = grp_params['noah'][grp]
 
+            precip_output = 'QRAIN'
+
         # cfe or cfex
         if 'cfes' in grp_mod or 'cfex' in grp_mod:
             m1 = 'cfes' if 'cfes' in grp_mod else 'cfex'
@@ -3813,6 +3815,8 @@ def create_reg_realization_file(
             var_maps['output']['swe_out'] = ''
             var_maps['output']['sm_out'] = ''
 
+            precip_output = 'precipitation_rate'
+
             # Add additional mapping for bmi regionalization
             if forcing_provider == 'bmi':
                 var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
@@ -3851,6 +3855,8 @@ def create_reg_realization_file(
                 var_maps['output']['swe_out'] = ''
             var_maps['output']['sm_out'] = ''
 
+            precip_output = 'precipitation_rate'
+
             if grp_params.get('topoflow', {}).get(grp):
                 model_configs['topoflow']['params']['model_params'] = grp_params['topoflow'][grp]
 
@@ -3882,14 +3888,14 @@ def create_reg_realization_file(
 
         # Add precipitation to output_config
         if output_dict['output_precip']:
-            output_config['output_variables'] = output_config['output_variables'] + ["QRAIN"]
+            output_config['output_variables'] = output_config['output_variables'] + [precip_output]
             output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainrate"]
             output_config['output_units'] = output_config['output_units'] + ["mm/s"]
 
         if calib_output_vars or run_type != 'calib':
             output_vars = [
-                {"name": var, "header": hdr}
-                for var, hdr in zip(output_config['output_variables'], output_config['output_header_fields'])
+                {"name": var, "header": hdr, "units": unit}
+                for var, hdr, unit in zip(output_config['output_variables'], output_config['output_header_fields'], output_config['output_units'])
             ]
             if output_vars != []:
                 grp_configs['params']['output_variables'] = output_vars
@@ -3957,6 +3963,7 @@ def create_reg_realization_file(
     logger.info(f'Realization file is created at {realization_file}')
 
     return output_config_grp
+
 
 def create_realization_file(
         workdir: Union[str, Path],
@@ -4063,6 +4070,8 @@ def create_realization_file(
                                                                     "LWDN": name_lw.get(forcing_provider),
                                                                     "SOLDN": name_sw.get(forcing_provider),
                                                                     "SFCPRS": name_pressure.get(forcing_provider)}}}
+
+        precip_output = 'QRAIN'
 
     # cfe or cfex
     if 'cfes' in modules or 'cfex' in modules:
@@ -4301,6 +4310,7 @@ def create_realization_file(
 
         # module output variable for input to t-route
         main_output_variable = "land_surface_water__runoff_depth"
+        precip_output = 'precipitation_rate'
 
     # Combine configurations
     model_type_name = "bmi_multi"
@@ -4327,7 +4337,7 @@ def create_realization_file(
 
     # Add precipitation to output_config
     if output_dict['output_precip']:
-        output_config['output_variables'] = output_config['output_variables'] + ["QRAIN"]
+        output_config['output_variables'] = output_config['output_variables'] + [precip_output]
         output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainrate"]
         output_config['output_units'] = output_config['output_units'] + ["mm/s"]
 
