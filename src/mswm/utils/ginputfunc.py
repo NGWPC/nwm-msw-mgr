@@ -3133,31 +3133,6 @@ def create_reg_realization_file(
             # module output variable for input to t-route
             main_output_variable = "land_surface_water__runoff_depth"
 
-        if 'topoflow' in grp_mod:
-            model_configs['topoflow'] = {"name": "bmi_python",
-                                         "params": {"python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
-                                                    "model_type_name": get_model_type_name('topoflow'),
-                                                    "init_config": os.path.join(bmi_dir['topoflow'], "{{id}}.yaml"),
-                                                    "main_output_variable": "channel_water_x-section__volume_flow_rate",
-                                                    "uses_forcing_file": "false"}}
-
-            # variable name mapping section
-            variables_names_map = dict()
-            variables_names_map["streamflow_cms"] = "channel_water_x-section__volume_flow_rate"
-            variables_names_map["atmosphere_water__precipitation_leq-volume_flux"] = name_prcp.get(forcing_provider)
-
-            var_maps = dict()
-            var_maps['input'] = variables_names_map
-            var_maps['output'] = dict()
-            var_maps['output']['swe_out'] = ''
-            var_maps['output']['sm_out'] = ''
-
-            if grp_params.get('topoflow', {}).get(grp):
-                model_configs['topoflow']['params']['model_params'] = grp_params['topoflow'][grp]
-
-            # module output variable for input to t-route
-            main_output_variable = "channel_water_x-section__volume_flow_rate"
-
         # Store catchment model configs
         model_type_name = "bmi_multi"
         grp_configs = {"name": "bmi_multi",
