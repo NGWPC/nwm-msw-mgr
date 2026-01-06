@@ -171,7 +171,7 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
             for formulation in grp_formulations:
                 formulation['params']['output_variables'] = []
 
-    logger.info(f"valid_output_vars set in realization: {config_valid['global']['formulations'][0]['params']['output_variables']}")
+    logger.info("Valid output variables set in realization file")
 
     # Write realization file for validation run
     with open(config_valid_file, 'w') as outfile:

@@ -4100,6 +4100,8 @@ def create_reg_realization_file(
             var_maps['output']['swe_out'] = ''
             var_maps['output']['sm_out'] = ''
 
+            precip_output = 'precipitation_rate'
+
             # Add additional mapping for bmi regionalization
             if forcing_provider == 'bmi':
                 var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
@@ -4138,6 +4140,8 @@ def create_reg_realization_file(
             else:
                 var_maps['output']['swe_out'] = ''
             var_maps['output']['sm_out'] = ''
+
+            precip_output = 'precipitation_rate'
 
             if grp_params.get('topoflow', {}).get(grp):
                 model_configs['topoflow']['params']['model_params'] = grp_params['topoflow'][grp]
@@ -4254,6 +4258,7 @@ def create_reg_realization_file(
     logger.info(f'Realization file is created at {realization_file}')
 
     return output_config_grp
+
 
 def create_realization_file(
         workdir: Union[str, Path],
