@@ -1587,11 +1587,16 @@ class RealizationBuilder:
                     grp: config['output_units']
                     for grp, config in self.output_config.items()
                 }
+                general_dict['valid_output_index_grp'] = {
+                    grp: config['output_index']
+                    for grp, config in self.output_config.items()
+                }
             else:
                 # Global output variables
                 general_dict['valid_output_vars'] = self.output_config['output_variables']
                 general_dict['valid_output_headers'] = self.output_config['output_header_fields']
                 general_dict['valid_output_units'] = self.output_config['output_units']
+                general_dict["valid_output_index"] = self.output_config["output_index"]
 
         # Create calibration config file
         gfun.create_calib_config_file(self.conf2['calib_parameter_file'], self.modules, self.work_dir, general_dict, self.model_dict, self.calib_config_file)
