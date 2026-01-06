@@ -1331,7 +1331,8 @@ class RealizationBuilder:
                 gfun.create_topoflow_input(cat_mod, self.time_period, mod_input_dir, self.run_type, ipe_sub)
             elif m1 == 'troute':
                 routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
-                ipe = ipe['cat-11466']  # Remove after troute endpoint is updated
+                ipe = ipe['cat-3062933']  # Remove after troute endpoint is updated
+                # ipe = ipe['cat-11466']
                 gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type, ipe)
 
             if m1 != 'troute':

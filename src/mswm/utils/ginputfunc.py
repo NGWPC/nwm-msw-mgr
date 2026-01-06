@@ -197,7 +197,7 @@ def call_icefabric_ipe(
         logger.critical(f"Icefabric API call did not return valid results for {mod}")
         raise
 
-    # Reformat IPE json by catchment, dropping None Values and catchment
+    # Reformat IPE json by catchment, dropping catchment values
     ipe_formatted = {}
     for item in ipe:
         if mod == 'topoflow':
@@ -207,11 +207,31 @@ def call_icefabric_ipe(
             key = item["catchment"]
             drop_keys = {"catchment"}
 
-        ipe_formatted[key] = {
-            k: (",".join(str(x) for x in v) if isinstance(v, list) else v)
-            for k, v in item.items()
-            if k not in drop_keys and v is not None
-        }
+        # Handle values and units
+        formatted_item = {}
+        for k, v in item.items():
+            if k in drop_keys or v is None:
+                continue
+
+            # Handle dicts with 'value' and 'units' keys
+            if isinstance(v, dict) and 'value' in v:
+                value = v['value']
+                units = v.get('units') or ''
+
+                # Convert lists values to strings
+                if isinstance(value, list):
+                    value = ",".join(str(x) for x in value)
+
+                # Unit format: value[units] for CFE, SMP, SFT, LASAM
+                formatted_item[k] = f"{value}[{units}]"
+
+            # Handle plain lists
+            elif isinstance(v, list):
+                formatted_item[k] = ",".join(str(x) for x in v)
+            else:
+                formatted_item[k] = v
+
+        ipe_formatted[key] = formatted_item
 
     # Return icefabric response
     return ipe_formatted
@@ -245,11 +265,10 @@ def call_icefabric_gpkg(
     # Build query parameters
     params = {"id_type": "hl_uri",
               "domain": domain,
-              "layers": ["divides", "flowpaths", "network", "nexus", "hydrolocations"]}
+              "layers": ["divides", "divide-attributes", "flowpaths", "flowpath-attributes", "flowpath-attributes-ml", "network", "nexus", "hydrolocations", "pois"]}
 
     # Set output file path
-    gpkg_fp = os.path.join(input_dir, f"gages-{basin}.gpkg")
-    gpkg_fp = os.path.join(input_dir, f"gauge-{basin}.gpkg")
+    gpkg_fp = os.path.join(input_dir, f"gauge_{basin}.gpkg")
 
     # Call icefabric API endpoint to save geopackage
     try:
@@ -263,7 +282,7 @@ def call_icefabric_gpkg(
         logger.critical(f"Icefabric API call gages-{basin} gpkg failed: {e}")
         raise
     except ValueError:
-        logger.critical(f"Icefabric API call did not return valid results for gpkg: gages-{basin}")
+        logger.critical(f"Icefabric API call did not return valid results for gpkg: gauge_{basin}")
         raise
     except (OSError, IOError) as e:
         logger.critical(f"Failed to write gpkg file: {e}")
@@ -815,7 +834,7 @@ def create_noah_input(
                            "/",
                            "",
                            "&structure",
-                           f"  {'isltyp'.ljust(17)}= {cat_ipe['isltyp']}              ! soil texture class",
+                           f"  {'isltyp'.ljust(17)}= {int(cat_ipe['isltyp'])}              ! soil texture class",
                            f"  {'nsoil'.ljust(17)}= {cat_ipe['nsoil']}              ! number of soil levels",
                            f"  {'nsnow'.ljust(17)}= {cat_ipe['nsnow']}              ! number of snow levels",
                            f"  {'nveg'.ljust(17)}= {cat_ipe['nveg']}             ! number of vegetation type",
@@ -3812,7 +3831,7 @@ def create_reg_realization_file(
             model_configs['topoflow'] = {"name": "bmi_python",
                                          "params": {"python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
                                                     "model_type_name": get_model_type_name('topoflow'),
-                                                    "init_config": os.path.join(bmi_dir['topoflow'], "{{id}}.yaml"),
+                                                    "init_config": os.path.join(bmi_dir['topoflow'], "{{id}}_" + run_type + ".yaml"),
                                                     "main_output_variable": "land_surface_water__runoff_depth",
                                                     "uses_forcing_file": "false"}}
 
@@ -3847,17 +3866,19 @@ def create_reg_realization_file(
                                   "main_output_variable": main_output_variable}}
 
         # Output section for each catchment
-        output_config = {'output_variables': [], 'output_header_fields': []}
+        output_config = {'output_variables': [], 'output_header_fields': [], 'output_units': []}
         for key, value in output_dict.items():
             if key == 'output_swe' and var_maps['output']['swe_out'] != '':
                 if value:
                     output_config['output_variables'] = output_config['output_variables'] + [var_maps['output']['swe_out']]
                     output_config['output_header_fields'] = output_config['output_header_fields'] + [var_maps['output']['swe_out_header']]
+                    output_config['output_units'] = output_config['output_units'] + [var_maps['output']['swe_out_units']]
 
             elif key == 'output_sm' and var_maps['output']['sm_out'] != '':
                 if value:
                     output_config['output_variables'] = output_config['output_variables'] + var_maps['output']['sm_out']
                     output_config['output_header_fields'] = output_config['output_header_fields'] + var_maps['output']['sm_out_header']
+                    output_config['output_units'] = output_config['output_units'] + var_maps['output']['sm_out_units']
 
         # Add precipitation to output_config
         if output_dict['output_precip']:
