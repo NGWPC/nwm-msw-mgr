@@ -118,6 +118,7 @@ def init_ginput_logger():
     global logger
     logger = logging.getLogger(MODULE_NAME)
 
+
 def call_icefabric_ipe(
         mod: str,
         all_mod: list,
@@ -235,6 +236,7 @@ def call_icefabric_ipe(
 
     # Return icefabric response
     return ipe_formatted
+
 
 def call_icefabric_gpkg(
         basin: str,

@@ -17,7 +17,6 @@ import json
 import yaml
 from collections import defaultdict
 from pydantic import ValidationError, validate_call
-import shutil
 
 from mswm.utils import ginputfunc as gfun
 from mswm.utils import settings
@@ -45,7 +44,7 @@ class RealizationBuilder:
     `config_overrides` (class argument and property): InputConfig
         When this is provided as an argument to class construction, it is used instead of
         reading configuration from disk, and `config_overrides_mode__amend` is set to False.
-        
+
         This can also be provided after class construction, in order to cause the configuration to be
         updated per-section, per-key, using the overrides, rather than fully replaced.
 
@@ -66,20 +65,20 @@ class RealizationBuilder:
 
         if config_overrides:
             if input_path:
-                raise ValueError(f"Must provide `input_path` or `config_overrides` (both were provided)")
+                raise ValueError("Must provide `input_path` or `config_overrides` (both were provided)")
             self.input_path = None
             self.config_overrides = config_overrides
             self.config_overrides_mode__amend = False
 
         elif input_path:
             if config_overrides:
-                raise ValueError(f"Must provide `input_path` or `config_overrides` (both were provided)")
+                raise ValueError("Must provide `input_path` or `config_overrides` (both were provided)")
             self.input_path = Path(input_path)
             self.config_overrides = None
             self.config_overrides_mode__amend = True
 
         else:
-            raise ValueError(f"Must provide `input_path` or `config_overrides`")
+            raise ValueError("Must provide `input_path` or `config_overrides`")
 
         self.valid_yaml = Path(valid_yaml) if valid_yaml else None
 
@@ -115,7 +114,7 @@ class RealizationBuilder:
         import configparser
 
         if self.input_path is None:
-            main_logger.debug(f"self.input_path is None")
+            main_logger.debug("self.input_path is None")
             if self.config_overrides is None:
                 raise ValueError(f"self.input_path = {self.input_path} and self.config_overrides = {self.config_overrides}")
             return
@@ -154,7 +153,6 @@ class RealizationBuilder:
                 raise
 
         self.__validate_config()
-
 
     def __validate_config(self):
         """
@@ -201,7 +199,7 @@ class RealizationBuilder:
         if not self.config_overrides:
             main_logger.info(f"self.config_overrides = {self.config_overrides}, will not apply overrides")
             return
-        
+
         main_logger.info(f"Will apply config overrides with self.config_overrides_mode__amend={self.config_overrides_mode__amend}")
 
         if self.config_overrides_mode__amend:
@@ -217,7 +215,7 @@ class RealizationBuilder:
             configs = self.config_overrides.model_dump()
 
         model = InputConfig(**configs)
-        main_logger.info(f"Applying config overrides")
+        main_logger.info("Applying config overrides")
         self.input_configs_class = model
         self.input_configs = model.model_dump()
 
