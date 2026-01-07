@@ -68,37 +68,24 @@ def is_probably_regex(pattern):
 
 __all__ = [
     'init_ginput_logger',
-    'call_icefabric_ipe',
     'call_icefabric_gpkg',
     'change_hydrofab_attr',
     'create_fcst_times',
     'create_walk_file',
     'create_cfe_input',
-    'create_cfe_input_reg',
     'create_noah_input',
-    'create_noah_input_reg',
-    'create_sft_input',
-    'create_smp_input',
-    'create_sft_smp_input_reg',
+    'create_sft_smp_input',
     'create_snow17_input',
-    'create_snow17_input_reg',
     'create_ueb_input',
-    'create_ueb_input_reg',
     'create_sac_input',
-    'create_sac_input_reg',
     'create_pet_input',
-    'create_pet_input_reg',
     'create_lasam_input',
-    'create_lasam_input_reg',
     'create_topoflow_input',
     'create_lstm_input',
-    'create_lstm_input_reg',
     'create_topmodel_input',
-    'create_topmodel_input_reg',
     'update_noah_ueb_topo_times',
     'update_troute',
     'create_troute_config',
-    'create_troute_config_reg',
     'create_fcst_times',
     'replace_forcing_placeholders',
     'update_fcst_forcing_config',
@@ -117,125 +104,6 @@ def init_ginput_logger():
     """
     global logger
     logger = logging.getLogger(MODULE_NAME)
-
-
-def call_icefabric_ipe(
-        mod: str,
-        all_mod: list,
-        basin: str,
-        domain: str,
-        ngen_cerf: bool,
-        envca: bool | None = None,
-        rootzone_aet: int | None = None,
-) -> dict:
-    """ Query icefabric API for initial parameter estimates
-
-    Parameters
-    ----------
-    mod: module name string
-    all_mod: list of all modules in the formulation
-    basin: basin name string
-    domain: string of name of gage domain
-    ngen_cerf: boolean flag for using ngencerf
-    envca: boolean flag for envca gage
-    rootzone_aet: boolean flag for cfe aetroozone flag
-
-    Returns
-    ----------
-    dictionary of initial parameter estimates
-    """
-    # Modify module names for icefabric
-    if mod in ('cfes', 'cfex'):
-        cfe_version = 'CFE-S' if mod == 'cfes' else 'CFE-X'
-        mod = 'cfe'
-    elif mod == 'noah':
-        mod = 'noahowp'
-    elif mod == 'sac':
-        mod = 'sacsma'
-
-    # Set base endpoint (use Optimization endpoint for ngencerf, test for standalone)
-    icefabric_env = "oe" if ngen_cerf else "test"
-    url = f"http://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/modules/{mod}/"
-
-    # Build query parameters
-    params = {"identifier": basin,
-              "domain": domain}
-
-    if mod == 'cfe':
-        params["cfe_version"] = cfe_version
-    if mod in ('lasam', 'cfe') and 'sft' in all_mod:
-        params["sft_included"] = True
-    if rootzone_aet == 1:
-        params["rootzone_aet"] = True
-    if mod in ('sacsma', 'ueb') and envca:
-        params["envca"] = True
-    if mod == 'sft' and 'cfex' not in all_mod:
-        params["use_schaake"] = True
-    if mod == 'smp':
-        module_map = {"cfes": "CFE-S", "cfex": "CFE-X", "lasam": "LASAM", "topmodel": "TopModel"}
-        match = set(all_mod).intersection(module_map.keys())
-        if len(match) != 1:
-            try:
-                raise Exception("One rainfall runoff model must be paired with SMP")
-            except Exception as e:
-                logger.critical(e)
-                raise
-        params["module"] = module_map[list(match)[0]]
-    if mod == 'lasam':
-        params["soil_params_file"] = "vG_default_params_HYDRUS.dat"
-
-    # Call icefabric API endpoint
-    try:
-        with httpx.Client(timeout=60.0) as client:
-            resp = client.get(url, params=params)
-            resp.raise_for_status()
-            ipe = resp.json()
-            logger.info(f"Retrieved parameters from Icefabric API for {mod}")
-    except httpx.HTTPStatusError as e:
-        logger.critical(f"Icefabric API call for {mod} failed: {e}")
-        raise
-    except ValueError:
-        logger.critical(f"Icefabric API call did not return valid results for {mod}")
-        raise
-
-    # Reformat IPE json by catchment, dropping catchment values
-    ipe_formatted = {}
-    for item in ipe:
-        if mod == 'topoflow':
-            key = item['site_prefix']
-            drop_keys = set()
-        else:
-            key = item["catchment"]
-            drop_keys = {"catchment"}
-
-        # Handle values and units
-        formatted_item = {}
-        for k, v in item.items():
-            if k in drop_keys or v is None:
-                continue
-
-            # Handle dicts with 'value' and 'units' keys
-            if isinstance(v, dict) and 'value' in v:
-                value = v['value']
-                units = v.get('units') or ''
-
-                # Convert lists values to strings
-                if isinstance(value, list):
-                    value = ",".join(str(x) for x in value)
-
-                # Unit format: value[units] for CFE, SMP, SFT, LASAM
-                formatted_item[k] = f"{value}[{units}]"
-
-            # Handle plain lists
-            elif isinstance(v, list):
-                formatted_item[k] = ",".join(str(x) for x in v)
-            else:
-                formatted_item[k] = v
-
-        ipe_formatted[key] = formatted_item
-
-    # Return icefabric response
-    return ipe_formatted
 
 
 def call_icefabric_gpkg(
@@ -397,7 +265,7 @@ def change_hydrofab_attr(
     dfa = dfa.astype({'mode.ISLTYP': 'int'})
     dfa = dfa.astype({'mode.IVGTYP': 'int'})
 
-    # Adjust Zmax units from mm to m (CFE expects m)
+    # Adjust Zmax units from mm to m (CFE expects m)  # TODO: Make sure this is correct
     dfa['mean.Zmax'] = dfa['mean.Zmax'].apply(lambda x: x / 1000)
 
     # Convert elevation from cm to m. Except for AK, which is still in m.
@@ -568,52 +436,6 @@ def create_walk_file(
 
 def create_cfe_input(
         catids: List[str],
-        cfe_input_dir: Union[str, Path],
-        ipe: dict
-) -> None:
-    """ Create BMI initial configuration file for CFE with Schaake or Xianjiang infiltration and runoff scheme
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    cfe_input_dir: directory to save configuration files
-    run_type: type of run (calib, regionalization, or default)
-    is_aet_rootzone: flag for CFE rootzone option
-    ipe: initial parameter estimates retrieved from icefabric api
-
-    Returns
-    ----------
-    None
-
-    Note
-    ----------
-    User needs to compute GIUH using other software like R whitebox package following the example
-    https://github.com/NOAA-OWP/SoilMoistureProfiles/blob/ajk/basin_workflow/basin_workflow/giuh_twi/giuh.R
-    and replace the fixed GIUH assigned in this code with the calculated value.
-
-    """
-
-    # Create bmi config files
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        # Update parameters
-        cat_ipe["forcing_file"] = "BMI"
-        cat_ipe['verbosity'] = 1
-        cat_ipe['DEBUG'] = 0
-        cat_ipe['num_timesteps'] = 10  # Set to default for Nash runoff
-
-        # Write parameters to file
-        cfe_bmi_file = os.path.join(cfe_input_dir, catID + "_bmi_config_cfe.txt")
-        with open(cfe_bmi_file, "w") as f:
-            for key, val in cat_ipe.items():
-                f.write(f"{key}={val}\n")
-
-
-def create_cfe_input_reg(
-        catids: List[str],
         modules: Union[List[str], List[List[str]]],
         dfa: gpd.GeoDataFrame,
         cfe_input_dir: Union[str, Path],
@@ -634,13 +456,6 @@ def create_cfe_input_reg(
     Returns
     ----------
     None
-
-    Note
-    ----------
-    User needs to compute GIUH using other software like R whitebox package following the example
-    https://github.com/NOAA-OWP/SoilMoistureProfiles/blob/ajk/basin_workflow/basin_workflow/giuh_twi/giuh.R
-    and replace the fixed GIUH assigned in this code with the calculated value.
-
     """
 
     os.makedirs(cfe_input_dir, exist_ok=True)
@@ -678,18 +493,18 @@ def create_cfe_input_reg(
         f.write("%s" % ("surface_water_partitioning_scheme=" + scheme + "\n"))
         f.write("%s" % ("surface_runoff_scheme=GIUH\n"))
         f.write("%s" % ("DEBUG=0\n"))
-        f.write("%s" % ("num_timesteps=1\n"))
+        f.write("%s" % ("num_timesteps=10\n"))
         if 'cfes' in mods:
             f.write("%s" % ("is_sft_coupled=" + sft_coupled + "\n"))
             f.write("%s" % ("ice_content_threshold=0.15\n"))
         f.write("%s" % ("alpha_fc=0.33\n"))  # TODO Update per soil type
-        f.write("%s" % ("Cgw=" + str(dfa.loc[catID]['mean.Coeff'] * 3600 * 1e-6) + "[m/hr]\n"))
+        f.write("%s" % ("Cgw=" + str(dfa.loc[catID]['mean.Coeff']) + "[m/hr]\n"))
         f.write("%s" % ("expon=" + str(dfa.loc[catID]['mode.Expon']) + "[]\n"))
         f.write("%s" % ("giuh_ordinates=0.55, 0.25, 0.2[]\n"))
         f.write("%s" % ("gw_storage=0.05[m/m]\n"))
         f.write("%s" % ("K_lf=0.01[]\n"))
         f.write("%s" % ("K_nash=0.003[1/m]\n"))
-        f.write("%s" % ("max_gw_storage=" + str(dfa.loc[catID]['mean.Zmax'] / 1000.) + "[m]\n"))
+        f.write("%s" % ("max_gw_storage=" + str(dfa.loc[catID]['mean.Zmax'] / 1000.) + "[m]\n"))  # TODO: Confirm this divide by 100
         f.write("%s" % ("nash_storage=0.0,0.0[]\n"))
         f.write("%s" % ("refkdt=" + str(dfa.loc[catID]['mean.refkdt']) + "[]\n"))
         f.write("%s" % ("soil_params.b=" + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + "[]\n"))
@@ -706,14 +521,12 @@ def create_cfe_input_reg(
         # Add aet_rootzone parameters if option is selected
         if rootzone_flag == 1:
             f.write("%s" % ("is_aet_rootzone=1\n"))
-            f.write("%s" % ("max_rootzone_layer=2\n"))
+            f.write("%s" % ("max_rootzone_layer=2[m]\n"))
             f.write("%s" % ("soil_layer_depths=0.1,0.4,1.0,2.0[m]\n"))
 
         # add the new parameters for cfex
-        # TODO: read these catchment-specific parameters from the NWMv3 model attributes parquet file
-        # The current parquet file we have access to was likely based on NWMv2.1 and hence missing these XAJ parameters
         if scheme == 'Xinanjiang':
-            f.write("%s" % ("a_Xinanjiang_inflection_point_parameter=-0.212938[]\n"))
+            f.write("%s" % ("a_Xinanjiang_inflection_point_parameter=-0.212938[]\n"))  # TODO: Replace with catchment specific parameters in NHF
             f.write("%s" % ("b_Xinanjiang_shape_parameter=0.666238[]\n"))
             f.write("%s" % ("x_Xinanjiang_shape_parameter=0.02414[]\n"))
             f.write("%s" % ("urban_decimal_fraction=0.0[]\n"))
@@ -722,145 +535,6 @@ def create_cfe_input_reg(
 
 
 def create_noah_input(
-        catids: List[str],
-        time_period: dict,
-        param_dir_source: Union[str, Path],
-        noah_input_dir: Union[str, Path],
-        run_type: str,
-        ipe: dict
-) -> None:
-    """ Create BMI configuration file for Noah-OWP-Modular
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    time_period : simulation and evaluation time period
-    param_dir_source : source directory containing Noah-OWP-Modular parameter files
-    noah_input_dir: directory to save configuration files
-    run_type: type of run (calib, regionalization, or default)
-    ipe: initial parameter estimates retrieved from icefabric api
-
-    Returns
-    ----------
-    None
-
-    """
-
-    # Create symlink for parameter directory
-    noah_par_tables = ['SOILPARM.TBL', 'MPTABLE.TBL', 'GENPARM.TBL']
-    for par in noah_par_tables:
-        src = os.path.join(param_dir_source, par)
-        dst = os.path.join(noah_input_dir, par)
-        # Remove existing symlink
-        if os.path.exists(dst) or os.path.islink(dst):
-            try:
-                os.unlink(dst)
-            except Exception as e:
-                logger.error(f"Failed to remove existing {dst}: {e}")
-                raise
-        try:
-            os.symlink(src, dst)
-        except OSError as e:
-            logger.critical(f"Failed to create symlink: {src} -> {dst}: {e}")
-            raise
-
-    # Files for either the calibration and validation run or the regionalization run
-    if run_type == 'calibration':
-        run_list = ['calib', 'valid']
-    elif run_type == 'regionalization':
-        run_list = ['region']
-    elif run_type == 'default':
-        run_list = ['default']
-
-    for run_name in run_list:
-        if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
-            # Date
-            startdate = time_period['run_time_period'][run_name][0]
-            startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S") + datetime.timedelta(hours=1)
-            startdate = startdate.strftime("%Y%m%d%H%M")
-            enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
-
-            # Create NOAH input file
-            for catID in catids:
-
-                # Retrieve catchment parameters from icefabric
-                cat_ipe = ipe[catID]
-
-                nom_lst = ['&timing',
-                           f"  {'dt'.ljust(19)}= 3600.0                       ! timestep [seconds]",
-                           f"  {'startdate'.ljust(19)}= '{startdate}'               ! UTC time start of simulation (YYYYMMDDhhmm)",
-                           f"  {'enddate'.ljust(19)}= '{enddate}'               ! UTC time end of simulation (YYYYMMDDhhmm)",
-                           f"  {'forcing_filename'.ljust(19)}= '.'                          ! file containing forcing data",
-                           f"  {'output_filename'.ljust(19)}= '.'",
-                           '/',
-                           "",
-                           '&parameters',
-                           f"  {'parameter_dir'.ljust(19)}= '{noah_input_dir}'",
-                           f"  {'general_table'.ljust(19)}= '{cat_ipe['general_table']}'               ! general param tables and misc params",
-                           f"  {'soil_table'.ljust(19)}= '{cat_ipe['soil_table']}'               ! soil param table",
-                           f"  {'noahowp_table'.ljust(19)}= '{cat_ipe['noahowp_table']}'                ! model param tables (includes veg)",
-                           f"  {'soil_class_name'.ljust(19)}= '{cat_ipe['soil_class_name']}'                       ! soil class data source - 'STAS' or 'STAS-RUC'",
-                           f"  {'veg_class_name'.ljust(19)}= '{cat_ipe['veg_class_name']}'                       ! vegetation class data source - 'MODIFIED_IGBP_MODIS_NOAH' or 'USGS'",
-                           '/',
-                           "",
-                           '&location',
-                           f"  {'lat'.ljust(19)}= {cat_ipe['lat']}           ! latitude [degrees]  (-90 to 90)",
-                           f"  {'lon'.ljust(19)}= {cat_ipe['lon']}           ! longitude [degrees] (-180 to 180)",
-                           f"  {'terrain_slope'.ljust(19)}= {cat_ipe['terrain_slope']}           ! terrain slope [degrees]",
-                           f"  {'azimuth'.ljust(19)}= {cat_ipe['azimuth']}           ! terrain azimuth or aspect [degrees clockwise from north]",
-                           '/',
-                           "",
-                           "&forcing",
-                           f"  {'ZREF'.ljust(19)}= {cat_ipe['ZREF']}                         ! measurement height for wind speed (m)",
-                           f"  {'rain_snow_thresh'.ljust(19)}= {cat_ipe['rain_snow_thresh']}                          ! rain-snow temperature threshold (degrees Celcius)",
-                           "/",
-                           "",
-                           "&model_options",
-                           f"  {'precip_phase_option'.ljust(34)}= {cat_ipe['precip_phase_option']}",
-                           f"  {'snow_albedo_option'.ljust(34)}= {cat_ipe['snow_albedo_option']}",
-                           f"  {'dynamic_veg_option'.ljust(34)}= {cat_ipe['dynamic_veg_option']}",
-                           f"  {'runoff_option'.ljust(34)}= {cat_ipe['runoff_option']}",
-                           f"  {'drainage_option'.ljust(34)}= {cat_ipe['drainage_option']}",
-                           f"  {'frozen_soil_option'.ljust(34) }= {cat_ipe['frozen_soil_option']}",
-                           f"  {'dynamic_vic_option'.ljust(34)}= {cat_ipe['dynamic_vic_option']}",
-                           f"  {'radiative_transfer_option'.ljust(34)}= {cat_ipe['radiative_transfer_option']}",
-                           f"  {'sfc_drag_coeff_option'.ljust(34)}= {cat_ipe['sfc_drag_coeff_option']}",
-                           f"  {'canopy_stom_resist_option'.ljust(34)}= {cat_ipe['canopy_stom_resist_option']}",
-                           f"  {'crop_model_option'.ljust(34)}= {cat_ipe['crop_model_option']}",
-                           f"  {'snowsoil_temp_time_option'.ljust(34)}= {cat_ipe['snowsoil_temp_time_option']}",
-                           f"  {'soil_temp_boundary_option'.ljust(34)}= {cat_ipe['soil_temp_boundary_option']}",
-                           f"  {'supercooled_water_option'.ljust(34)}= {cat_ipe['supercooled_water_option']}",
-                           f"  {'stomatal_resistance_option'.ljust(34)}= {cat_ipe['stomatal_resistance_option']}",
-                           f"  {'evap_srfc_resistance_option'.ljust(34)}= {cat_ipe['evap_srfc_resistance_option']}",
-                           f"  {'subsurface_option'.ljust(34)}= {cat_ipe['subsurface_option']}",
-                           "/",
-                           "",
-                           "&structure",
-                           f"  {'isltyp'.ljust(17)}= {int(cat_ipe['isltyp'])}              ! soil texture class",
-                           f"  {'nsoil'.ljust(17)}= {cat_ipe['nsoil']}              ! number of soil levels",
-                           f"  {'nsnow'.ljust(17)}= {cat_ipe['nsnow']}              ! number of snow levels",
-                           f"  {'nveg'.ljust(17)}= {cat_ipe['nveg']}             ! number of vegetation type",
-                           f"  {'vegtyp'.ljust(17)}= {cat_ipe['vegtyp']}             ! vegetation type",
-                           f"  {'croptype'.ljust(17)}= {cat_ipe['croptype']}              ! crop type (0 = no crops; this option is currently inactive)",
-                           f"  {'sfctyp'.ljust(17)}= {cat_ipe['sfctyp']}              ! land surface type, 1:soil, 2:lake",
-                           f"  {'soilcolor'.ljust(17)}= {cat_ipe['soilcolor']}              ! soil color code",
-                           "/",
-                           "",
-                           "&initial_values",
-                           f"  {'dzsnso'.ljust(10)}= {cat_ipe['dzsnso']}      ! level thickness [m]",
-                           f"  {'sice'.ljust(10)}= {cat_ipe['sice']}                     ! initial soil ice profile [m3/m3]",
-                           f"  {'sh2o'.ljust(10)}= {cat_ipe['sh2o']}                     ! initial soil liquid profile [m3/m3]",
-                           f"  {'zwt'.ljust(10)}= {cat_ipe['zwt']}                                   ! initial water table depth below surface [m]",
-                           "/",
-                           ]
-
-                namelst = os.path.join(noah_input_dir, '{}'.format(catID) + '_' + run_name + '.input')
-                with open(namelst, 'w') as outfile:
-                    outfile.writelines('\n'.join(nom_lst))
-                    outfile.write("\n")
-
-
-def create_noah_input_reg(
         catids: List[str],
         time_period: dict,
         dfa: gpd.GeoDataFrame,
@@ -1003,150 +677,7 @@ def create_noah_input_reg(
                     outfile.write("\n")
 
 
-def create_sft_input(
-        catids: List[str],
-        sft_dir: Union[str, Path],
-        smp_dir: Union[str, Path],
-        run_type: str,
-        sm_profile_depth: List[float] = [0.1, 0.4, 1.0, 2.0],
-        sm_fraction_depth: float = 0.4,
-) -> None:
-    """ Create BMI configuration file for soil freeze and thaw module
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    sft_dir : directory for writing sft bmi configuration files
-    smp_dir : directory for writing smp bmi configuration files
-    run_type: type of run (calib, regionalization, or default)
-    sm_profile_depth: list of soil moisture profile depths
-    sm_fraction_depth: depth at which soil moisture fraction is defined
-
-    Returns
-    ----------
-    None
-
-    """
-
-    # Create bmi config files
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        catID = catids[i]
-
-        # Set module list for each catchment during regionalization
-        if run_type == 'regionalization':
-            mods = modules[i]
-            if ('cfex' in mods):
-                icefscheme = 'Xinanjiang'
-
-        # Obtain annual mean surface temperature as proxy for initial soil temperature
-        # This value is just a reasonable estimate per new direction (Edwin)
-        mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
-
-        # Create sft list
-        sft_lst = ['verbosity=none',
-                   'soil_moisture_bmi=1',
-                   'end_time=1.[d]',  # We may need to set this, and then create separate cal/val sft files
-                   'dt=1.0[h]',
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
-                   'soil_params.quartz=' + str(dfa.loc[catID]['quartz']),
-                   'ice_fraction_scheme=' + icefscheme,
-                   "soil_z=" + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
-                   'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
-                   ]
-
-        # Update parameters
-        cat_ipe['verbosity'] = 'none'
-        cat_ipe['end_time'] = '1.[d]'
-        cat_ipe['dt'] = '1.0[h]'
-
-        # Write sft config to file
-        sft_bmi_file = os.path.join(sft_dir, catID + '_bmi_config_sft.txt')
-        with open(sft_bmi_file, "w") as f:
-            for key, val in cat_ipe.items():
-                f.write(f"{key}={val}\n")
-
-        # Create smp list
-        smp_lst = ['verbosity=none',
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
-                   "soil_z=" + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
-                   "soil_moisture_fraction_depth=" + f"{float(sm_fraction_depth):g}" + "[m]"]
-
-def create_smp_input(
-        catids: List[str],
-        smp_dir: Union[str, Path],
-        ipe: dict,
-        sm_frac_depth: float,
-        sm_profile_depth: float
-) -> None:
-    """ Create BMI configuration file for soil moisture profiles module
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    smp_dir : directory for writing smp bmi configuration files
-    ipe: initial parameter estimates retrieved from icefabric api
-    sm_frac_depth: depth at which to output soil moisture fraction
-    sm_profile_depth = depth at which to output soil moisture
-
-    Returns
-    ----------
-    sm_profile_depth (may be adjusted)
-
-    """
-
-    # Create bmi config files
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        # Update parameters
-        cat_ipe['verbosity'] = 'none'
-
-        # Adjust soil_moisture_fraction_depth
-        cat_ipe['soil_moisture_fraction_depth'] = f'{sm_frac_depth}[m]'
-
-        # Parse soil_z depth
-        soil_z_str = str(cat_ipe['soil_z'])
-        depths_str, unit = soil_z_str.split('[')
-        depths = [float(d.strip()) for d in depths_str.split(',')]
-
-        # Adjust soil_z for soil_moisture_fraction_depth
-        if not any(abs(value - sm_frac_depth) < 1e-6 for value in depths):
-            # Insert sm_frac_depth in correct ascending order
-            for j, d in enumerate(depths):
-                if d > sm_frac_depth:
-                    depths.insert(j, sm_frac_depth)
-                    break
-        else:
-            # If it wasn't inserted, append to end
-            depths.append(sm_frac_depth)
-
-        # Adjust 1st element of soil_z for soil_moisture_profile output depth
-        if sm_profile_depth != depths[0]:
-            if len(depths) > 1 and sm_profile_depth > depths[1]:
-                logger.warning(f'sm_profile_depth ({sm_profile_depth}m) is greater than soil_z[1] ({depths[1]}m);'
-                               f'using soil_z[0] {depths[0]}m) instead')
-            else:
-                depths[0] = sm_profile_depth
-        cat_ipe['soil_z'] = f"{','.join(map(str, depths))}[m]"
-
-        # Write smp to to file
-        smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
-        with open(smp_bmi_file, "w") as f:
-            for key, val in cat_ipe.items():
-                f.write(f"{key}={val}\n")
-
-        return depths[0]
-
-
-def create_sft_smp_input_reg(
+def create_sft_smp_input(
         catids: List[str],
         modules: Union[List[str], List[List[str]]],
         dfa: gpd.GeoDataFrame,
@@ -1174,8 +705,6 @@ def create_sft_smp_input_reg(
     None
 
     """
-
-    os.makedirs(sft_dir, exist_ok=True)
     os.makedirs(smp_dir, exist_ok=True)
 
     # Ice fraction scheme
@@ -1188,6 +717,27 @@ def create_sft_smp_input_reg(
     # Define base soil depths
     base_soil_depths = [0.1, 0.3, 1.0, 2.0]
 
+    # Obtain annual mean surface temperature as proxy for initial soil temperature
+    # This value is just a reasonable estimate per new direction (Edwin)
+    mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
+
+    # Prepare soil_depths for sft, ensuring sm_profile_depth is included
+    depths = base_soil_depths.copy()
+    if not any(abs(value - sm_profile_depth) < 1e-6 for value in depths):
+        for j, d in enumerate(depths):
+            if d > sm_profile_depth:
+                depths.insert(j, sm_profile_depth)
+                break
+    depths.sort()  # TODO: What if a depth not included in base_soil_depths is provided?
+
+    # Adjust 1st element of soil_z for soil_moisture_profile output depth
+    if sm_profile_depth != depths[0]:
+        if len(depths) > 1 and sm_profile_depth > depths[1]:
+            logger.warning(f'sm_profile_depth ({sm_profile_depth}m) is greater than soil_z[1] ({depths[1]}m);'
+                           f'using soil_z[0] {depths[0]}m) instead')
+        else:
+            depths[0] = sm_profile_depth
+
     # Create bmi config files
     for i in range(len(catids)):
 
@@ -1199,41 +749,18 @@ def create_sft_smp_input_reg(
             if ('cfex' in mods):
                 icefscheme = 'Xinanjiang'
 
-        # Obtain annual mean surface temperature as proxy for initial soil temperature
-        # This value is just a reasonable estimate per new direction (Edwin)
-        mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
-
-        # Prepare soil_depths for sft, ensuring sm_profile_depth is included
-        depths = base_soil_depths.copy()
-        if not any(abs(value - sm_profile_depth) < 1e-6 for value in depths):
-            for j, d in enumerate(depths):
-                if d > sm_profile_depth:
-                    depths.insert(j, sm_profile_depth)
-                    break
-        else:
-            depths.append(sm_profile_depth)
-        depths.sort()
-
-        # Adjust 1st element of soil_z for soil_moisture_profile output depth
-        if sm_profile_depth != depths[0]:
-            if len(depths) > 1 and sm_profile_depth > depths[1]:
-                logger.warning(f'sm_profile_depth ({sm_profile_depth}m) is greater than soil_z[1] ({depths[1]}m);'
-                               f'using soil_z[0] {depths[0]}m) instead')
-            else:
-                depths[0] = sm_profile_depth
-
         # Create sft list
         sft_lst = ['verbosity=none',
                    'soil_moisture_bmi=1',
                    'end_time=1.[d]',
                    'dt=1.0[h]',
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
-                   'soil_params.quartz=' + str(dfa.loc[catID]['quartz']),
+                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + '[m/m]',
+                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + '[]',
+                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + '[m]',
+                   'soil_params.quartz=' + str(dfa.loc[catID]['quartz']) + '[m]',
                    'ice_fraction_scheme=' + icefscheme,
                    'soil_z=' + ','.join(map(str, depths)) + '[m]',
-                   'soil_temperature=' + ','.join([str(mtemp)] * len(depths)) + '[K]'
+                   'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
                    ]
 
         # Write sft config to file
@@ -1243,9 +770,9 @@ def create_sft_smp_input_reg(
 
         # Create smp list
         smp_lst = ['verbosity=none',
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']),
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']),
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']),
+                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + '[m/m]',
+                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + '[]',
+                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + '[m]',
                    'soil_z=' + ','.join(map(str, depths)) + '[m]',
                    'soil_moisture_fraction_depth=' + str(sm_frac_depth) + '[m]']
 
@@ -1261,74 +788,10 @@ def create_sft_smp_input_reg(
         with open(smp_bmi_file, "w") as f:
             f.writelines('\n'.join(smp_lst))
 
+    return depths[0]
+
 
 def create_snow17_input(
-        catids: List[str],
-        snow17_input_dir: str,
-        ipe: dict
-) -> None:
-    """ Create BMI configuration file for Snow17
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    snow17_input_dir : directory for the snow17 bmi configuration files
-    ipe: initial parameter estimates retrieved from icefabric api
-
-    Returns
-    ----------
-    None
-
-   """
-
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        # Write Snow-17 param file
-        param_file = os.path.join(snow17_input_dir, 'snow17_params-' + catID + '.txt')
-        with open(param_file, "w") as f:
-            for key, val in cat_ipe.items():
-                f.write(f"{key} {val}\n")
-
-        # Namelist file is only used when module is run separately from ngen
-        input_list = ['&SNOW17_CONTROL',
-                      '! === run control file for snow17bmi v. 1.x ===',
-                      '',
-                      '! -- basin config and path information',
-                      'main_id             = "' + catID + '"     ! basin label or gage id',
-                      'n_hrus              = 1            ! number of sub-areas in model',
-                      'forcing_root        = "extern/snow17/test_cases/ex1/input/forcing/forcing.snow17bmi."',
-                      'output_root         = "data/output/output.snow17bmi."',
-                      'snow17_param_file   = "' + param_file + '"',
-                      'output_hrus         = 1            ! output HRU results? (1=yes; 0=no)',
-                      '',
-                      '! -- run period information',
-                      'start_datehr        = 2017120101   ! start date time, backward looking (check)',
-                      'end_datehr          = 2017120123   ! end date time',
-                      'model_timestep      = 3600        ! in seconds (86400 seconds = 1 day)',
-                      '',
-                      '! -- state start/write flags and files',
-                      'warm_start_run      = 0  ! is this run started from a state file?  (no=0 yes=1)',
-                      "write_states        = 0  ! write restart/state files for 'warm_start' runs (no=0 yes=1)",
-                      '',
-                      '! -- filenames only needed if warm_start_run = 1',
-                      'snow_state_in_root  = "data/state/snow17_states."  ! input state filename root',
-                      '',
-                      '! -- filenames only needed if write_states = 1',
-                      'snow_state_out_root = "data/state/snow17_states."  ! output states filename root',
-                      '/',
-                      ''
-                      ]
-
-        # Write Snow-17 namelist file
-        input_file = os.path.join(snow17_input_dir, 'snow17-init-' + catID + '.namelist.input')
-        with open(input_file, "w") as f:
-            f.writelines('\n'.join(input_list))
-
-
-def create_snow17_input_reg(
         catids: List[str],
         dfa: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
@@ -1429,126 +892,6 @@ def create_snow17_input_reg(
 def create_ueb_input(
         catids: List[str],
         time_period: dict,
-        param_dir_source: Union[str, Path],
-        ueb_input_dir: str,
-        run_type: str,
-        ipe: dict
-) -> None:
-    """ Create BMI configuration file for ueb
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    time_period: simulation time period
-    ueb_input_dir : directory for the UEB bmi configuration file
-    run_type: type of run (calib, regionalization, or default)
-    ipe: initial parameter estimates retrieved from icefabric api
-
-    Returns
-    ----------
-    None
-
-   """
-    # Create symlink for constant parameter files
-    const_file_str = ['inputctr', 'outputctr', 'params']
-    const_files = {}
-    for par in const_file_str:
-        src = Path(param_dir_source, 'ueb_' + par + '.dat').absolute()
-        if not os.path.exists(src):
-            try:
-                raise FileNotFoundError(src)
-            except FileNotFoundError as e:
-                logger.critical(e)
-                raise
-        dst = os.path.join(ueb_input_dir, 'ueb_' + par + '.dat')
-        const_files.update({par: dst})
-
-        # Remove existing file or symlink
-        if os.path.exists(dst) or os.path.islink(dst):
-            try:
-                os.unlink(dst)
-            except Exception as e:
-                logger.error(f"Failed to remove existing {dst}: {e}")
-                raise
-
-        # Create new symlink
-        os.symlink(src, dst)
-        logger.info(f'Creating symlink from {src} to {dst}')
-
-    # Create sitevars file
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
-
-        temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
-        with open(temp_file) as f:
-            lines = f.readlines()
-        lines[18] = f"{cat_ipe['standard_atm_pressure']}\n"
-        lines[39] = f"{cat_ipe['slope']}\n"
-        lines[42] = f"{cat_ipe['aspect']}\n"
-        lines[45] = f"{cat_ipe['latitude']}\n"
-        lines[57] = f"{cat_ipe['jan_temp_range']}\n"
-        lines[60] = f"{cat_ipe['feb_temp_range']}\n"
-        lines[63] = f"{cat_ipe['mar_temp_range']}\n"
-        lines[66] = f"{cat_ipe['apr_temp_range']}\n"
-        lines[69] = f"{cat_ipe['may_temp_range']}\n"
-        lines[72] = f"{cat_ipe['jun_temp_range']}\n"
-        lines[75] = f"{cat_ipe['jul_temp_range']}\n"
-        lines[78] = f"{cat_ipe['aug_temp_range']}\n"
-        lines[81] = f"{cat_ipe['sep_temp_range']}\n"
-        lines[84] = f"{cat_ipe['oct_temp_range']}\n"
-        lines[87] = f"{cat_ipe['nov_temp_range']}\n"
-        lines[90] = f"{cat_ipe['dec_temp_range']}\n"
-        lines[96] = f"{cat_ipe['longitude']}\n"
-
-        with open(site_file, 'w') as outfile:
-            outfile.writelines(lines)
-
-    # ueb-init files need to be created for both calibration and validation runs or regionalization runs
-    if run_type == 'calibration':
-        run_list = ['calib', 'valid']
-    elif run_type == 'regionalization':
-        run_list = ['region']
-    elif run_type == 'default':
-        run_list = ['default']
-
-    for run_name in run_list:
-        if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
-            # Date
-            startdate = time_period['run_time_period'][run_name][0]
-            startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S")
-            startdate = startdate.strftime("%Y%m%d%H%M")
-            enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
-            for catID in catids:
-                input_file = os.path.join(ueb_input_dir, 'ueb-init-' + catID + '_' + run_name + '.dat')
-                site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
-                input_list = [
-                    'UEB site initial',
-                    const_files['params'],
-                    site_file,
-                    const_files['inputctr'],
-                    const_files['outputctr'],
-                    param_dir_source + '/aggout.nc ',
-                    param_dir_source + '/watershed_onecell.nc',
-                    'watershed y x',
-                    f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0',
-                    f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0',
-                    '1.0',
-                    '-7.0',
-                    '0',
-                    '1 15 16',
-                    '1 1'
-                ]
-                with open(input_file, "w") as f:
-                    f.writelines('\n'.join(input_list))
-
-
-def create_ueb_input_reg(
-        catids: List[str],
-        time_period: dict,
         dfa: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         ueb_input_dir: str,
@@ -1639,6 +982,23 @@ def create_ueb_input_reg(
             lat = dfa.loc[catID]['centroid_y']
             lon = dfa.loc[catID]['centroid_x']
 
+            # # TODO: SET MONTHLY TEMPERATURE RANGES AND STD ATMOSPHERIC PRESSURE
+            # # TODO: CHECK DEFAULT SITEVARS AGAINST UEB
+            # THIS IS HOW ICEFABRIC CALCULATES ATMOSPHERE: standard_atm_pressure=round(Atmosphere(row_dict[attr_names.ELEVATION.value]).pressure[0], 4)
+            # lines[18] = f"{cat_ipe['standard_atm_pressure']}\n"
+            # lines[57] = f"{cat_ipe['jan_temp_range']}\n"
+            # lines[60] = f"{cat_ipe['feb_temp_range']}\n"
+            # lines[63] = f"{cat_ipe['mar_temp_range']}\n"
+            # lines[66] = f"{cat_ipe['apr_temp_range']}\n"
+            # lines[69] = f"{cat_ipe['may_temp_range']}\n"
+            # lines[72] = f"{cat_ipe['jun_temp_range']}\n"
+            # lines[75] = f"{cat_ipe['jul_temp_range']}\n"
+            # lines[78] = f"{cat_ipe['aug_temp_range']}\n"
+            # lines[81] = f"{cat_ipe['sep_temp_range']}\n"
+            # lines[84] = f"{cat_ipe['oct_temp_range']}\n"
+            # lines[87] = f"{cat_ipe['nov_temp_range']}\n"
+            # lines[90] = f"{cat_ipe['dec_temp_range']}\n"
+
             temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
             with open(temp_file) as f:
                 lines = f.readlines()
@@ -1690,72 +1050,6 @@ def create_ueb_input_reg(
 
 
 def create_sac_input(
-        catids: List[str],
-        sac_input_dir: str,
-        ipe: dict
-) -> None:
-    """ Create BMI configuration file for sac-sma
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    sac_input_dir : directory for the sac bmi configuration file
-    ipe: initial parameter estimates retrieved from icefabric api
-
-    Returns
-    ----------
-    None
-
-    """
-
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        # Write parameters to file
-        input_file = os.path.join(sac_input_dir, 'sac-init-' + catID + '.namelist.input')
-        sac_bmi_file = os.path.join(sac_input_dir, 'sac_params-' + catID + '.txt')
-
-        with open(sac_bmi_file, "w") as f:
-            for key, val in cat_ipe.items():
-                f.write(f"{key} {val}\n")
-
-        # Namelist file is only used when module is run separately from ngen
-        input_list = ['&SAC_CONTROL',
-                      '! === run control file for sacbmi v. 1.x ===',
-                      '',
-                      '! -- basin config and path information',
-                      'main_id             = "' + catID + '"     ! basin label or gage id',
-                      'n_hrus              = 1            ! number of sub-areas in model',
-                      'forcing_root        = ""',
-                      'output_root         = ""',
-                      'sac_param_file   = "' + sac_bmi_file + '"',
-                      'output_hrus         = 0            ! output HRU results? (1=yes; 0=no)',
-                      '',
-                      '! -- run period information',
-                      'start_datehr        = 2015120112   ! start date time, backward looking (check)',
-                      'end_datehr          = 2015123012   ! end date time',
-                      'model_timestep      = 3600        ! in seconds (86400 seconds = 1 day)',
-                      '',
-                      '! -- state start/write flags and files',
-                      'warm_start_run      = 0  ! is this run started from a state file?  (no=0 yes=1)',
-                      "write_states        = 0  ! write restart/state files for 'warm_start' runs (no=0 yes=1)",
-                      '',
-                      '! -- filenames only needed if warm_start_run = 1',
-                      'sac_state_in_root  = "../state/sac_states."  ! input state filename root',
-                      '',
-                      '! -- filenames only needed if write_states = 1',
-                      'sac_state_out_root = "../state/sac_states."  ! output states filename root',
-                      '/',
-                      ''
-                      ]
-
-        with open(input_file, "w") as f:
-            f.writelines('\n'.join(input_list))
-
-
-def create_sac_input_reg(
         catids: List[str],
         dfa: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
@@ -2008,58 +1302,6 @@ def create_lstm_config(
 
 def create_lstm_input(
         catids: List[str],
-        param_dir_source: Union[str, Path],
-        lstm_input_dir: Union[str, Path],
-        ipe: dict
-) -> None:
-
-    """
-    Create BMI configuration file for LSTM from existing EDFS files
-    Parameters
-    ----------
-    catids: catchment IDs in the basin
-    param_dir_source: direcetory for static lstm files
-    lstm_input_dir: target directory for bmi configuration file output (lstm_input)
-    ipe: initial parameter estimates retrieved from icefabric api
-
-    Returns
-    ----------
-    None
-
-    """
-
-    # Create static LSTM config yaml files
-    create_lstm_config(param_dir_source, lstm_input_dir)
-
-    # Create catchment specific LSTM bmi config files from scratch
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        # Set train_cfg_file path
-        cat_ipe['train_cfg_file'] = os.path.join(lstm_input_dir, 'config.yml')
-
-        # Update parameters
-        cat_ipe['basin_name'] = catID
-        cat_ipe['verbose'] = '1'
-        cat_ipe['timestep'] = '1 hour'
-
-        # Write bmi config to file
-        lstm_bmi_file = os.path.join(lstm_input_dir, catID + '.yml')
-        try:
-            with open(lstm_bmi_file, "w") as f:
-                yaml.dump(cat_ipe, f, default_flow_style=False)
-        except yaml.YAMLError as e:
-            logger.critical(f"Error writing LSTM yaml to {lstm_bmi_file}: {e}")
-            raise
-        except OSError as e:
-            logger.critical(f"Error writing LSTM yaml to {lstm_bmi_file}: {e}")
-            raise
-
-
-def create_lstm_input_reg(
-        catids: List[str],
         dfa: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         lstm_input_dir: Union[str, Path],
@@ -2103,7 +1345,6 @@ def create_lstm_input_reg(
                     'lat': lat,
                     'lon': lon,
                     'slope_mean': slope,
-                    'time_step': '1 hour',  # There's a disagreement between naming conventions between EDFS and createInputs, unclear which is used
                     'timestep': '1 hour',
                     'train_cfg_file': os.path.join(lstm_input_dir, 'config.yml'),
                     'verbose': '1'}
@@ -2173,107 +1414,7 @@ def create_pet_input(
             f.writelines('\n'.join(ini_list))
 
 
-def create_pet_input_reg(
-        catids: List[str],
-        dfa: gpd.GeoDataFrame,
-        pet_input_dir: str
-) -> None:
-    """ Create BMI configuration file for pet
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
-    pet_input_dir : directory for the pet input files
-
-    Returns
-    ----------
-    None
-
-    """
-    os.makedirs(pet_input_dir, exist_ok=True)
-
-    for catID in catids:
-
-        # Set PET parameters for catchment
-        ini_list = ['verbose=0',
-                    'pet_method=5',  # Where would this value be supplied in the inputs?
-                    'forcing_file=BMI',
-                    'run_unit_tests=0',
-                    'yes_aorc=1',
-                    'yes_wrf=0',
-                    'wind_speed_measurement_height_m=10.0',
-                    'humidity_measurement_height_m=10.0',
-                    'vegetation_height_m=0.12',
-                    'zero_plane_displacement_height_m=0.0003',
-                    'momentum_transfer_roughness_length=0.0',
-                    'heat_transfer_roughness_length_m=0.1',
-                    'surface_longwave_emissivity=1.0',
-                    'surface_shortwave_albedo=0.22',
-                    'cloud_base_height_known=FALSE',
-                    'latitude_degrees=' + str(dfa.loc[catID]['centroid_y']),
-                    'longitude_degrees=' + str(dfa.loc[catID]['centroid_x']),
-                    'site_elevation_m=' + str(dfa.loc[catID]['mean.elevation']),
-                    'time_step_size_s=3600',
-                    'num_timesteps=720',  # This needs to be set from the input files, possibly for calib and valid
-                    'shortwave_radiation_provided=0']
-
-        # Write PET bmi config files
-        ini_file = os.path.join(pet_input_dir, catID + '_bmi_config.ini')
-
-        with open(ini_file, "w") as f:
-            f.writelines('\n'.join(ini_list))
-
-
 def create_lasam_input(
-        catids: List[str],
-        input_dir: Union[str, Path],
-        param_dir: Union[str, Path],
-        ipe: dict
-) -> None:
-    """ Create BMI configuration file for Lumped Arid and Semi-arid Model
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    input_dir : directory for the lasam input configuration file
-    param_dir: directory for static lasam parameter files
-    ipe: initial parameter estimates retrieved from icefabric api
-
-    Returns
-    ----------
-    None
-
-    """
-
-    # make sure param_dir and parameter files exist
-    soil_param_file = os.path.join(param_dir, 'vG_default_params.dat')
-    if not os.path.exists(soil_param_file):
-        try:
-            raise Exception(f'Soil params file does not exist: {soil_param_file}')
-        except Exception as e:
-            logger.critical(e)
-            raise
-
-    # Create bmi config file
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        # Update parameters
-        cat_ipe['verbosity'] = 'none'
-        cat_ipe['timestep'] = '300[sec]'
-        cat_ipe['endtime'] = '1000[hr]'
-        cat_ipe['soil_params_file'] = soil_param_file
-
-        lasam_bmi_file = os.path.join(input_dir, catID + '_bmi_config_lasam.txt')
-        with open(lasam_bmi_file, "w") as f:
-            for key, val in cat_ipe.items():
-                f.write(f"{key}={val}\n")
-
-
-def create_lasam_input_reg(
         catids: List[str],
         modules: Union[List[str], List[List[str]]],
         dfa: gpd.GeoDataFrame,
@@ -2323,16 +1464,13 @@ def create_lasam_input_reg(
             logger.critical(e)
             raise
 
-    # Check if sft is in use
-    sft_coupled_str = 'true' if 'sft' in modules else 'false'
-
     # Create lasam list
     lasam_lst = ['verbosity=none',
                  'soil_params_file=' + soil_param_file,
                  'layer_thickness=200.0[cm]',
                  'initial_psi=2000.0[cm]',
-                 'timestep=300[sec]',  # Where should this be supplied from?
-                 'endtime=1000[hr]',  # Where should this be supplied from?
+                 'timestep=300[sec]',
+                 'endtime=1000[hr]',  # TODO Where should this be supplied from?
                  'forcing_resolution=3600[sec]',
                  'ponded_depth_max=1.1[cm]',
                  'use_closed_form_G=false',
@@ -2612,20 +1750,20 @@ def change_topmodel_input(
 
 def create_topoflow_input(
         catids: List[str],
+        dfa: gpd.GeoDataFrame,
         time_period: dict,
         topo_input_dir: str,
         run_type: str,
-        ipe: dict
 ) -> None:
     """ Create BMI configuration file for ueb
 
     Parameters
     ----------
     catids : catchment IDs in the basin
+    dfa: dataframe containing model parameter attributes
     time_period: simulation time period
     topo_input_dir : directory for the bmi configuration file
     run_type: type of run (calib, regionalization, or default)
-    ipe: initial parameter estimates retrieved from icefabric api
 
     Returns
     ----------
@@ -2647,114 +1785,36 @@ def create_topoflow_input(
             start_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
             end_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
 
-        # Create sitevars file
+        # Create topoflow parameter yaml file
         for catID in catids:
 
-            # Retrieve catchment parameters from icefabric
-            cat_ipe = ipe[catID]
-
-            # Update start and end time
-            cat_ipe['start_time'] = start_time
-            cat_ipe['end_time'] = end_time
-            cat_ipe['dt'] = 1
-            cat_ipe['forcing_file'] = "."
-
-            # Do we need to reference the forcing file for csv/bmi?
-
-            # Drop glaciated_percent
-            cat_ipe.pop('glacier_percent', None)
+            param_dict = {
+                'site_prefix': catID,
+                'forcing_file': '.',
+                'dt': 1,
+                'start_time': start_time,
+                'end_time': end_time,
+                'da': float(dfa.loc[catID]['areasqkm']),
+                'slope': float(dfa.loc[catID]['mean.slope']),
+                'aspect': float(dfa.loc[catID]['circ_mean.aspect']),
+                'lat': float(dfa.loc[catID]['centroid_y']),
+                'lon': float(dfa.loc[catID]['centroid_x']),
+                'elev': float(dfa.loc[catID]['mean.elevation']),
+                'h_active_layer': 0.125,
+                'h0_snow': 5,
+                'h0_ice': 2,
+                'h0_swe': 0.25,
+                'h0_iwe': 1.834,
+                'T_rain_snow': 0
+            }
 
             # Write bmi to file
             topo_bmi_file = os.path.join(topo_input_dir, catID + '_' + run_name + '.yaml')
             with open(topo_bmi_file, 'w') as f:
-                yaml.dump(cat_ipe, f, default_flow_style=False, sort_keys=False)
+                yaml.dump(param_dict, f, default_flow_style=False, sort_keys=False)
 
 
 def create_topmodel_input(
-        catids: List[str],
-        inputDir: Union[str, Path],
-        ipe: dict
-) -> None:
-    """ Create BMI configuration file for Topmodel
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    inputDir: directory for writing topmodel bmi configuration files
-    ipe: initial parameter estimates retrieved from icefabric api
-
-    Returns
-    ----------
-    None
-
-    """
-
-    # loop through all catchments
-    for catID in catids:
-
-        # Retrieve catchment parameters from icefabric
-        cat_ipe = ipe[catID]
-
-        # Update parameters
-        cat_ipe['yes_print_output'] = 1
-
-        # Write subcatchment data to file
-        cfg_filename_subcat = f'{catID}_topmodel_subcat.dat'
-        cfg_filename_subcat_path = os.path.join(inputDir, cfg_filename_subcat)
-
-        with open(cfg_filename_subcat_path, 'w') as outfile:
-            outfile.write(f"{cat_ipe['num_sub_catchments']} {cat_ipe['imap']} {cat_ipe['yes_print_output']} \n")
-            outfile.write(f"Extracted study basin:  {catID} \n")
-            outfile.write(f"{cat_ipe['num_topodex_values']} {cat_ipe['area']} \n")
-        try:
-            # Format twi
-            twi_df = pd.DataFrame(ast.literal_eval("[" + cat_ipe["twi"] + "]"))[["frequency", "v"]]
-            twi_df.to_csv(cfg_filename_subcat_path, mode='a', sep=' ', index=False, header=False)
-        except Exception as e:
-            logger.error(f"Failed to write TopModel TWI data to {cfg_filename_subcat_path}: {e}")
-            raise
-        with open(cfg_filename_subcat_path, 'a') as outfile:
-            outfile.write(f"{cat_ipe['num_channels']}\n")
-            outfile.write(f"{cat_ipe['cum_dist_area_with_dist']} {cat_ipe['dist_from_outlet']}\n")  # Confirm dist_from_outlet is in meters
-
-        # Set topmodel_params.dat
-        param_keys = ["szm", "t0", "td", "chv", "rv", "srmax", "Q0", "sr0", "infex",
-                      "xk0", "hf", "dth"]
-        params = OrderedDict((key, cat_ipe[key]) for key in param_keys)
-
-        # Format parameters for output
-        line1 = catID + '\n'
-        line2 = " ".join([str(v) for v in params.values()])
-
-        # Write parameter data to file
-        cfg_filename_dat = f'{catID}_topmodel_params.dat'
-        cfg_filename_dat_path = os.path.join(inputDir, cfg_filename_dat)
-        with open(cfg_filename_dat_path, 'w') as outfile:
-            outfile.write(line1)
-            outfile.write(line2)
-
-        # Create primary configuration file
-        stand_alone = '0\n'  # Set to false for BMI
-        title = f'{catID}\n'
-        input_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_forcing.csv\n')
-        subcat_fptr = os.path.join(inputDir, '{}'.format(catID) + '_topmodel_subcat.dat\n')
-        params_fptr = os.path.join(inputDir, '{}'.format(catID) + '_topmodel_params.dat\n')
-        output_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_topmod.out\n')
-        out_hyd_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_hyd.out\n')
-
-        cfg_filename_run = f'{catID}_topmodel.run'
-        cfg_filename_path = os.path.join(inputDir, cfg_filename_run)
-        with open(cfg_filename_path, 'w') as outfile:
-            outfile.write(stand_alone)
-            outfile.write(title)
-            outfile.write(input_fptr)
-            outfile.write(subcat_fptr)
-            outfile.write(params_fptr)
-            outfile.write(output_fptr)
-            outfile.write(out_hyd_fptr)
-
-
-def create_topmodel_input_reg(
         catids: List[str],
         dfa: gpd.GeoDataFrame,
         inputDir: Union[str, Path],
@@ -2813,7 +1873,7 @@ def create_topmodel_input_reg(
         num_topodex_values = len(twi)
 
         num_channels = 1
-        cum_dist_area_with_dist = 1.0
+        cum_dist_area_with_dist = 1
         dist_from_outlet = round(dfa.loc[catID]['lengthkm'] * 1000)  # convert km to m
 
         # Format parameters for output
@@ -3095,8 +2155,7 @@ def create_troute_config(
         time_period: dict,
         rt_cfg_file: Union[str, Path],
         run_configs: List[str],
-        run_type: str,
-        ipe: dict
+        run_type: str
 ) -> None:
     """ Create routing configuration YAML file
 
@@ -3107,7 +2166,6 @@ def create_troute_config(
     rt_cfg_file : t-route configuration YAML file
     run_configs: list of file name suffixes for varying run types
     run_type: type of run (calib, regionalization, or default)
-    ipe: initial parameter estimates retrieved from icefabric api
 
     Returns
     ----------
@@ -3122,10 +2180,6 @@ def create_troute_config(
     elif run_type == 'regionalization':
         run_names = ['region']
 
-    # Update nwtopo params
-    ipe['nwtopo_param']['supernetwork_parameters']['geo_file_path'] = gpkg_file
-    ipe['nwtopo_param']['waterbody_parameters']['level_pool']['level_pool_waterbody_parameter_file_path'] = gpkg_file
-
     for file_name, run_name in zip(run_configs, run_names):
         routing_config_file = os.path.join(rt_cfg_file + file_name)
         run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
@@ -3133,172 +2187,127 @@ def create_troute_config(
             run_range = pd.to_datetime(time_period['run_time_period'][run_name])
             nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
 
-        # Remove 'rl_gages' and 'rl_NHDWaterbodyComID' from bmi_param API response
-        # Remove "waterbody": "rl_NHDWaterbodyComID", "gages": "rl_gages" from ntwk_columns API
-        # Should be gage and WaterbodyID
-        # Rename output_param to output_parameters
+        # bmi_parameters
+        bmi_param = {"flowpath_columns": ["id", "toid", "lengthkm"],
+                     "attributes_columns": ['attributes_id',
+                                            'gage',
+                                            'WaterbodyID',
+                                            'MusK',
+                                            'MusX',
+                                            'n',
+                                            'So',
+                                            'ChSlp',
+                                            'BtmWdth',
+                                            'nCC',
+                                            'TopWdthCC',
+                                            'TopWdth'],
+                     "waterbody_columns": ['hl_link',
+                                           'ifd',
+                                           'LkArea',
+                                           'LkMxE',
+                                           'OrificeA',
+                                           'OrificeC',
+                                           'OrificeE',
+                                           'WeirC',
+                                           'WeirE',
+                                           'WeirL'],
+                     "network_columns": ['network_id', 'hydroseq', 'hl_uri'],
+                     }
 
-        # Update compute parameters
-        ipe['comp_param']['restart_parameters']['start_datetime'] = time_period['run_time_period'][run_name][0]
-        ipe['comp_param']['forcing_parameters']['nts'] = nts
-        ipe['comp_param']['forcing_parameters']['max_loop_size'] = divmod(nts * 300, 3600)[0] + 1
+        # log_parameters
+        log_param = {"showtiming": True, "log_level": 'DEBUG'}
 
-        # Update output parameters
-        ipe['output_parameters']['stream_output']['stream_output_time'] = divmod(nts * 300, 3600)[0] + 1
+        # network_topology_parameters
+        columns = {"key": "id",
+                   "downstream": "toid",
+                   "dx": "lengthkm",
+                   "n": "n",
+                   "ncc": "nCC",
+                   "s0": "So",
+                   "bw": "BtmWdth",
+                   "waterbody": "WaterbodyID",
+                   "gages": "gage",
+                   "tw": "TopWdth",
+                   "twcc": "TopWdthCC",
+                   "musk": "MusK",
+                   "musx": "MusX",
+                   "cs": "ChSlp",
+                   "alt": "alt",
+                   }
+
+        dupseg = ["717696", "1311881", "3133581", "1010832", "1023120", "1813525",
+                  "1531545", "1304859", "1320604", "1233435", "11816", "1312051",
+                  "2723765", "2613174", "846266", "1304891", "1233595", "1996602",
+                  "2822462", "2384576", "1021504", "2360642", "1326659", "1826754",
+                  "572364", "1336910", "1332558", "1023054", "3133527", "3053788",
+                  "3101661", "2043487", "3056866", "1296744", "1233515", "2045165",
+                  "1230577", "1010164", "1031669", "1291638", "1637751",
+                  ]
+
+        nwtopo_param = {"supernetwork_parameters": {"network_type": "HYFeaturesNetwork",
+                                                    "geo_file_path": gpkg_file,
+                                                    "columns": columns,
+                                                    "duplicate_wb_segments": dupseg},
+                        "waterbody_parameters": {"break_network_at_waterbodies": True,
+                                                 "level_pool": {"level_pool_waterbody_parameter_file_path": gpkg_file}},
+                        }
+
+        # compute_parameters
+        res_da = {"reservoir_persistence_da": {"reservoir_persistence_usgs": False,
+                                               "reservoir_persistence_usace": False},
+                  "reservoir_rfc_da": {"reservoir_rfc_forecasts": False,
+                                       "reservoir_rfc_forecasts_time_series_path": None,
+                                       "reservoir_rfc_forecasts_lookback_hours": 28,
+                                       "reservoir_rfc_forecasts_offset_hours": 28,
+                                       "reservoir_rfc_forecast_persist_days": 11},
+                  "reservoir_parameter_file": None,
+                  }
+
+        stream_da = {"streamflow_nudging": False,
+                     "diffusive_streamflow_nudging": False,
+                     "gage_segID_crosswalk_file": None,
+                     }
+
+        comp_param = {"parallel_compute_method": "by-subnetwork-jit-clustered",
+                      "subnetwork_target_size": 10000,
+                      "cpu_pool": 16,
+                      "compute_kernel": "V02-structured",
+                      "assume_short_ts": True,
+                      "restart_parameters": {"start_datetime": time_period['run_time_period'][run_name][0]},
+                      "forcing_parameters": {"qts_subdivisions": 12,
+                                             "dt": 300,
+                                             "qlat_input_folder": ".",
+                                             "qlat_file_pattern_filter": "nex-*",
+                                             "nts": nts,
+                                             "max_loop_size": divmod(nts * 300, 3600)[0] + 1},
+                      "data_assimilation_parameters": {"usgs_timeslices_folder": None,
+                                                       "usace_timeslices_folder": None,
+                                                       "timeslice_lookback_hours": 48,
+                                                       "qc_threshold": 1,
+                                                       "streamflow_da": stream_da,
+                                                       "reservoir_da": res_da},
+                      }
+
+        # output_parameters
+        output_param = {'stream_output': {'stream_output_directory': ".",
+                                          'stream_output_time': divmod(nts * 300, 3600)[0] + 1,
+                                          'stream_output_type': '.nc',
+                                          'stream_output_internal_frequency': 60,
+                                          },
+                        }
+
+        # Combine all parameters
+        config = {"bmi_parameters": bmi_param,
+                  "log_parameters": log_param,
+                  "network_topology_parameters": nwtopo_param,
+                  "compute_parameters": comp_param,
+                  "output_parameters": output_param,
+                  }
 
         # Save configuration into yaml file
         with open(routing_config_file, 'w') as file:
-            yaml.dump(ipe, file, sort_keys=False, default_flow_style=False, indent=4)
+            yaml.dump(config, file, sort_keys=False, default_flow_style=False, indent=4)
         logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
-
-
-def create_troute_config_reg(
-        gpkg_file: Union[str, Path],
-        rt_cfg_file: Union[str, Path],
-        start_date: str,
-        nts: int,
-        # reformat_dir: Union[str, Path],
-) -> None:
-    """ Create routing configuration YAML file
-
-    Parameters
-    ----------
-    gpkg_file :  GeoPackage hydrofabric file
-    rt_cfg_file : t-route configuration YAML file
-    start_date :  start date for restart run
-    nts : number of timesteps
-    reformat_dir : directory for the reformatted nexus output files
-
-    Returns
-    ----------
-    None
-
-    """
-
-    # bmi_parameters
-    bmi_param = {"flowpath_columns": ["id", "toid", "lengthkm"],
-                 "attributes_columns": ['attributes_id',
-                                        # 'rl_gages',
-                                        # 'rl_NHDWaterbodyComID',
-                                        'gage',
-                                        'WaterbodyID',
-                                        'MusK',
-                                        'MusX',
-                                        'n',
-                                        'So',
-                                        'ChSlp',
-                                        'BtmWdth',
-                                        'nCC',
-                                        'TopWdthCC',
-                                        'TopWdth'],
-                 "waterbody_columns": ['hl_link',
-                                       'ifd',
-                                       'LkArea',
-                                       'LkMxE',
-                                       'OrificeA',
-                                       'OrificeC',
-                                       'OrificeE',
-                                       'WeirC',
-                                       'WeirE',
-                                       'WeirL'],
-                 "network_columns": ['network_id', 'hydroseq', 'hl_uri'],
-                 }
-
-    # log_parameters
-    log_param = {"showtiming": True, "log_level": 'DEBUG'}
-
-    # network_topology_parameters
-    columns = {"key": "id",
-               "downstream": "toid",
-               "dx": "lengthkm",
-               "n": "n",
-               "ncc": "nCC",
-               "s0": "So",
-               "bw": "BtmWdth",
-               # "waterbody": "rl_NHDWaterbodyComID",
-               # "gages": "rl_gages",
-               "waterbody": "WaterbodyID",
-               "gages": "gage",
-               "tw": "TopWdth",
-               "twcc": "TopWdthCC",
-               "musk": "MusK",
-               "musx": "MusX",
-               "cs": "ChSlp",
-               "alt": "alt",
-               }
-
-    dupseg = ["717696", "1311881", "3133581", "1010832", "1023120", "1813525",
-              "1531545", "1304859", "1320604", "1233435", "11816", "1312051",
-              "2723765", "2613174", "846266", "1304891", "1233595", "1996602",
-              "2822462", "2384576", "1021504", "2360642", "1326659", "1826754",
-              "572364", "1336910", "1332558", "1023054", "3133527", "3053788",
-              "3101661", "2043487", "3056866", "1296744", "1233515", "2045165",
-              "1230577", "1010164", "1031669", "1291638", "1637751",
-              ]
-
-    nwtopo_param = {"supernetwork_parameters": {"network_type": "HYFeaturesNetwork",
-                                                "geo_file_path": gpkg_file,
-                                                "columns": columns,
-                                                "duplicate_wb_segments": dupseg},
-                    "waterbody_parameters": {"break_network_at_waterbodies": True,
-                                             "level_pool": {"level_pool_waterbody_parameter_file_path": gpkg_file}},
-                    }
-
-    # compute_parameters
-    res_da = {"reservoir_persistence_da": {"reservoir_persistence_usgs": False,
-                                           "reservoir_persistence_usace": False},
-              "reservoir_rfc_da": {"reservoir_rfc_forecasts": False,
-                                   "reservoir_rfc_forecasts_time_series_path": None,
-                                   "reservoir_rfc_forecasts_lookback_hours": 28,
-                                   "reservoir_rfc_forecasts_offset_hours": 28,
-                                   "reservoir_rfc_forecast_persist_days": 11},
-              "reservoir_parameter_file": None,
-              }
-
-    stream_da = {"streamflow_nudging": False,
-                 "diffusive_streamflow_nudging": False,
-                 "gage_segID_crosswalk_file": None,
-                 }
-
-    comp_param = {"parallel_compute_method": "by-subnetwork-jit-clustered",
-                  "subnetwork_target_size": 10000,
-                  "cpu_pool": 16,
-                  "compute_kernel": "V02-structured",
-                  "assume_short_ts": True,
-                  "restart_parameters": {"start_datetime": start_date},
-                  "forcing_parameters": {"qts_subdivisions": 12,
-                                         "dt": 300,
-                                         "qlat_input_folder": ".",
-                                         "qlat_file_pattern_filter": "nex-*",
-                                         "nts": nts,
-                                         "max_loop_size": divmod(nts * 300, 3600)[0] + 1},
-                  "data_assimilation_parameters": {"usgs_timeslices_folder": None,
-                                                   "usace_timeslices_folder": None,
-                                                   "timeslice_lookback_hours": 48,
-                                                   "qc_threshold": 1,
-                                                   "streamflow_da": stream_da,
-                                                   "reservoir_da": res_da},
-                  }
-
-    # output_parameters
-    output_param = {'stream_output': {'stream_output_directory': ".",
-                                      'stream_output_time': divmod(nts * 300, 3600)[0] + 1,
-                                      'stream_output_type': '.nc',
-                                      'stream_output_internal_frequency': 60,
-                                      },
-                    }
-
-    # Combine all parameters
-    config = {"bmi_parameters": bmi_param,
-              "log_parameters": log_param,
-              "network_topology_parameters": nwtopo_param,
-              "compute_parameters": comp_param,
-              "output_parameters": output_param,
-              }
-
-    # Save configuration into yaml file
-    with open(rt_cfg_file, 'w') as file:
-        yaml.dump(config, file, sort_keys=False, default_flow_style=False, indent=4)
 
 
 def create_fcst_times(

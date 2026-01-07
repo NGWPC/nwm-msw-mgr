@@ -674,6 +674,83 @@ class RealizationBuilder:
 
         logger.info('Calibration settings parsed')
 
+    @staticmethod
+    def file_crs_epsg(file_name: str) -> int:
+        logger.debug(f"Getting EPSG code of: {file_name}")
+        gdf = gpd.read_file(file_name)
+        return gdf.crs.to_epsg()
+
+    def _extract_hydrofabric(self):
+        """
+        Extract hydrofabric geopackage and form catchment, nexus, and crosswalk files
+        """
+
+        # Retrieve gpkg from Icefabric API or symlink existing file if provided
+        self.gpkg_file = self.conf3.get('hydrofab_file')
+        if self.gpkg_file is None:
+            # If gpkg_file not provided, retrieve gpkg from icefabric and save to file
+            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.environment)
+        else:
+            # Ensure user provided geopackage file exists
+            if not os.path.exists(self.gpkg_file):
+                try:
+                    raise Exception(f'Geo package file does not exist: {self.gpkg_file}')
+                except Exception as e:
+                    logger.critical(e)
+                    raise
+
+        # Set cat, nexus, and walk files
+        self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+        self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+        self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
+
+        if self.file_crs_epsg(self.gpkg_file) in (4326, 5070):
+            try:
+                # Symlink gpkg_file to Input directory if provided by user
+                if self.conf3.get('hydrofab_file') is not None:
+                    if not os.path.exists(self.cat_file):
+                        os.symlink(self.gpkg_file, self.cat_file)
+                        logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
+            except OSError as e:
+                msg = f"Failed to create symlink: {self.gpkg_file} -> {self.cat_file}: {e}"
+                logger.critical(msg)
+                raise RuntimeError(msg) from e
+        else:
+            # TODO implement either a temporary reprojected file per job (to save space), or a permanent global set of reprojected files (to save time)
+            cmd = ["ogr2ogr", "-overwrite", "-f", "GPKG", "-t_srs", "EPSG:4326", self.cat_file, self.gpkg_file]
+            logger.info(f"Reprojecting gpkg to a new EPSG:4326 file via cmd: {' '.join(cmd)}")
+            try:
+                subprocess.check_call(cmd)
+            except Exception as e:
+                msg = f"Failed to reproject gpkg via cmd: {' '.join(cmd)}: {e}"
+                logger.critical(msg)
+                raise RuntimeError(msg) from e
+
+        # Create crosswalk file between catchments and gages for calibration run
+        if self.run_type == 'calibration':
+            gfun.create_walk_file(self.basin, self.gpkg_file, self.walk_file)
+            logger.info(f"Crosswalk file created at: {self.walk_file}")
+
+        # Read catchment parameter values from geopackage divide-attributes
+        attr_lyrname = "divide-attributes"
+        logger.info(f"Reading layer {repr(attr_lyrname)} from file: {repr(self.gpkg_file)}")
+        try:
+            self.attr_file = gpd.read_file(self.gpkg_file, layer=attr_lyrname)
+            self.attr_file.set_index("divide_id", inplace=True)
+            # Update hydrofabic attribute names based on region and minor parameter value fixes
+            self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
+        except Exception as e:
+            logger.critical(f"Error while reading geopackage file: {e}")
+            raise
+
+        # Read catchment divide layer from hydrofabric
+        try:
+            self.divides_layer = gpd.read_file(self.gpkg_file, layer='divides')
+            self.catids = self.divides_layer['divide_id'].tolist()
+        except Exception as e:
+            logger.critical(f"Error while reading geopackage file: {e}")
+            raise
+
     def _parse_modules(self):
         """
         Read modules from input.config file and ensure formulation is valid
@@ -746,12 +823,11 @@ class RealizationBuilder:
 
         # If Topoflow in modules,validate glacier coverage and create grouped realizations
         if 'topoflow' in self.modules:
-            # Call Icefabric API to check glacier coverage
-            self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain, self.ngen_cerf)
 
             # Retrieve list of catchments where glaciated percent >= 50
             glacier_thresh = 50
-            topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= glacier_thresh]
+            topo_cats = self.attr_file[self.attr_file['glacier_percent'] >= glacier_thresh].index.tolist()
+            nontopo_cats = self.attr_file[self.attr_file['glacier_percent'] < glacier_thresh].index.tolist()
 
             # Ensure catchments exist where topoflow-glacier can be applied
             if len(topo_cats) == 0:
@@ -766,9 +842,6 @@ class RealizationBuilder:
                 self.grp_to_form = {}
                 self.grp_to_form['group_1'] = mod_notopo
                 self.grp_to_form['group_2'] = ['topoflow']
-
-                # Map catchments to groups based on glacier coverage
-                nontopo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) < glacier_thresh]
 
                 self.grp_to_cat = {'group_1': topo_cats,
                                    'group_2': nontopo_cats}
@@ -1000,83 +1073,6 @@ class RealizationBuilder:
             logger.info("Created symlink to ngen executable")
         except OSError as e:
             logger.critical(f"Failed to create symlink: {symlink_path} -> {exe_path}: {e}")
-            raise
-
-    @staticmethod
-    def file_crs_epsg(file_name: str) -> int:
-        logger.debug(f"Getting EPSG code of: {file_name}")
-        gdf = gpd.read_file(file_name)
-        return gdf.crs.to_epsg()
-
-    def _extract_hydrofabric(self):
-        """
-        Extract hydrofabric geopackage and form catchment, nexus, and crosswalk files
-        """
-
-        # Retrieve gpkg from Icefabric API or symlink existing file if provided
-        self.gpkg_file = self.conf3.get('hydrofab_file')
-        if self.gpkg_file is None:
-            # If gpkg_file not provided, retrieve gpkg from icefabric and save to file
-            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.environment)
-        else:
-            # Ensure user provided geopackage file exists
-            if not os.path.exists(self.gpkg_file):
-                try:
-                    raise Exception(f'Geo package file does not exist: {self.gpkg_file}')
-                except Exception as e:
-                    logger.critical(e)
-                    raise
-
-        # Set cat, nexus, and walk files
-        self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-        self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-        self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
-
-        if self.file_crs_epsg(self.gpkg_file) in (4326, 5070):
-            try:
-                # Symlink gpkg_file to Input directory if provided by user
-                if self.conf3.get('hydrofab_file') is not None:
-                    if not os.path.exists(self.cat_file):
-                        os.symlink(self.gpkg_file, self.cat_file)
-                        logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
-            except OSError as e:
-                msg = f"Failed to create symlink: {self.gpkg_file} -> {self.cat_file}: {e}"
-                logger.critical(msg)
-                raise RuntimeError(msg) from e
-        else:
-            # TODO implement either a temporary reprojected file per job (to save space), or a permanent global set of reprojected files (to save time)
-            cmd = ["ogr2ogr", "-overwrite", "-f", "GPKG", "-t_srs", "EPSG:4326", self.cat_file, self.gpkg_file]
-            logger.info(f"Reprojecting gpkg to a new EPSG:4326 file via cmd: {' '.join(cmd)}")
-            try:
-                subprocess.check_call(cmd)
-            except Exception as e:
-                msg = f"Failed to reproject gpkg via cmd: {' '.join(cmd)}: {e}"
-                logger.critical(msg)
-                raise RuntimeError(msg) from e
-
-        # Create crosswalk file between catchments and gages for calibration run
-        if self.run_type == 'calibration':
-            gfun.create_walk_file(self.basin, self.gpkg_file, self.walk_file)
-            logger.info(f"Crosswalk file created at: {self.walk_file}")
-
-        # Read catchment parameter values from geopackage divide-attributes
-        attr_lyrname = "divide-attributes"
-        logger.info(f"Reading layer {repr(attr_lyrname)} from file: {repr(self.gpkg_file)}")
-        try:
-            self.attr_file = gpd.read_file(self.gpkg_file, layer=attr_lyrname)
-            self.attr_file.set_index("divide_id", inplace=True)
-            # Update hydrofabic attribute names based on region and minor parameter value fixes
-            self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
-        except Exception as e:
-            logger.critical(f"Error while reading geopackage file: {e}")
-            raise
-
-        # Read catchment divide layer from hydrofabric
-        try:
-            self.divides_layer = gpd.read_file(self.gpkg_file, layer='divides')
-            self.catids = self.divides_layer['divide_id'].tolist()
-        except Exception as e:
-            logger.critical(f"Error while reading geopackage file: {e}")
             raise
 
     def _extract_forcing(self):
@@ -1621,13 +1617,13 @@ class RealizationBuilder:
         self._parse_forcing_engine()
         self._parse_time()
         self._parse_calib_settings()
+        self._extract_hydrofabric()
         self._parse_modules()
         self._validate_processes()
         self._map_cat_to_grp()
         self._map_cat_to_form()
         self._map_mod_to_cat()
         self._set_lib_paths()
-        self._extract_hydrofabric()
         self._extract_forcing()
         self._configure_forcing_engine()
         self._extract_streamflow_obs()
@@ -1660,6 +1656,7 @@ class RealizationBuilder:
         self._load_reg_formulation()
         self._load_reg_catchments()
         self._parse_time()
+        self._extract_hydrofabric()
         self._parse_reg_params()
         self._parse_reg_modules()
         self._validate_processes()
@@ -1668,7 +1665,6 @@ class RealizationBuilder:
         self._map_mod_to_cat()
         self._set_lib_paths()
         self._symlink_ngen()
-        self._extract_hydrofabric()
         self._extract_forcing()
         self._configure_forcing_engine()
         self._set_output_vars()
@@ -1729,6 +1725,7 @@ class RealizationBuilder:
 
         self._parse_forcing_engine()
         self._parse_time()
+        self._extract_hydrofabric()
         self._parse_modules()
         self._validate_processes()
         self._map_cat_to_grp()
@@ -1736,7 +1733,6 @@ class RealizationBuilder:
         self._map_mod_to_cat()
         self._set_lib_paths()
         self._symlink_ngen()
-        self._extract_hydrofabric()
         self._extract_forcing()
         self._configure_forcing_engine()
         self._set_output_vars()
@@ -1747,24 +1743,19 @@ class RealizationBuilder:
         logger.info("Default run set up successfully")
 
 
-def validate_topoflow(basin_id: str, domain: str, ngen_cerf: bool) -> dict:
+def validate_topoflow(gpkg_file: str) -> dict:
     """Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
 
-    Retrieves glacier coverage from Icefabric API and identifies catchments with >50% glacier coverage
-    that are suitable for Topflow-Glacier application
-
     Args:
-        basin_id: basin identifier
-        domain: domain identifier
+        gpkg_file: path to geopackage file
     """
 
-    # Retrieve glacier coverage data from Icefabric API
-    domain_hf = domain + "_hf"
-    ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], basin_id, domain_hf, ngen_cerf)
+    # Read attributes from provided geopackge
+    attr_df = gpd.read_file(gpkg_file, layer='divide-attributes')
 
-    # Filter catchments by glacier percent >50%
+    # Count number of catchments with glacier percent >= 50%
     glacier_thresh = 50
-    glacier_cat = sum(1 for val in ipe.values() if val.get('glacier_percent', ) >= glacier_thresh)
+    glacier_cat = (attr_df['glacier_percent'] >= glacier_thresh).sum()
 
     # Return json message for Topoflow-Glacier applicability
     if glacier_cat >= 1:
