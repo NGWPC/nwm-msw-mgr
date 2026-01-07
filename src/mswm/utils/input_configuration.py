@@ -34,7 +34,6 @@ class GeneralConfig(StrictBaseModel):
     """
     basin: str
     domain: Literal["conus", "prvi", "ak", "hi", "gl"]
-    envca: bool
     run_type: Literal["default", "calibration", "regionalization"]
     models: Optional[str] = None
     formulation: Optional[str] = None
