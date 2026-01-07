@@ -2791,7 +2791,7 @@ def create_reg_realization_file(
     if run_type == 'calibration':
         run_type = 'calib'
     elif run_type == 'regionalization':
-        run_type == 'region'
+        run_type = 'region'
 
     # Set model formulations for each regionalization group
     grp_main = {}
