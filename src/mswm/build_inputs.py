@@ -672,6 +672,62 @@ class RealizationBuilder:
 
         logger.info('Calibration settings parsed')
 
+    def _extract_hydrofabric(self):
+        """
+        Extract hydrofabric geopackage and form catchment, nexus, and crosswalk files
+        """
+
+        # Retrieve gpkg from Icefabric API or symlink existing file if provided
+        self.gpkg_file = self.conf3.get('hydrofab_file')
+        if self.gpkg_file is None:
+            # If gpkg_file not provided, save gpkg from icefabric to file
+            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.ngen_cerf)
+
+        else:
+            # Ensure user provided geopackage file exists
+            if not os.path.exists(self.gpkg_file):
+                try:
+                    raise Exception(f'Geo package file does not exist: {self.gpkg_file}')
+                except Exception as e:
+                    logger.critical(e)
+                    raise
+
+        # Set cat, nexus, and walk files
+        self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+        self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
+        self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
+
+        # Symlink gpkg_file to Input directory if provided by user
+        if self.conf3.get('hydrofab_file') is not None:
+            if not os.path.exists(self.cat_file):
+                os.symlink(self.gpkg_file, self.cat_file)
+                logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
+
+        # Create crosswalk file between catchments and gages for calibration run
+        if self.run_type == 'calibration':
+            gfun.create_walk_file(self.basin, self.gpkg_file, self.walk_file)
+            logger.info(f"Crosswalk file created at: {self.walk_file}")
+
+        # Read catchment parameter values from geopackage divide-attributes
+        try:
+            self.attr_file = gpd.read_file(self.gpkg_file, layer='divide-attributes')
+            self.attr_file.set_index("divide_id", inplace=True)
+        except Exception as e:
+            logger.critical(f"Error while reading geopackage file: {e}")
+            raise
+
+        # Read catchment divide layer from hydrofabric
+        try:
+            self.divides_layer = gpd.read_file(self.gpkg_file, layer='divides')
+            self.catids = self.divides_layer['divide_id'].tolist()
+        except Exception as e:
+            logger.critical(f"Error while reading geopackage file: {e}")
+            raise
+
+        # Update hydrofabic attribute names based on region and minor parameter value fixes
+        self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
+        logger.info(f"Attribute file loaded from: {self.gpkg_file}")
+
     def _parse_modules(self):
         """
         Read modules from input.config file and ensure formulation is valid
@@ -744,12 +800,11 @@ class RealizationBuilder:
 
         # If Topoflow in modules,validate glacier coverage and create grouped realizations
         if 'topoflow' in self.modules:
-            # Call Icefabric API to check glacier coverage
-            self.topoflow_ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], self.basin, self.domain, self.ngen_cerf)
 
             # Retrieve list of catchments where glaciated percent >= 50
             glacier_thresh = 50
-            topo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) >= glacier_thresh]
+            topo_cats = self.attr_file[self.attr_file['glacier_percent'] >= glacier_thresh].index.tolist()
+            nontopo_cats = self.attr_file[self.attr_file['glacier_percent'] < glacier_thresh].index.tolist()
 
             # Ensure catchments exist where topoflow-glacier can be applied
             if len(topo_cats) == 0:
@@ -764,9 +819,6 @@ class RealizationBuilder:
                 self.grp_to_form = {}
                 self.grp_to_form['group_1'] = mod_notopo
                 self.grp_to_form['group_2'] = ['topoflow']
-
-                # Map catchments to groups based on glacier coverage
-                nontopo_cats = [key for key, val in self.topoflow_ipe.items() if val.get('glacier_percent', 0) < glacier_thresh]
 
                 self.grp_to_cat = {'group_1': topo_cats,
                                    'group_2': nontopo_cats}
@@ -899,33 +951,6 @@ class RealizationBuilder:
             validate_formulation(self.modules)
             logger.info("Module processes validated")
 
-    def _create_input_dir(self):
-        """
-        Create input directory to store realization file and BMI config files
-        """
-        # Set run directory based on run_type
-        obj_fnc = self.conf2.get('objective_function') or "none"
-        opt_alg = self.conf2.get('optimization_algorithm') or "none"
-        if self.run_type == 'calibration':
-            run_dir = os.path.join(self.conf1['main_dir'], '_'.join([obj_fnc, opt_alg]))
-        elif self.run_type == 'regionalization':
-            run_dir = os.path.join(self.conf1['main_dir'], 'regionalization')
-        elif self.run_type == 'default':
-            run_dir = os.path.join(self.conf1['main_dir'], 'default')
-
-        # Form input directory paths
-        self.work_dir = os.path.join(run_dir, self.conf1['formulation'] + '/' + self.basin)
-        self.input_dir = os.path.join(self.work_dir, 'Input/')
-
-        # Create directory
-        try:
-            os.makedirs(self.input_dir, exist_ok=True)
-        except Exception as e:
-            main_logger.critical(f"Invalid input directory: {e}. Check `main_dir` variable")
-            raise
-
-        main_logger.info(f"Input directory created at: {self.input_dir}")
-
     def _map_cat_to_grp(self):
         """
         Map catchments to formulation groups and assign is_aet_rootzone flags for cfe
@@ -1026,64 +1051,6 @@ class RealizationBuilder:
         except OSError as e:
             logger.critical(f"Failed to create symlink: {symlink_path} -> {exe_path}: {e}")
             raise
-
-    def _extract_hydrofabric(self):
-        """
-        Extract hydrofabric geopackage and form catchment, nexus, and crosswalk files
-        """
-
-        # Retrieve gpkg from Icefabric API or symlink existing file if provided
-        self.gpkg_file = self.conf3.get('hydrofab_file')
-        if self.gpkg_file is None:
-            # If gpkg_file not provided, save gpkg from icefabric to file
-            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.ngen_cerf)
-
-        else:
-            # Ensure user provided geopackage file exists
-            if not os.path.exists(self.gpkg_file):
-                try:
-                    raise Exception(f'Geo package file does not exist: {self.gpkg_file}')
-                except Exception as e:
-                    logger.critical(e)
-                    raise
-
-        # Set cat, nexus, and walk files
-        self.cat_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-        self.nexus_file = os.path.join(self.input_dir, os.path.basename(self.gpkg_file))
-        self.walk_file = self.input_dir + '{}'.format(self.basin) + '_crosswalk.json'
-
-        # Symlink gpkg_file to Input directory if provided by
-        if self.conf3.get('hydrofab_file') is not None:
-            if not os.path.exists(self.cat_file):
-                os.symlink(self.gpkg_file, self.cat_file)
-                logger.info(f'Symlink created from {self.gpkg_file} to {self.cat_file}')
-
-        # Create crosswalk file between catchments and gages for calibration run
-        if self.run_type == 'calibration':
-            gfun.create_walk_file(self.basin, self.gpkg_file, self.walk_file)
-            logger.info(f"Crosswalk file created at: {self.walk_file}")
-
-        # Read catchment parameter values from geopackage divide-attributes (when not using icefabric API)
-        if self.conf3.get('hydrofab_file') is not None:
-            try:
-                self.attr_file = gpd.read_file(self.gpkg_file, layer='divide-attributes')
-                self.attr_file.set_index("divide_id", inplace=True)
-            except Exception as e:
-                logger.critical(f"Error while reading geopackage file: {e}")
-                raise
-
-        # Read catchment divide layer from hydrofabric
-        try:
-            self.divides_layer = gpd.read_file(self.gpkg_file, layer='divides')
-            self.catids = self.divides_layer['divide_id'].tolist()
-        except Exception as e:
-            logger.critical(f"Error while reading geopackage file: {e}")
-            raise
-
-        # Update hydrofabic attribute names based on region and minor parameter value fixes
-        if self.conf3.get('hydrofab_file') is not None:
-            self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
-            logger.info(f"Attribute file loaded from: {self.gpkg_file}")
 
     def _extract_forcing(self):
         """
@@ -1203,7 +1170,7 @@ class RealizationBuilder:
             else:
                 self.output_dict[s1] = self.conf1[s1]
 
-        # define depth (in meters) for output soil moisture
+        # define depth (in meters) for output soil moisture, defaulting to values if not provided
         self.output_dict['sm_frac_depth'] = 0.4
         self.output_dict['sm_profile_depth'] = 0.1
         for s1 in ['sm_profile_depth', 'sm_frac_depth']:
@@ -1284,15 +1251,6 @@ class RealizationBuilder:
             if m1 in ['sloth']:
                 continue
 
-            # Retrieve initial parameters from Icefabric API
-            if m1 == 'topoflow':
-                ipe = self.topoflow_ipe.copy()
-            else:
-                ipe = gfun.call_icefabric_ipe(m1, mod_all, self.basin, self.domain, self.ngen_cerf, self.envca, self.is_aet_rootzone)
-
-            # # Subset IPE based on catchments using module
-            ipe_sub = {k: ipe[k] for k in cat_mod if k in ipe}
-
             # Create input file directory
             if m1 != 'troute':
                 try:
@@ -1303,35 +1261,36 @@ class RealizationBuilder:
 
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
-                gfun.create_cfe_input(cat_mod, mod_input_dir, ipe_sub)
+                gfun.create_cfe_input(cat_mod, mod_all, self.attr_file, mod_input_dir, self.run_type, self.is_aet_rootzone)
             elif m1 == 'topmodel':
-                gfun.create_topmodel_input(self.catids, mod_input_dir, ipe)
+                gfun.create_topmodel_input(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == 'ueb':
-                gfun.create_ueb_input(cat_mod, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe_sub)
+                gfun.create_ueb_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
             elif m1 == 'snow17':
-                gfun.create_snow17_input(cat_mod, mod_input_dir, ipe_sub)
+                gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
             elif m1 == "pet":
                 pass
                 # gfun.create_pet_input(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == "sac":
-                gfun.create_sac_input(cat_mod, mod_input_dir, ipe_sub)
+                gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
             elif m1 == 'noah':
-                gfun.create_noah_input(cat_mod, self.time_period, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type, ipe_sub)
+                gfun.create_noah_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
             elif m1 == 'lstm':
-                gfun.create_lstm_input(cat_mod, self.conf3['lstm_parameter_dir'], mod_input_dir, ipe_sub)
+                gfun.create_lstm_input(cat_mod, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
             elif m1 == 'sft':
-                gfun.create_sft_input(cat_mod, mod_input_dir, ipe_sub)
+                sft_dir = os.path.join(self.input_dir, 'sft_input')
+                smp_dir = os.path.join(self.input_dir, 'smp_input')
+                self.output_dict['sm_profile_depth'] = gfun.create_sft_smp_input(cat_mod, self.modules, self.attr_file, sft_dir, smp_dir,
+                                                                                 self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'], self.run_type)
             elif m1 == 'smp':
-                self.output_dict['sm_profile_depth'] = gfun.create_smp_input(cat_mod, mod_input_dir, ipe_sub, self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
+                pass
             elif m1 == 'lasam':
-                gfun.create_lasam_input(cat_mod, mod_input_dir, self.conf3['lasam_parameter_dir'], ipe_sub)
+                gfun.create_lasam_input(cat_mod, self.modules, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
             elif m1 == 'topoflow':
-                gfun.create_topoflow_input(cat_mod, self.time_period, mod_input_dir, self.run_type, ipe_sub)
+                gfun.create_topoflow_input(cat_mod, self.attr_file, self.time_period, mod_input_dir, self.run_type)
             elif m1 == 'troute':
                 routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
-                ipe = ipe['cat-3062933']  # Remove after troute endpoint is updated
-                # ipe = ipe['cat-11466']
-                gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type, ipe)
+                gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
 
             if m1 != 'troute':
                 logger.info(f'{m1}: input config files created at: {mod_input_dir}')
@@ -1382,23 +1341,32 @@ class RealizationBuilder:
             if m1 in ['sloth']:
                 pass
 
+            # Create input file directory
+            if m1 != 'troute':
+                try:
+                    os.makedirs(mod_input_dir, exist_ok=True)
+                except Exception as e:
+                    logger.critical(f"Failed to create input directory for {m1}: {mod_input_dir} - {e}")
+                    raise
+
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
-                gfun.create_cfe_input_reg(cat_mod, form_cat, self.attr_file, mod_input_dir, self.run_type, self.cat_to_aet_rootzone)
+                gfun.create_cfe_input(cat_mod, form_cat, self.attr_file, mod_input_dir, self.run_type, self.cat_to_aet_rootzone)
             elif m1 == 'topmodel':
-                gfun.create_topmodel_input_reg(cat_mod, self.attr_file, mod_input_dir)
+                gfun.create_topmodel_input(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == 'ueb':
-                gfun.create_ueb_input_reg(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
+                gfun.create_ueb_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, '', self.run_type)
             elif m1 == 'snow17':
-                gfun.create_snow17_input_reg(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
+                gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
             elif m1 == "pet":
-                gfun.create_pet_input_reg(cat_mod, self.attr_file, mod_input_dir)
+                pass
+                # gfun.create_pet_input_reg(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == "sac":
-                gfun.create_sac_input_reg(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
+                gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
             elif m1 == 'noah':
-                gfun.create_noah_input_reg(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
+                gfun.create_noah_input(cat_mod, self.time_period, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
             elif m1 == 'lstm':
-                gfun.create_lstm_input_reg(cat_mod, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
+                gfun.create_lstm_input(cat_mod, self.attr_file, self.conf3['lstm_parameter_dir'], mod_input_dir)
             elif m1 == 'sft':
                 sft_dir = os.path.join(self.input_dir, 'sft_input')
                 smp_dir = os.path.join(self.input_dir, 'smp_input')
@@ -1415,22 +1383,19 @@ class RealizationBuilder:
                         scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
 
                         # Create SFT/SMP inputs
-                        self.output_dict['sm_profile_depth'] = gfun.create_sft_smp_input_reg(scheme_cat, scheme_form, self.attr_file, sft_dir, smp_dir, self.run_type)
+                        self.output_dict['sm_profile_depth'] = gfun.create_sft_smp_input(scheme_cat, scheme_form, self.attr_file, sft_dir, smp_dir,
+                                                                                         self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'], self.run_type)
 
             # Skip smp, inputs created in tandem with sft
             elif m1 == 'smp':
                 continue
             elif m1 == 'lasam':
-                gfun.create_lasam_input_reg(cat_mod, form_cat, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
+                gfun.create_lasam_input(cat_mod, form_cat, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
+            elif m1 == 'topoflow':
+                gfun.create_topoflow_input(cat_mod, self.attr_file, self.time_period, mod_input_dir, self.run_type)
             elif m1 == 'troute':
-                for file_name, run_name in zip(self.run_configs, ['region']):
-                    routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + file_name)
-                    run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
-                    if len(self.time_period['run_time_period'][run_name][0]) != 0 & len(self.time_period['run_time_period'][run_name][0]):
-                        run_range = pd.to_datetime(self.time_period['run_time_period'][run_name])
-                        nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
-                        gfun.create_troute_config_reg(self.gpkg_file, routing_config_file, self.time_period['run_time_period'][run_name][0], nts)
-                        logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
+                routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
+                gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
             if m1 != 'troute':
                 logger.info(f'{m1}: input config files created at: {mod_input_dir}')
 
@@ -1622,13 +1587,13 @@ class RealizationBuilder:
         self._parse_forcing_engine()
         self._parse_time()
         self._parse_calib_settings()
+        self._extract_hydrofabric()
         self._parse_modules()
         self._validate_processes()
         self._map_cat_to_grp()
         self._map_cat_to_form()
         self._map_mod_to_cat()
         self._set_lib_paths()
-        self._extract_hydrofabric()
         self._extract_forcing()
         self._configure_forcing_engine()
         self._extract_streamflow_obs()
@@ -1661,6 +1626,7 @@ class RealizationBuilder:
         self._load_reg_formulation()
         self._load_reg_catchments()
         self._parse_time()
+        self._extract_hydrofabric()
         self._parse_reg_params()
         self._parse_reg_modules()
         self._validate_processes()
@@ -1669,7 +1635,6 @@ class RealizationBuilder:
         self._map_mod_to_cat()
         self._set_lib_paths()
         self._symlink_ngen()
-        self._extract_hydrofabric()
         self._extract_forcing()
         self._configure_forcing_engine()
         self._set_output_vars()
@@ -1683,7 +1648,7 @@ class RealizationBuilder:
         """Load the config file from disk and apply overrides.
         If config overrides are applied with amend = False, then skip reading the config file."""
         if self.config_overrides and (not self.config_overrides_mode__amend):
-            logging.info(f"Skipping load of config file since overrides will replace entire config (no amend)")
+            logging.info("Skipping load of config file since overrides will replace entire config (no amend)")
         else:
             self.__load_config()
         self.__override_config()
@@ -1730,6 +1695,7 @@ class RealizationBuilder:
 
         self._parse_forcing_engine()
         self._parse_time()
+        self._extract_hydrofabric()
         self._parse_modules()
         self._validate_processes()
         self._map_cat_to_grp()
@@ -1737,7 +1703,6 @@ class RealizationBuilder:
         self._map_mod_to_cat()
         self._set_lib_paths()
         self._symlink_ngen()
-        self._extract_hydrofabric()
         self._extract_forcing()
         self._configure_forcing_engine()
         self._set_output_vars()
@@ -1748,24 +1713,19 @@ class RealizationBuilder:
         logger.info("Default run set up successfully")
 
 
-def validate_topoflow(basin_id: str, domain: str, ngen_cerf: bool) -> dict:
+def validate_topoflow(gpkg_file: str) -> dict:
     """Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
 
-    Retrieves glacier coverage from Icefabric API and identifies catchments with >50% glacier coverage
-    that are suitable for Topflow-Glacier application
-
     Args:
-        basin_id: basin identifier
-        domain: domain identifier
+        gpkg_file: path to geopackage file
     """
 
-    # Retrieve glacier coverage data from Icefabric API
-    domain_hf = domain + "_hf"
-    ipe = gfun.call_icefabric_ipe('topoflow', ['topoflow'], basin_id, domain_hf, ngen_cerf)
+    # Read attributes from provided geopackge
+    attr_df = gpd.read_file(gpkg_file, layer='divide-attributes')
 
-    # Filter catchments by glacier percent >50%
+    # Count number of catchments with glacier percent >= 50%
     glacier_thresh = 50
-    glacier_cat = sum(1 for val in ipe.values() if val.get('glacier_percent', ) >= glacier_thresh)
+    glacier_cat = (attr_df['glacier_percent'] >= glacier_thresh).sum()
 
     # Return json message for Topoflow-Glacier applicability
     if glacier_cat >= 1:

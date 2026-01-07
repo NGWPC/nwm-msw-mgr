@@ -1,13 +1,11 @@
 """
-This module creates a SetupManager to manage the modification of configuration files for individual ngen runs
+This module creates a Setup Manager to manage the modification of configuration files for individual ngen runs
 
 @author: Jeffrey Wade
 """
 
 import argparse
-import json
 from mswm.build_inputs import RealizationBuilder, validate_topoflow
-from mswm.utils.log_level import log_level_set
 
 
 def build_default(input_path: str, use_cold_start: bool = False):
@@ -42,11 +40,11 @@ def build_region(input_path: str):
     rb.build_region_realization()
 
 
-def validate_topo(basin_id: str, domain: str, ngen_cerf: bool = False):
+def validate_topo(gpkg_file: str):
     """
     Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
     """
-    result = validate_topoflow(basin_id, domain, ngen_cerf)
+    result = validate_topoflow(gpkg_file)
     print(result)
 
 
@@ -78,9 +76,7 @@ def main():
 
     # subcomman: validate_topoflow
     validate_topo_sub = subparser.add_parser("validate_topoflow", help="Validate Topoflow-Glacier applicability for a basin")
-    validate_topo_sub.add_argument("basin_id", help="Basin identifier (e.g., '01123000')")
-    validate_topo_sub.add_argument("domain", help="Domain identifier (e.g., 'conus')")
-    validate_topo_sub.add_argument("ngen_cerf", type=lambda x: x.lower() == 'true', help="Use NgenCERF server (True/False)")
+    validate_topo_sub.add_argument("gpkg_file", help="Path to geopackage file")
 
     args = parser.parse_args()
 
@@ -94,7 +90,7 @@ def main():
     elif args.command == "build_fcst":
         build_fcst(args.input_path, args.valid_yaml, args.fcst_run_name, args.use_cold_start)
     elif args.command == "validate_topoflow":
-        validate_topo(args.basin_id, args.domain, args.ngen_cerf)
+        validate_topo(args.gpkg_file)
     else:
         raise ValueError(f"Unexpected mswm command: {args.command}")
 

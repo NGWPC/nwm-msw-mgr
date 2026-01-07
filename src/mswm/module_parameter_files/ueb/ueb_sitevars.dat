@@ -22,19 +22,19 @@ Aep: Albedo extinction coefficient
 0.1  
 cc: Canopy coverage fraction         
 0          
-0.7 
+0.4 
 hcan: Canopy height           
 0          
-12.0
+5
 lai: Leaf area index
 0          
-7.5		
+2		
 Sbar: Maximum snow load held per unit branch area        
 0               
 6.6
 ycage: Forest age flag for wind speed profile parameterization            
 0             
-1.00  
+2.5 
 slope: A 2-D grid that contains the slope at each grid point     
 0          
 2.0280573880840755
