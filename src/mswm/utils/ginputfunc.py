@@ -109,7 +109,7 @@ def init_ginput_logger():
 def call_icefabric_gpkg(
         basin: str,
         domain: str,
-        input_dir: str,
+        output_dir: str,
         ngen_cerf: bool
 ) -> dict:
     """ Query icefabric API for geopackage
@@ -120,7 +120,7 @@ def call_icefabric_gpkg(
     all_mod: list of all modules in the formulation
     basin: basin name string
     domain: string of name of gage domain
-    input_dir: run directory location to save gpkg
+    output_dir: location to save gpkg
     ngen_cerf: boolean flag for using ngencerf
 
     Returns
@@ -128,7 +128,11 @@ def call_icefabric_gpkg(
     dictionary of initial parameter estimates
     """
 
-    # Set base endpoint (use Optimization endpoint for ngencerf, test for standalone)
+    # Transform domain names to API format
+    # TODO: Replace with out mappings from server
+    domain = 'conus_hf' if domain == 'conus' else domain
+
+    # Set base endpoint (use Optimization endpoint for ngencerf, test for local standalone build)
     icefabric_env = "oe" if ngen_cerf else "test"
     url = f"http://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/gpkg"
 
@@ -138,7 +142,7 @@ def call_icefabric_gpkg(
               "layers": ["divides", "divide-attributes", "flowpaths", "flowpath-attributes", "flowpath-attributes-ml", "network", "nexus", "hydrolocations", "pois"]}
 
     # Set output file path
-    gpkg_fp = os.path.join(input_dir, f"gauge_{basin}.gpkg")
+    gpkg_fp = os.path.join(output_dir, f"gauge_{basin}.gpkg")
 
     # Call icefabric API endpoint to save geopackage
     try:
@@ -147,15 +151,19 @@ def call_icefabric_gpkg(
             resp.raise_for_status()
             with open(gpkg_fp, "wb") as f:
                 f.write(resp.content)
-            logger.info(f"Saved geopackage file from Icefabric API to {gpkg_fp}")
+            # logger.info(f"Saved geopackage file from Icefabric API to {gpkg_fp}")
+            print(f"Saved geopackage file from Icefabric API to {gpkg_fp}")
     except httpx.HTTPStatusError as e:
-        logger.critical(f"Icefabric API call gages-{basin} gpkg failed: {e}")
+        print(f"Icefabric API call gages-{basin} gpkg failed: {e}")
+        # logger.critical(f"Icefabric API call gages-{basin} gpkg failed: {e}")
         raise
     except ValueError:
-        logger.critical(f"Icefabric API call did not return valid results for gpkg: gauge_{basin}")
+        # logger.critical(f"Icefabric API call did not return valid results for gpkg: gauge_{basin}")
+        print(f"Icefabric API call did not return valid results for gpkg: gauge_{basin}")
         raise
     except (OSError, IOError) as e:
-        logger.critical(f"Failed to write gpkg file: {e}")
+        #logger.critical(f"Failed to write gpkg file: {e}")
+        print(f"Failed to write gpkg file: {e}")
         raise
 
     # Return output gpkg path
