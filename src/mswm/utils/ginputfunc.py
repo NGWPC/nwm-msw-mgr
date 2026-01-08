@@ -80,7 +80,7 @@ __all__ = [
     'create_sac_input',
     'create_pet_input',
     'create_lasam_input',
-    'create_topoflow_input',
+    'create_topoflow_glacier_input',
     'create_lstm_input',
     'create_topmodel_input',
     'update_noah_ueb_topo_times',
@@ -110,8 +110,8 @@ def call_icefabric_gpkg(
         basin: str,
         domain: str,
         output_dir: str,
-        ngen_cerf: bool
-) -> dict:
+        environment: str
+) -> str:
     """ Query icefabric API for geopackage
 
     Parameters
@@ -121,7 +121,7 @@ def call_icefabric_gpkg(
     basin: basin name string
     domain: string of name of gage domain
     output_dir: location to save gpkg
-    ngen_cerf: boolean flag for using ngencerf
+    environment: environment for icefabric API ('test' or 'oe')
 
     Returns
     ----------
@@ -143,9 +143,8 @@ def call_icefabric_gpkg(
     except KeyError:
         raise ValueError(f"Invalid domain: '{domain}. Valid options are {list(domain_mappings.keys())}")
 
-    # Set base endpoint (use Optimization endpoint for ngencerf, test for local standalone build)
-    icefabric_env = "oe" if ngen_cerf else "test"
-    url = f"http://edfs.{icefabric_env}.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/gpkg"
+    # Set base endpoint
+    url = f"http://edfs.{environment}.nextgenwaterprediction.com:8000/v1/hydrofabric/gages-{basin}/gpkg"
 
     # Build query parameters
     params = {"id_type": "hl_uri",
@@ -173,7 +172,7 @@ def call_icefabric_gpkg(
         print(f"Icefabric API call did not return valid results for gpkg: gauge_{basin}")
         raise
     except (OSError, IOError) as e:
-        #logger.critical(f"Failed to write gpkg file: {e}")
+        # logger.critical(f"Failed to write gpkg file: {e}")
         print(f"Failed to write gpkg file: {e}")
         raise
 
@@ -1767,7 +1766,7 @@ def change_topmodel_input(
             outfile.writelines(lst_lines)
 
 
-def create_topoflow_input(
+def create_topoflow_glacier_input(
         catids: List[str],
         dfa: gpd.GeoDataFrame,
         time_period: dict,
@@ -1790,7 +1789,7 @@ def create_topoflow_input(
 
     """
 
-    # Topoflow files need to be created for both calibration and validation runs or regionalization runs
+    # Topoflow-glacier files need to be created for both calibration and validation runs or regionalization runs
     if run_type == 'calibration':
         run_list = ['calib', 'valid']
     elif run_type == 'regionalization':
@@ -1804,7 +1803,7 @@ def create_topoflow_input(
             start_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
             end_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
 
-        # Create topoflow parameter yaml file
+        # Create topoflow-glacier parameter yaml file
         for catID in catids:
 
             param_dict = {
@@ -1972,7 +1971,7 @@ def update_noah_ueb_topo_times(
         input_dir: Path,
 ) -> dict:
     """
-    For noah-owp-modular, TopoFlow, & UEB, create new BMI config files with adjusted start/end times, and then
+    For noah-owp-modular, Topoflow-Glacier, & UEB, create new BMI config files with adjusted start/end times, and then
         update path to BMI config files in realization file accordingly
 
     Arguments
@@ -2000,7 +1999,7 @@ def update_noah_ueb_topo_times(
         raise
 
     # Set modules to update
-    mod_dict = {'NoahOWP': 'noah-owp-modular', 'UEB': 'ueb', 'BmiTopoflowGlacier': 'topoflow'}
+    mod_dict = {'NoahOWP': 'noah-owp-modular', 'UEB': 'ueb', 'BmiTopoflowGlacier': 'topoflow-glacier'}
 
     if real_format == 'uniform':
         modules_list = real_config['global']['formulations'][0]['params']['modules']
@@ -3147,13 +3146,13 @@ def create_reg_realization_file(
             main_output_variable = "land_surface_water__runoff_depth"
             precip_output = "precipitation_rate"
 
-        if 'topoflow' in grp_mod:
-            model_configs['topoflow'] = {"name": "bmi_python",
-                                         "params": {"python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
-                                                    "model_type_name": get_model_type_name('topoflow'),
-                                                    "init_config": os.path.join(bmi_dir['topoflow'], "{{id}}_" + run_type + ".yaml"),
-                                                    "main_output_variable": "land_surface_water__runoff_depth",
-                                                    "uses_forcing_file": "false"}}
+        if 'topoflow-glacier' in grp_mod:
+            model_configs['topoflow-glacier'] = {"name": "bmi_python",
+                                                 "params": {"python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
+                                                            "model_type_name": get_model_type_name('topoflow-glacier'),
+                                                            "init_config": os.path.join(bmi_dir['topoflow-glacier'], "{{id}}_" + run_type + ".yaml"),
+                                                            "main_output_variable": "land_surface_water__runoff_depth",
+                                                            "uses_forcing_file": "false"}}
 
             # variable name mapping section
             variables_names_map = dict()
@@ -3173,8 +3172,8 @@ def create_reg_realization_file(
 
             precip_output = 'precipitation_rate'
 
-            if grp_params.get('topoflow', {}).get(grp):
-                model_configs['topoflow']['params']['model_params'] = grp_params['topoflow'][grp]
+            if grp_params.get('topoflow-glacier', {}).get(grp):
+                model_configs['topoflow-glacier']['params']['model_params'] = grp_params['topoflow-glacier'][grp]
 
             # module output variable for input to t-route
             main_output_variable = "land_surface_water__runoff_depth"

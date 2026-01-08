@@ -34,6 +34,7 @@ class GeneralConfig(StrictBaseModel):
     """
     basin: str
     domain: str
+    environment: Literal["test", "oe"] = 'test'
     run_type: Literal["default", "calibration", "regionalization"]
     models: Optional[str] = None
     formulation: Optional[str] = None
