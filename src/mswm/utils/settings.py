@@ -13,7 +13,7 @@ DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 modules_all = pd.DataFrame([('sloth', 'sloth', 'SLOTH', ['SLOTH'], False),
                             ('pet', 'pet', 'PET', ['Evapotranspiration'], False),
-                            ('topoflow', 'topoflow', 'BmiTopoflowGlacier', ['Glacier_snow', 'Evapotranspiration', 'Rainfall_runoff'], True),
+                            ('topoflow-glacier', 'topoflow-glacier', 'BmiTopoflowGlacier', ['Glacier_snow', 'Evapotranspiration', 'Rainfall_runoff'], True),
                             ('noah', 'noah-owp-modular', 'NoahOWP', ['Glacier_snow', 'Evapotranspiration'], True),
                             ('snow17', 'snow-17', 'snow17', ['Glacier_snow'], True),
                             ('ueb', 'ueb', 'UEB', ['Glacier_snow'], True),
