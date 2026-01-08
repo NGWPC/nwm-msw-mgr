@@ -129,8 +129,19 @@ def call_icefabric_gpkg(
     """
 
     # Transform domain names to API format
-    # TODO: Replace with out mappings from server
-    domain = 'conus_hf' if domain == 'conus' else domain
+    domain_mappings = {
+        'conus': 'conus_hf',
+        'alaska': 'ak_hf',
+        'ak': 'ak_hf',
+        'hawaii': 'hi_hf',
+        'hi': 'hf_hf',
+        'puerto_rico': 'prvi_hf',
+        'prvi': 'prvi_hf',
+        'gl': 'gl_hf'}
+    try:
+        domain = domain_mappings.get(domain.lower())
+    except KeyError:
+        raise ValueError(f"Invalid domain: '{domain}. Valid options are {list(domain_mappings.keys())}")
 
     # Set base endpoint (use Optimization endpoint for ngencerf, test for local standalone build)
     icefabric_env = "oe" if ngen_cerf else "test"
