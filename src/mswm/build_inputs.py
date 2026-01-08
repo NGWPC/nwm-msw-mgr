@@ -788,8 +788,8 @@ class RealizationBuilder:
         self.gpkg_file = self.conf3.get('hydrofab_file')
         if self.gpkg_file is None:
             # If gpkg_file not provided, retrieve gpkg from icefabric and save to file
-            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.environment, 'hf')
-        else:
+            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.environment, 'nhf')
+
             # Ensure user provided geopackage file exists
             if not os.path.exists(self.gpkg_file):
                 try:
