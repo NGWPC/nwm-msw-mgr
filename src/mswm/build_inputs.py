@@ -471,11 +471,8 @@ class RealizationBuilder:
         # reassign config sections for convenience
         self.conf1 = self.input_configs.get('General')
         self.run_type = self.conf1.get("run_type") if self.conf1 else None
-        self.domain = self.conf1.get("domain") + "_hf" if self.conf1 else None
+        self.domain = self.conf1.get("domain") if self.conf1 else None
         self.basin = self.conf1['basin'] if self.conf1 else None
-
-        # Set envca flag for CONUS Environment Canada gages
-        self.envca = self.conf1.get("envca") if self.conf1 else None
 
         # Load run_type specific config section or empty dict for default
         run_key = (self.run_type or "").capitalize()
