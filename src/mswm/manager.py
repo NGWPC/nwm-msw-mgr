@@ -5,7 +5,7 @@ This module creates a Setup Manager to manage the modification of configuration 
 """
 
 import argparse
-from mswm.build_inputs import RealizationBuilder, validate_topoflow
+from mswm.build_inputs import RealizationBuilder, validate_topoflow_glacier
 
 
 def build_default(input_path: str, use_cold_start: bool = False):
@@ -44,7 +44,7 @@ def validate_topo(gpkg_file: str):
     """
     Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
     """
-    result = validate_topoflow(gpkg_file)
+    result = validate_topoflow_glacier(gpkg_file)
     print(result)
 
 
@@ -75,7 +75,7 @@ def main():
     build_fcst_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
 
     # subcomman: validate_topoflow
-    validate_topo_sub = subparser.add_parser("validate_topoflow", help="Validate Topoflow-Glacier applicability for a basin")
+    validate_topo_sub = subparser.add_parser("validate_topoflow_glacier", help="Validate Topoflow-Glacier applicability for a basin")
     validate_topo_sub.add_argument("gpkg_file", help="Path to geopackage file")
 
     args = parser.parse_args()
@@ -89,7 +89,7 @@ def main():
         build_region(args.input_path)
     elif args.command == "build_fcst":
         build_fcst(args.input_path, args.valid_yaml, args.fcst_run_name, args.use_cold_start)
-    elif args.command == "validate_topoflow":
+    elif args.command == "validate_topoflow_glacier":
         validate_topo(args.gpkg_file)
     else:
         raise ValueError(f"Unexpected mswm command: {args.command}")
