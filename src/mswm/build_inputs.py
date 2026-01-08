@@ -471,6 +471,7 @@ class RealizationBuilder:
         self.conf1 = self.input_configs.get('General')
         self.run_type = self.conf1.get("run_type") if self.conf1 else None
         self.domain = self.conf1.get("domain") if self.conf1 else None
+        self.environment = self.conf1.get("environment") if self.conf1 else None
         self.basin = self.conf1['basin'] if self.conf1 else None
 
         # Load run_type specific config section or empty dict for default
@@ -678,7 +679,7 @@ class RealizationBuilder:
         self.gpkg_file = self.conf3.get('hydrofab_file')
         if self.gpkg_file is None:
             # If gpkg_file not provided, save gpkg from icefabric to file
-            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.ngen_cerf)
+            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.environment)
 
         else:
             # Ensure user provided geopackage file exists
@@ -795,8 +796,8 @@ class RealizationBuilder:
         # Retrieve is_aet_rootzone flag for cfe
         self.is_aet_rootzone = self.conf1.get('is_aet_rootzone') or 0
 
-        # If Topoflow in modules,validate glacier coverage and create grouped realizations
-        if 'topoflow' in self.modules:
+        # If Topoflow-glacier in modules,validate glacier coverage and create grouped realizations
+        if 'topoflow-glacier' in self.modules:
 
             # Retrieve list of catchments where glaciated percent >= 50
             glacier_thresh = 50
@@ -806,16 +807,16 @@ class RealizationBuilder:
             # Ensure catchments exist where topoflow-glacier can be applied
             if len(topo_cats) == 0:
                 logger.warning(f"No catchments with >={glacier_thresh}% glacier coverage. "
-                               "Removing Topoflow from formulation.")
-                self.modules.remove('topoflow')
+                               "Removing Topoflow-Glacier from formulation.")
+                self.modules.remove('topoflow-glacier')
                 logger.info(f"Updated module list (TopoFlow removed): {self.modules}")
             else:
                 # Create grouped realizations if glaciated catchments exist
                 mod_notopo = self.modules.copy()
-                mod_notopo.remove('topoflow')
+                mod_notopo.remove('topoflow-glacier')
                 self.grp_to_form = {}
                 self.grp_to_form['group_1'] = mod_notopo
-                self.grp_to_form['group_2'] = ['topoflow']
+                self.grp_to_form['group_2'] = ['topoflow-glacier']
 
                 self.grp_to_cat = {'group_1': topo_cats,
                                    'group_2': nontopo_cats}
@@ -825,7 +826,7 @@ class RealizationBuilder:
                 self.grp_is_aet_rootzone['group_1'] = self.is_aet_rootzone
                 self.grp_is_aet_rootzone['group_2'] = 0
 
-                logger.info(f"Final list of modules in formulation: 'group1': {mod_notopo}, 'group2': ['topoflow']")
+                logger.info(f"Final list of modules in formulation: 'group1': {mod_notopo}, 'group2': ['topoflow-glacier']")
 
     def _parse_reg_modules(self):
         """
@@ -990,14 +991,14 @@ class RealizationBuilder:
         # Set library files
         self.lib_file = {}
         if self.run_type == 'regionalization':
-            modules1 = list(set(m1 for form in self.grp_to_form.values() for m1 in form if m1 not in ['troute', 'lstm', 'topoflow']))
+            modules1 = list(set(m1 for form in self.grp_to_form.values() for m1 in form if m1 not in ['troute', 'lstm', 'topoflow-glacier']))
             self.all_mod = modules1.copy()
 
             # Add LSTM to all_mod if it's used in a formulation
             if any('lstm' in form for form in self.grp_to_form.values()):
                 self.all_mod.append('lstm')
         else:
-            modules1 = [m1 for m1 in self.modules if m1 not in ['troute', 'lstm', 'topoflow']]
+            modules1 = [m1 for m1 in self.modules if m1 not in ['troute', 'lstm', 'topoflow-glacier']]
 
         # Reformat library file paths to match input.config format
         for m1 in modules1:
@@ -1192,7 +1193,7 @@ class RealizationBuilder:
 
     def _update_fcst_noah_ueb_topo(self):
         """
-        For UEB, TopoFlow, and Noah-OWP-Modular, create new BMI config files with new time info, and
+        For UEB, TopoFlow-Glacier, and Noah-OWP-Modular, create new BMI config files with new time info, and
         update path to BMI configs in realization file accordingly
         """
         self.real_config = gfun.update_noah_ueb_topo_times(self.real_config, self.input_dir)
@@ -1283,8 +1284,8 @@ class RealizationBuilder:
                 pass
             elif m1 == 'lasam':
                 gfun.create_lasam_input(cat_mod, self.modules, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
-            elif m1 == 'topoflow':
-                gfun.create_topoflow_input(cat_mod, self.attr_file, self.time_period, mod_input_dir, self.run_type)
+            elif m1 == 'topoflow-glacier':
+                gfun.create_topoflow_glacier_input(cat_mod, self.attr_file, self.time_period, mod_input_dir, self.run_type)
             elif m1 == 'troute':
                 routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
                 gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
@@ -1388,8 +1389,8 @@ class RealizationBuilder:
                 continue
             elif m1 == 'lasam':
                 gfun.create_lasam_input(cat_mod, form_cat, self.attr_file, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
-            elif m1 == 'topoflow':
-                gfun.create_topoflow_input(cat_mod, self.attr_file, self.time_period, mod_input_dir, self.run_type)
+            elif m1 == 'topoflow-glacier':
+                gfun.create_topoflow_glacier_input(cat_mod, self.attr_file, self.time_period, mod_input_dir, self.run_type)
             elif m1 == 'troute':
                 routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
                 gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
@@ -1489,7 +1490,7 @@ class RealizationBuilder:
         save_plot_iter_freq = self.conf2.get('save_plot_iter_freq') or 0
         streamflow_threshold = self.conf2.get('streamflow_threshold') or 0.0
         user_email = self.conf2.get('user_email') or ''
-        strategy = 'grouped' if 'topoflow' in self.modules else 'uniform'
+        strategy = 'grouped' if 'topoflow-glacier' in self.modules else 'uniform'
 
         # Create calibration configuration file
         self.calib_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + '_config_calib.yaml')
@@ -1710,7 +1711,7 @@ class RealizationBuilder:
         logger.info("Default run set up successfully")
 
 
-def validate_topoflow(gpkg_file: str) -> dict:
+def validate_topoflow_glacier(gpkg_file: str) -> dict:
     """Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
 
     Args:
