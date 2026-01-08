@@ -950,7 +950,6 @@ class RealizationBuilder:
                 # make sure only one module is selected for each process (except for Soil_moisture and Glacier_snow)
                 if len(mods) > 1 and p1 not in ['Soil_moisture', 'Glacier_snow']:
                     try:
-                        print(mods)
                         raise Exception(f'Only one module can be selected for {p1} process')
                     except Exception as e:
                         logger.critical(e)
