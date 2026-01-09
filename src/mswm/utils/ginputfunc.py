@@ -3170,6 +3170,18 @@ def create_reg_realization_file(
                 var_maps['output']['swe_out'] = ''
             var_maps['output']['sm_out'] = ''
 
+            # Add additional mapping for bmi regionalization
+            if forcing_provider == 'bmi':
+                var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
+                var_maps['input'][name_sw.get('csv')] = name_lw.get(forcing_provider)
+                var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
+                var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
+                var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
+                var_maps['input'][name_temp.get('csv')] = name_temp.get(forcing_provider)
+                var_maps['input'][name_xwind.get('csv')] = name_xwind.get(forcing_provider)
+                var_maps['input'][name_ywind.get('csv')] = name_ywind.get(forcing_provider)
+
+            # Set precipitation output variable
             precip_output = 'precipitation_rate'
 
             if grp_params.get('topoflow-glacier', {}).get(grp):
