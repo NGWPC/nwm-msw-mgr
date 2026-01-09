@@ -3157,7 +3157,7 @@ def create_reg_realization_file(
             # variable name mapping section
             variables_names_map = dict()
             variables_names_map["streamflow_cms"] = "channel_water_x-section__volume_flow_rate"
-            var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
+            variables_names_map[name_prcp.get('csv')] = name_prcp.get(forcing_provider)
             # variables_names_map["atmosphere_water__precipitation_leq-volume_flux"] = name_prcp.get(forcing_provider)
 
             var_maps = dict()
