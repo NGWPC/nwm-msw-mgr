@@ -4,15 +4,17 @@ This module contains Pydantic classes to validate input.config files for the MSW
 @author: Jeff Wade
 """
 
-from pydantic import BaseModel, model_validator, field_validator
 from pathlib import Path
-from typing import Optional, Literal, Union
+from typing import Literal, Optional, Union
+
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class StrictBaseModel(BaseModel):
     """
     Custom pydantic BaseModel that checks for absent or empty strings for required variables
     """
+
     @model_validator(mode="before")
     # Raise errors when required variables are absent or empty strings
     def check_empty_fields(cls, values):
@@ -31,6 +33,7 @@ class GeneralConfig(StrictBaseModel):
     """
     Input.config general section requirement
     """
+
     basin: str
     run_type: Literal["default", "calibration", "regionalization"]
     models: Optional[str] = None
@@ -46,13 +49,13 @@ class GeneralConfig(StrictBaseModel):
     is_aet_rootzone: Optional[Union[int, bool, str]] = None
 
     # Normalize is_aet_rootzone values
-    @field_validator('is_aet_rootzone')
+    @field_validator("is_aet_rootzone")
     def norm_is_aet_rootzone(cls, val):
         if val is None:
             return None
-        if val in ('1', 1, True, "true", "True"):
+        if val in ("1", 1, True, "true", "True"):
             return 1
-        if val in ('0', 0, False, "false", "False"):
+        if val in ("0", 0, False, "false", "False"):
             return 0
         raise ValueError(f"Invalid value set for is_aet_rootzone: {val}")
 
@@ -74,6 +77,7 @@ class RegionConfig(StrictBaseModel):
     """
     Input.config regionalization section requirement
     """
+
     form_assign_file: Optional[str] = None
     cat_grp_file: Optional[str] = None
 
@@ -82,14 +86,33 @@ class CalibConfig(StrictBaseModel):
     """
     Input.config calibration section requirement
     """
+
     optimization_algorithm: Optional[Literal["dds", "pso", "gwo"]] = None
     swarm_size: Optional[int] = None
     c1: Optional[int] = None
     c2: Optional[int] = None
     w: Optional[float] = None
-    objective_function: Optional[Literal["kge", "nse", "nnse", "nselog", "corr", "csi", "pod",
-                                         "rmse", "mae", "rsr", "far", "pkbias", "pkte", "evbias",
-                                         "pbias", "lseg_fdc", "hseg_fdc"]] = None
+    objective_function: Optional[
+        Literal[
+            "kge",
+            "nse",
+            "nnse",
+            "nselog",
+            "corr",
+            "csi",
+            "pod",
+            "rmse",
+            "mae",
+            "rsr",
+            "far",
+            "pkbias",
+            "pkte",
+            "evbias",
+            "pbias",
+            "lseg_fdc",
+            "hseg_fdc",
+        ]
+    ] = None
     start_iteration: Optional[int] = None
     number_iteration: Optional[int] = None
     restart: Optional[int] = None
@@ -126,7 +149,6 @@ class CalibConfig(StrictBaseModel):
     # Check optional fields that depend on optimization_algoritm
     @model_validator(mode="after")
     def check_required_fields(self):
-
         # swarm_size required unless optimization_algorithm is DDS
         if self.optimization_algorithm is not None and self.optimization_algorithm != "dds" and not self.swarm_size:
             raise ValueError("`swarm_size` must be specified for a PSO or GWO calibration run.")
@@ -159,17 +181,35 @@ class CalibConfig(StrictBaseModel):
         return self
 
 
-valid_configs = ['standard_ana', 'aorc', 'extended_ana', 'long_range_mem1', 'long_range_mem2', 'long_range_mem3', 'long_range_mem4',
-                 'medium_range_blend', 'nwm', 'short_range', 'short_range_alaska', 'medium_range_blend_alaska', 'short_range_extended_alaska',
-                 'short_range_hawaii', 'short_range_puertorico', 'extended_ana_alaska', 'standard_ana_alaska', 'standard_ana_hawaii',
-                 'standard_ana_puertorico', ]
+valid_configs = [
+    "standard_ana",
+    "aorc",
+    "extended_ana",
+    "long_range_mem1",
+    "long_range_mem2",
+    "long_range_mem3",
+    "long_range_mem4",
+    "medium_range_blend",
+    "nwm",
+    "short_range",
+    "short_range_alaska",
+    "medium_range_blend_alaska",
+    "short_range_extended_alaska",
+    "short_range_hawaii",
+    "short_range_puertorico",
+    "extended_ana_alaska",
+    "standard_ana_alaska",
+    "standard_ana_hawaii",
+    "standard_ana_puertorico",
+]
 
 
 class ForcingConfig(StrictBaseModel):
     """
     Input.config Forcing section requirement
     """
-    forcing_provider: Literal['csv', 'bmi']
+
+    forcing_provider: Literal["csv", "bmi"]
     forcing_dir: Optional[str] = None
     forcing_template_dir: Optional[str] = None
     root_dir: Optional[str] = None
@@ -180,26 +220,27 @@ class ForcingConfig(StrictBaseModel):
     # Check optional fields that depend on forcing_provider
     @model_validator(mode="after")
     def check_required_fields(self):
-
         # forcing_dir required if forcing_provider is csv
-        if self.forcing_provider == 'csv' and self.forcing_dir is None:
+        if self.forcing_provider == "csv" and self.forcing_dir is None:
             raise ValueError("`forcing_dir` must be specified for a run using csv forcing provider.")
 
         # forcing_configuration required if forcing_provider is csv
-        if self.forcing_provider == 'bmi':
+        if self.forcing_provider == "bmi":
             if self.forcing_configuration is None:
                 raise ValueError("`forcing_configuration` must be specified for a run using bmi forcing provider.")
             else:
                 if self.forcing_configuration not in valid_configs:
-                    raise ValueError(f"Invalid `forcing_configuration` value: '{self.forcing_configuration}'."
-                                    f"Valid options are: {', '.join(valid_configs)}.")
+                    raise ValueError(
+                        f"Invalid `forcing_configuration` value: '{self.forcing_configuration}'."
+                        f"Valid options are: {', '.join(valid_configs)}."
+                    )
 
         # forcing template dir required if forcing_provider is csv
-        if self.forcing_provider == 'bmi' and self.forcing_template_dir is None:
+        if self.forcing_provider == "bmi" and self.forcing_template_dir is None:
             raise ValueError("`forcing_template_dir` must be specified for a run using bmi forcing provider.")
 
         # root dir required if forcing_provider is csv
-        if self.forcing_provider == 'bmi' and self.root_dir is None:
+        if self.forcing_provider == "bmi" and self.root_dir is None:
             raise ValueError("`root_dir` must be specified for a run using bmi forcing provider.")
 
         return self
@@ -209,6 +250,7 @@ class DataFileConfig(StrictBaseModel):
     """
     Input.config Forcing section requirement
     """
+
     obs_dir: Optional[str] = None
     nwmretro_file: Optional[str] = None
     hydrofab_file: str
@@ -251,6 +293,7 @@ class ParallelConfig(StrictBaseModel):
     """
     Input.config Parallel section requirement
     """
+
     parallel_ngen_exe: Optional[str] = None
     partition_generator_exe: Optional[str] = None
     nprocs: Optional[int] = None
@@ -260,6 +303,7 @@ class InputConfig(StrictBaseModel):
     """
     Class to organize input.config section requirements
     """
+
     General: Optional[GeneralConfig] = None
     Regionalization: Optional[RegionConfig] = None
     Calibration: Optional[CalibConfig] = None
