@@ -3176,7 +3176,7 @@ def create_reg_realization_file(
                 var_maps['input'][name_sw.get('csv')] = name_lw.get(forcing_provider)
                 var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
                 var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
-                var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
+                # var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
                 var_maps['input'][name_temp.get('csv')] = name_temp.get(forcing_provider)
                 var_maps['input'][name_xwind.get('csv')] = name_xwind.get(forcing_provider)
                 var_maps['input'][name_ywind.get('csv')] = name_ywind.get(forcing_provider)
