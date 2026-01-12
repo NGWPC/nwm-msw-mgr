@@ -1971,6 +1971,7 @@ class RealizationBuilder:
             general_dict["valid_output_vars"] = self.output_config["output_variables"]
             general_dict["valid_output_headers"] = self.output_config["output_header_fields"]
             general_dict["valid_output_units"] = self.output_config["output_units"]
+            general_dict["valid_output_index"] = self.output_config["output_index"]
 
         # Create calibration config file
         gfun.create_calib_config_file(
