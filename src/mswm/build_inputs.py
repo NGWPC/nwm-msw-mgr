@@ -800,6 +800,7 @@ class RealizationBuilder:
             # If gpkg_file not provided, retrieve gpkg from icefabric and save to file
             self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.domain, self.input_dir, self.environment, 'nhf')
 
+        else:
             # Ensure user provided geopackage file exists
             if not os.path.exists(self.gpkg_file):
                 try:

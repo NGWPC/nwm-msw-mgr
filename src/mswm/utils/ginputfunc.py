@@ -742,27 +742,6 @@ def create_sft_smp_input(
     mtemp = 280.372  # TODO: Are we okay with a soil temp of 45 degrees for each layer
     soil_temp_str = ','.join([str(mtemp)] * 4)
 
-    # Obtain annual mean surface temperature as proxy for initial soil temperature
-    # This value is just a reasonable estimate per new direction (Edwin)
-    mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
-
-    # Prepare soil_depths for sft, ensuring sm_profile_depth is included
-    depths = base_soil_depths.copy()
-    if not any(abs(value - sm_profile_depth) < 1e-6 for value in depths):
-        for j, d in enumerate(depths):
-            if d > sm_profile_depth:
-                depths.insert(j, sm_profile_depth)
-                break
-    depths.sort()  # TODO: What if a depth not included in base_soil_depths is provided?
-
-    # Adjust 1st element of soil_z for soil_moisture_profile output depth
-    if sm_profile_depth != depths[0]:
-        if len(depths) > 1 and sm_profile_depth > depths[1]:
-            logger.warning(f'sm_profile_depth ({sm_profile_depth}m) is greater than soil_z[1] ({depths[1]}m);'
-                           f'using soil_z[0] {depths[0]}m) instead')
-        else:
-            depths[0] = sm_profile_depth
-
     # Create bmi config files
     for i in range(len(catids)):
 
@@ -812,8 +791,6 @@ def create_sft_smp_input(
         smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
         with open(smp_bmi_file, "w") as f:
             f.writelines('\n'.join(smp_lst))
-
-    return depths[0]
 
 
 def create_snow17_input(
