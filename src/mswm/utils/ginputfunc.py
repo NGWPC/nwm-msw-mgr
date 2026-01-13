@@ -6,7 +6,6 @@ This module contains a variety of functions to create different input files.
 
 import datetime
 import glob
-import ast
 import json
 import os
 import subprocess
@@ -701,9 +700,9 @@ def create_sft_smp_input(
         dfa: gpd.GeoDataFrame,
         sft_dir: Union[str, Path],
         smp_dir: Union[str, Path],
-        sm_frac_depth: float,
-        sm_profile_depth: float,
         run_type: str,
+        sm_frac_depth: float = 0.4,
+        sm_profile_depth: List[float] = [0.1, 0.4, 1.0, 2.0],
 ) -> None:
     """ Create BMI configuration file for soil freeze and thaw module, and soil moisture profiles
 
@@ -715,7 +714,7 @@ def create_sft_smp_input(
     sft_dir : directory for writing sft bmi configuration files
     smp_dir : directory for writing smp bmi configuration files
     sm_frac_depth: depth at which to output soil moisture fraction
-    sm_profile_depth = depth at which to output soil moisture
+    sm_profile_depth = list of soil moisture profile depths
     run_type: type of run (calib, regionalization, or default)
 
     Returns
@@ -723,6 +722,7 @@ def create_sft_smp_input(
     None
 
     """
+    os.makedirs(sft_dir, exist_ok=True)
     os.makedirs(smp_dir, exist_ok=True)
 
     # Ice fraction scheme
@@ -732,29 +732,9 @@ def create_sft_smp_input(
         if ('cfex' in mods):
             icefscheme = 'Xinanjiang'
 
-    # Define base soil depths
-    base_soil_depths = [0.1, 0.3, 1.0, 2.0]
-
     # Obtain annual mean surface temperature as proxy for initial soil temperature
     # This value is just a reasonable estimate per new direction (Edwin)
     mtemp = (45 - 32) * 5 / 9 + 273.15  # this is avg soil temp of 45 degrees F converted to Kelvin
-
-    # Prepare soil_depths for sft, ensuring sm_profile_depth is included
-    depths = base_soil_depths.copy()
-    if not any(abs(value - sm_profile_depth) < 1e-6 for value in depths):
-        for j, d in enumerate(depths):
-            if d > sm_profile_depth:
-                depths.insert(j, sm_profile_depth)
-                break
-    depths.sort()  # TODO: What if a depth not included in base_soil_depths is provided?
-
-    # Adjust 1st element of soil_z for soil_moisture_profile output depth
-    if sm_profile_depth != depths[0]:
-        if len(depths) > 1 and sm_profile_depth > depths[1]:
-            logger.warning(f'sm_profile_depth ({sm_profile_depth}m) is greater than soil_z[1] ({depths[1]}m);'
-                           f'using soil_z[0] {depths[0]}m) instead')
-        else:
-            depths[0] = sm_profile_depth
 
     # Create bmi config files
     for i in range(len(catids)):
@@ -777,7 +757,7 @@ def create_sft_smp_input(
                    'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + '[m]',
                    'soil_params.quartz=' + str(dfa.loc[catID]['quartz']) + '[m]',
                    'ice_fraction_scheme=' + icefscheme,
-                   'soil_z=' + ','.join(map(str, depths)) + '[m]',
+                   'soil_z=' + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
                    'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
                    ]
 
@@ -791,7 +771,7 @@ def create_sft_smp_input(
                    'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + '[m/m]',
                    'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + '[]',
                    'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + '[m]',
-                   'soil_z=' + ','.join(map(str, depths)) + '[m]',
+                   'soil_z=' + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
                    'soil_moisture_fraction_depth=' + str(sm_frac_depth) + '[m]']
 
         if 'cfes' in mods or 'cfex' in mods:
@@ -805,8 +785,6 @@ def create_sft_smp_input(
         smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
         with open(smp_bmi_file, "w") as f:
             f.writelines('\n'.join(smp_lst))
-
-    return depths[0]
 
 
 def create_snow17_input(
@@ -1503,167 +1481,7 @@ def create_lasam_input(
                  'soil_z=10,30,100.0,200.0[cm]'
                  ]
 
-        # new config file to be created
-        config_file = os.path.join(input_dir, '{}_bmi_config_lasam'.format(catID) + '.txt')
-
-        # correct the path to soil_params_file in config file
-        if not os.path.exists(config_file0):
-            try:
-                raise Exception(f'Namelist file does not exist: {config_file0}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        with open(config_file0) as f:
-            lines0 = f.readlines()
-        lines1 = copy.deepcopy(lines0)
-        idx = [i for i, s in enumerate(lines0) if "soil_params_file" in s]
-        if len(idx) != 1:
-            try:
-                raise Exception(f'No entry or more than one entry found for "soil_params_file" in config file: {config_file0}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        lines1[idx[0]] = f'soil_params_file={param_file}\n'
-
-        # Save to new config file
-        if os.path.exists(config_file):
-            try:
-                raise Exception(f'Config file {config_file} already exists')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        with open(config_file, 'w') as outfile:
-            outfile.writelines(lines1)
-
-
-def change_smp_input(
-    catids: List[str],
-    modules: Union[List[str], List[List[str]]],
-    input_dir: Union[str, Path],
-    bmi_dir: Union[str, Path],
-    run_type: str,
-    sm_frac_depth: float = 0.4,
-    sm_profile_depth: List[float] = [0.1, 0.4, 1.0, 2.0],
-):
-    """Copy existing config files for smp and change soil moisture depths as needed.
-
-    Parameters
-    ----------
-    catids : catchment IDs
-    modules: list of modules in the formulation
-    input_dir : directory for storing new config files
-    bmi_dir: directory for existing config files
-    run_type: type of run (calib, regionalization, or default)
-    sm_frac_depth: depth (m) at which to output soil moisture fraction
-    sm_profile_depth: list of depths (m) at which to output soil moisture
-
-    """
-    # create input directory for storing new config files
-    os.makedirs(input_dir, exist_ok=True)
-
-    # Retrieve modules
-    mods = modules
-
-    # loop through all catchments
-    for i in range(len(catids)):
-        catID = catids[i]
-
-        # Retrieve modules for regionalization
-        if run_type == 'regionalization':
-            mods = modules[i]
-
-        # existing config file
-        config_file0 = os.path.join(bmi_dir, '{}_bmi_config_smp'.format(catID) + '.txt')
-
-        # new config file to be created
-        config_file = os.path.join(input_dir, '{}_bmi_config_smp'.format(catID) + '.txt')
-
-        # read config file
-        if not os.path.exists(config_file0):
-            try:
-                raise Exception(f'Config file for SMP does not exist: {config_file0}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        with open(config_file0) as f:
-            lines0 = f.readlines()
-        lines1 = copy.deepcopy(lines0)
-
-        # set soil_moisture_fraction_depth to sm_frac_depth (m), and soil_z to sm_profile_depth (m)
-        strs1 = ["soil_moisture_fraction_depth", "soil_z"]
-        strs2 = [str(sm_frac_depth) + "[m]", ",".join([str(d) for d in sm_profile_depth]) + "[m]"]
-        for str1, str2 in zip(strs1, strs2):
-            idx = [i for i, s in enumerate(lines0) if str1 in s]
-            if len(idx) == 0:
-                lines1 = lines1.append(f"{str1}={str2}\n")
-            elif len(idx) == 1:
-                lines1[idx[0]] = f"{str1}={str2}\n"
-            else:
-                try:
-                    raise Exception(f"More than one entry found for {str1} in config file: {config_file0}")
-                except Exception as e:
-                    logger.critical(e)
-                    raise
-
-        # Add soil_storage_model if missing from BMI config file
-        if not any('soil_storage_model' in line for line in lines1):
-            if ('cfes' in mods or 'cfex' in mods):
-                lines1.extend([
-                    'soil_storage_model=conceptual\n',
-                    'soil_storage_depth=2.0\n'
-                ])
-            elif ('topmodel' in mods):
-                lines1.extend([
-                    'soil_storage_model=TopModel\n',
-                    'water_table_based_method=flux_based'
-                ])
-            elif ('lasam' in mods):
-                lines1.extend([
-                    'soil_storage_model=layered\n',
-                    'soil_moisture_profile_option=constant\n',
-                    'soil_depth_layers=2.0\n',
-                    'water_table_depth=10[m]\n'
-                ])
-
-        # Replace any instances of flux-based/deficit-based with underscores
-        lines1 = [line.replace('flux-based', 'flux_based').replace('deficit-based', 'deficit_based') for line in lines1]
-
-        # Save to new config file
-        if os.path.exists(config_file) and catID == catids[0]:
-            logger.info(f'Config file {config_file} exists; overwrite it')
-        with open(config_file, 'w') as outfile:
-            outfile.writelines(lines1)
-
-def change_sft_input(
-        catids: List[str],
-        modules: Union[List[str], List[List[str]]],
-        input_dir: Union[str, Path],
-        bmi_dir: Union[str, Path],
-        run_type: str,
-        sm_profile_depth: List[float] = [0.1, 0.4, 1.0, 2.0],
-) -> None:
-    """ Create BMI configuration file for soil freeze and thaw module, and soil moisture profiles
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    modules: list of modules in the formulation
-    input_dir: directory for writing sft bmi configuration files
-    bmi_dir : directory containing bmi configuration files
-    run_type: type of run (calib, regionalization, or default)
-    sm_profile_depth: soil moisture profile depth values
-
-    Returns
-    ----------
-    None
-
-    """
-
-    # create input directory for storing new config files
-    os.makedirs(input_dir, exist_ok=True)
-
-    # Ice fraction scheme
-    icefscheme = 'Schaake'
+    # Set module list for non-regionalization run
     if run_type != 'regionalization':
         mods = modules
 
@@ -1685,85 +1503,8 @@ def change_sft_input(
 
         lasam_bmi_file = os.path.join(input_dir, catID + '_bmi_config_lasam.txt')
 
-        # Find index of ice_fraction_scheme line and update icefscheme
-        idx = [i for i, s in enumerate(lines0) if s.startswith('ice')]
-        if len(idx) > 0:
-            lines1[idx[0]] = f'ice_fraction_scheme={icefscheme}\n'
-        else:
-            lines1.append(f'ice_fraction_scheme={icefscheme}\n')
-
-        # Find index of soil_z line and update soil_z based on sm_profile_depth
-        idx = [i for i, s in enumerate(lines0) if "soil_z" in s]
-        str_soil_z = ",".join([str(d) for d in sm_profile_depth]) + "[m]"
-        if len(idx) == 0:
-            lines1 = lines1.append(f"soil_z={str_soil_z}\n")
-        elif len(idx) == 1:
-            lines1[idx[0]] = f"soil_z={str_soil_z}\n"
-        else:
-            try:
-                raise Exception(f"More than one entry found for soil_z in config file: {param_file0}")
-            except Exception as e:
-                logger.critical(e)
-                raise
-
-        # Save to new parameter file
-        with open(param_file, 'w') as outfile:
-            outfile.writelines(lines1)
-
-
-def change_topmodel_input(
-        catids: List[str],
-        bmi_dir: Union[str, Path],
-        inputDir: Union[str, Path],
-) -> None:
-    """ change options in TOPMODEL input file
-
-    Parameters
-    ----------
-    catids : catchment IDs in the basin
-    bmi_dir : directory containing bmi configuration files
-    inputDir : directory for storing input files
-
-    Returns
-    ----------
-    None
-
-    """
-
-    if not os.path.exists(inputDir):
-        os.makedirs(inputDir, exist_ok=True)
-
-    for catID in catids:
-
-        run_file = os.path.join(bmi_dir, '{}_topmodel'.format(catID) + '.run')
-        params_file = os.path.join(bmi_dir, '{}_topmodel_params'.format(catID) + '.dat')
-        subcat_file = os.path.join(bmi_dir, '{}_topmodel_subcat'.format(catID) + '.dat')
-
-        # Copy
-        new_runfile = os.path.join(inputDir, '{}'.format(catID) + '_topmodel.run')
-        shutil.copy(run_file, new_runfile)
-        new_params = os.path.join(inputDir, '{}'.format(catID) + '_topmodel_params.dat')
-        shutil.copy(params_file, new_params)
-        new_subcat = os.path.join(inputDir, '{}'.format(catID) + '_topmodel_subcat.dat')
-        shutil.copy(subcat_file, new_subcat)
-
-        # read runfile
-        with open(new_runfile, 'r') as infile:
-            list_lines = infile.readlines()
-        lst_lines = copy.deepcopy(list_lines)
-
-        # Change directory in runfile
-        topmod_out = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_topmod.out')
-        hyd_out = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_hyd.out')
-        filePath = [os.path.join(os.path.dirname(inputDir), '{}'.format(catID) + '_forcing.csv'),
-                    new_subcat, new_params, topmod_out, hyd_out]
-
-        for i in range(0, 5):
-            lst_lines[i + 2] = filePath[i] + '\n'
-
-        # Save file
-        with open(new_runfile, 'w') as outfile:
-            outfile.writelines(lst_lines)
+        with open(lasam_bmi_file, "w") as f:
+            f.writelines('\n'.join(lasam_lst_catID))
 
 
 def create_topoflow_glacier_input(
