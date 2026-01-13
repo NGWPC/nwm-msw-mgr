@@ -157,19 +157,19 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
             grp_valid_units = valid_output_units_grp.get(grp_name, [])
             grp_valid_index = valid_output_index_grp.get(grp_name, [])
 
-        if len(valid_output_vars) != 0:
-            output_vars = []
-            for var, hdr, unit, idx in zip(grp_valid_vars, grp_valid_headers, grp_valid_units, grp_valid_index):
-                entry = {"name": var, "header": hdr, "units": unit}
-                if idx != "0":  # only include index if it's not the default 0
-                    entry["index"] = idx
-                output_vars.append(entry)
-            for formulation in grp_formulations:
-                formulation['params']['output_variables'] = output_vars
-            logger.info(f"valid_output_vars set for group {grp_name}: {output_vars}")
-        else:
-            for formulation in grp_formulations:
-                formulation['params']['output_variables'] = []
+            if len(grp_valid_vars) != 0:
+                output_vars = []
+                for var, hdr, unit, idx in zip(grp_valid_vars, grp_valid_headers, grp_valid_units, grp_valid_index):
+                    entry = {"name": var, "header": hdr, "units": unit}
+                    if idx != "0":  # only include index if it's not the default 0
+                        entry["index"] = idx
+                    output_vars.append(entry)
+                for formulation in grp_formulations:
+                    formulation['params']['output_variables'] = output_vars
+                logger.info(f"valid_output_vars set for group {grp_name}: {grp_valid_headers}")
+            else:
+                for formulation in grp_formulations:
+                    formulation['params']['output_variables'] = []
 
     logger.info("Valid output variables set in realization file")
 
