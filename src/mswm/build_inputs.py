@@ -132,7 +132,7 @@ class RealizationBuilder:
     def config_overrides_mode__amend(self, new: bool):
         self._config_overrides_mode__amend = new
 
-    def _load_config(self):
+    def __load_config(self):
         """
         Read input.config file
         """
