@@ -42,11 +42,6 @@ class RealizationBuilder:
     This class reads a .conf file from disk (input_path) during calls to method `build_*_realization()`.
     Optionally, the configurations can be taken from config_overrides, if provided.
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 110693d (Add hindcasting parameters to user input)
     `config_overrides` (class argument and property): InputConfig
         When this is provided as an argument to class construction, it is used instead of
         reading configuration from disk, and `config_overrides_mode__amend` is set to False.
@@ -104,13 +99,6 @@ class RealizationBuilder:
         fcst_modes = sum([self.use_cold_start, self.use_warm_start, self.use_hindcast])
         if fcst_modes > 1:
             err = ("Invalid configuration: only one of 'use_cold_start', 'use_warm_start', or 'use_hindcast' may be True.")
-            logger.critical(err)
-            raise ValueError(err)
-
-        # Validate optional forecast flags
-        fcst_modes = sum([self.use_cold_start, self.use_int_ana, self.use_hindcast])
-        if fcst_modes > 1:
-            err = ("Invalid configuration: only one of 'use_cold_start', 'use_int_ana', or 'use_hindcast' may be True.")
             logger.critical(err)
             raise ValueError(err)
 
