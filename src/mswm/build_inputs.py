@@ -275,8 +275,13 @@ class RealizationBuilder:
             main_logger.critical(f"Invalid yaml file path: {self.valid_conf['general']['yaml_file']} - {e}")
             raise
 
-        # Create forecast run directory or cold start run directory
-        fcst_dir_name = 'Cold_Start_Run' if self.use_cold_start else 'Forecast_Run'
+        # Create cold start, warm start, or forecast run directory  run directory
+        if self.use_cold_start:
+            fcst_dir_name = 'Cold_Start_Run'
+        elif self.use_warm_start:
+            fcst_dir_name = 'Warm_Start_Run'
+        else:
+            fcst_dir_name = 'Forecast_Run'
         self.input_dir = Path(fcst_dir0, fcst_dir_name, self.fcst_run_name)
 
         # Set file basename for forecast or cold start
