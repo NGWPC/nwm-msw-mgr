@@ -42,11 +42,6 @@ class RealizationBuilder:
     This class reads a .conf file from disk (input_path) during calls to method `build_*_realization()`.
     Optionally, the configurations can be taken from config_overrides, if provided.
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 110693d (Add hindcasting parameters to user input)
     `config_overrides` (class argument and property): InputConfig
         When this is provided as an argument to class construction, it is used instead of
         reading configuration from disk, and `config_overrides_mode__amend` is set to False.
@@ -101,13 +96,6 @@ class RealizationBuilder:
         fcst_modes = sum([self.use_cold_start, self.use_warm_start, self.use_hindcast])
         if fcst_modes > 1:
             err = ("Invalid configuration: only one of 'use_cold_start', 'use_warm_start', or 'use_hindcast' may be True.")
-            logger.critical(err)
-            raise ValueError(err)
-
-        # Validate optional forecast flags
-        fcst_modes = sum([self.use_cold_start, self.use_int_ana, self.use_hindcast])
-        if fcst_modes > 1:
-            err = ("Invalid configuration: only one of 'use_cold_start', 'use_int_ana', or 'use_hindcast' may be True.")
             logger.critical(err)
             raise ValueError(err)
 
@@ -631,8 +619,8 @@ class RealizationBuilder:
 
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Retrieve ngen start and end time based on forecast cycle date, hour and configuration
-                self.fcst_start, self.fcst_end = gfun.create_fcst_times(self.forcing_template, self.cycle_date, self.cycle_hour,
-                                                                        self.use_cold_start, self.use_int_ana, self.hind_cycle, self.cold_start_datetime)
+                self.fcst_start, self.fcst_end = gfun.create_fcst_times(self.forcing_template, self.cycle_date, self.cycle_hour, self.use_cold_start,
+                                                                        self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.cold_start_datetime)
             else:
                 # Set default fcst_start/fcst_end values
                 self.fcst_start = None
@@ -1194,7 +1182,7 @@ class RealizationBuilder:
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Update dynamic parameters in forcing engine configuration file
                 gfun.update_fcst_forcing_config(self.cycle_date, self.cycle_hour, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir,
-                                                self.forcing_config_file, self.use_cold_start, self.use_int_ana, self.hind_cycle, self.cold_start_datetime)
+                                                self.forcing_config_file, self.use_cold_start, self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.cold_start_datetime)
             else:
                 # Update historical dynamic parameters in forcing engine configuration file
                 gfun.update_hist_forcing_config(self.time_period, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir, self.forcing_config_file, self.run_type, self.global_domain, self.forcing_static_dir)

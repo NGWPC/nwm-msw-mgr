@@ -2091,8 +2091,9 @@ def create_fcst_times(
         cycle_date: str,
         cycle_hour: str,
         use_cold_start: bool,
-        use_int_ana: bool,
+        use_warm_start: bool,
         hind_cycle: int = None,
+        prev_hind_cycle: int = None,
         cold_start_datetime: str = None
 ) -> Tuple[str, str]:
     """ Compute forecast start and end time based on selected forecast cycle, date, and hour
@@ -2103,8 +2104,9 @@ def create_fcst_times(
     cycle_date : date of forecast cycle
     cycle_hour : hour of forecast cycle (00z)
     use_cold_start : boolean flag for using cold start period
-    use_int_ana: boolean flag for using intermediate AnA run
-    hind_cycle: cycle interval (in hours) between hindcast runs
+    use_warm_start: boolean flag for using warm start run
+    hind_cycle: cycle (in hours) between first hindcast iteration (00) and current hindcast iteration
+    prev_hind_cycle: cycle (in hours) from previous hindcast iteration, used to orchestrate warm start runs
     cold_start_datetime : datetime str of beginning of cold start period
 
     Returns
@@ -2127,10 +2129,11 @@ def create_fcst_times(
         fcst_start = datetime.datetime.strftime(cs_dt + datetime.timedelta(hours=1), "%Y-%m-%d %H:%M:%S")
         fcst_end = datetime.datetime.strftime(cycle_dt, "%Y-%m-%d %H:%M:%S")
 
-    # Construct start and end times for intermediate AnA period
-    elif use_int_ana:
-        fcst_start = datetime.datetime.strftime(cycle_dt, "%Y-%m-%d %H:%M:%S")
-        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) - datetime.timedelta(hours=1), "%Y-%m-%d %H:%M:%S")
+    # Construct start and end times for warm start period
+    elif use_warm_start:
+        # Warm start begins at the start of the previous hindcast cycle and ends at the start of the current hindcast cycle
+        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=prev_hind_cycle), "%Y-%m-%d %H:%M:%S")
+        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on forecast cycle
     elif ana_flag == 0:
@@ -2143,7 +2146,6 @@ def create_fcst_times(
         fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=forcing_horizon), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on analysis cycle
-    # Can also be used in hindcasting intermediate ana run, which uses standard ana
     elif ana_flag == 1:
 
         # Retrieve analysis lookback from config file
@@ -2191,8 +2193,9 @@ def update_fcst_forcing_config(
         forcing_config_dir: Path,
         forcing_config_file: Path,
         use_cold_start: bool,
-        use_int_ana: bool,
+        use_warm_start: bool,
         hind_cycle: int,
+        prev_hind_cycle: int,
         cold_start_datetime: str = None
 ) -> None:
     """ update bmi forcing engine config yaml file for forecast forcing
@@ -2207,8 +2210,9 @@ def update_fcst_forcing_config(
     forcing_config_dir: directory path for forcing config file
     forcing_config_dir: output path for forcing config file
     use_cold_start : boolean flag for using cold start period
-    use_int_ana: boolean flag for using cold start period
-    hind_cycle: integer number of hours from the cycle_dt for hindcast run
+    use_warm_start: boolean flag for using warm start period
+    hind_cycle: cycle (in hours) between first hindcast iteration (00) and current hindcast iteration
+    prev_hind_cycle: cycle (in hours) from previous hindcast iteration, used to orchestrate warm start runs
     cold_start_datetime : datetime str of beginning of cold start period
 
     Returns
@@ -2230,9 +2234,9 @@ def update_fcst_forcing_config(
         lookback = int((cycle_dt - cold_start_dt).total_seconds() / 60) - 60
         forcing_template['LookBack'] = lookback
 
-    # Set lookback minutes for intermediate ana period
-    elif use_int_ana:
-        lookback = int((cycle_dt - initial_cycle_dt).total_seconds() / 60) - 60
+    # Set lookback minutes for warm start period
+    elif use_warm_start:
+        lookback = int((hind_cycle - prev_hind_cycle) * 60) - 60
         forcing_template['LookBack'] = lookback
 
     # Set geogrid file name
