@@ -2229,13 +2229,11 @@ def update_fcst_forcing_config(
         cold_start_dt = datetime.datetime.strptime(cold_start_datetime, "%Y-%m-%d %H:%M:%S")
         lookback = int((cycle_dt - cold_start_dt).total_seconds() / 60) - 60
         forcing_template['LookBack'] = lookback
-        forcing_template['ForecastInputHorizons'] = [lookback, lookback]
 
     # Set lookback minutes for intermediate ana period
     elif use_int_ana:
         lookback = int((cycle_dt - initial_cycle_dt).total_seconds() / 60) - 60
         forcing_template['LookBack'] = lookback
-        forcing_template['ForecastInputHorizons'] = [lookback, lookback]
 
     # Set geogrid file name
     gpkg_name = os.path.splitext(os.path.basename(gpkg_file))[0]
