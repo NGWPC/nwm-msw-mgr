@@ -2160,10 +2160,11 @@ def create_fcst_times(
         fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=prev_hind_cycle) - datetime.timedelta(hours=fcst_lookback) + datetime.timedelta(hours=1), "%Y-%m-%d %H:%M:%S")
         fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) - datetime.timedelta(hours=fcst_lookback), "%Y-%m-%d %H:%M:%S")
 
-    # Construct start and end times for intermediate AnA period
-    elif use_int_ana:
-        fcst_start = datetime.datetime.strftime(cycle_dt, "%Y-%m-%d %H:%M:%S")
-        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) - datetime.timedelta(hours=1), "%Y-%m-%d %H:%M:%S")
+    # Construct start and end times for warm start period
+    elif use_warm_start:
+        # Warm start begins at the start of the previous hindcast cycle and ends at the start of the current hindcast cycle
+        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=prev_hind_cycle), "%Y-%m-%d %H:%M:%S")
+        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on forecast cycle
     elif ana_flag == 0:
@@ -2176,7 +2177,6 @@ def create_fcst_times(
         fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) + datetime.timedelta(hours=forcing_horizon), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on analysis cycle
-    # Can also be used in hindcasting intermediate ana run, which uses standard ana
     elif ana_flag == 1:
 
         # Retrieve analysis lookback from config file
