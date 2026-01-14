@@ -132,7 +132,7 @@ class RealizationBuilder:
     def config_overrides_mode__amend(self, new: bool):
         self._config_overrides_mode__amend = new
 
-    def __load_config(self):
+    def _load_config(self):
         """
         Read input.config file
         """
@@ -177,9 +177,9 @@ class RealizationBuilder:
                 main_logger.critical(e)
                 raise
 
-        self.__validate_config()
+        self._validate_config()
 
-    def __validate_config(self):
+    def _validate_config(self):
         """
         Validate input.config file using Pydantic (input_configuration.py)
         """
@@ -202,7 +202,7 @@ class RealizationBuilder:
         self.input_configs_class = model
         self.input_configs = model.model_dump()
 
-    def __override_config(self) -> None:
+    def _override_config(self) -> None:
         """
         Override the current config in-memory, either partially or in full.
 
@@ -1712,8 +1712,8 @@ class RealizationBuilder:
         if self.config_overrides and (not self.config_overrides_mode__amend):
             logging.info("Skipping load of config file since overrides will replace entire config (no amend)")
         else:
-            self.__load_config()
-        self.__override_config()
+            self._load_config()
+        self._override_config()
 
     def build_fcst_realization(self):
         """
