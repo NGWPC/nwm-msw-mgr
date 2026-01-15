@@ -12,7 +12,7 @@ def build_default(input_path: str, use_cold_start: bool = False):
     """
     Call RealizationBuilder class to generate realization and config files with default parameters
     """
-    rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start)
+    rb = RealizationBuilder(input_path=input_path)
     real_path = rb.build_default_realization()
     return real_path
 
