@@ -554,7 +554,7 @@ class RealizationBuilder:
         Initialize logging depending on run type
         """
         # Set location for msw-mgr log
-        if self.run_type in ('forecast', 'cold start', 'warm_start', 'hindcast'):
+        if self.run_type in ('forecast', 'cold_start', 'warm_start', 'hindcast'):
             log_path = os.path.join(self.input_dir, 'logs')
         else:
             log_path = os.path.join(self.work_dir, 'logs')
