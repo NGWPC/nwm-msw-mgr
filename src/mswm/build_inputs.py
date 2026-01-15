@@ -276,19 +276,29 @@ class RealizationBuilder:
             raise
 
         # Create cold start, warm start, or forecast run directory  run directory
-        if self.use_cold_start:
-            fcst_dir_name = 'Cold_Start_Run'
-        elif self.use_warm_start:
-            fcst_dir_name = 'Warm_Start_Run'
-        else:
-            fcst_dir_name = 'Forecast_Run'
+        fcst_dir_name = (
+            'Model_State_Run/Cold_Start_Run' if self.use_cold_start
+            else ('Model_State_Run/Warm_Start_Run' if self.use_warm_start
+                  else ('Hindcast_Run' if self.use_hindcast
+                        else 'Forecast_Run'))
+        )
         self.input_dir = Path(fcst_dir0, fcst_dir_name, self.fcst_run_name)
 
-        # Set file basename for forecast or cold start
-        self.basename_opt = 'fcst' if not self.use_cold_start else 'cold_start'
+        # Set file basename based on forecast run type
+        self.basename_opt = (
+            'cold_start' if self.use_cold_start
+            else ('warm_start' if self.use_warm_start
+                  else ('hind' if self.use_hindcast
+                        else 'fcst'))
+        )
 
         # Set run_type to forecast for log generation
-        self.run_type = 'forecast' if not self.use_cold_start else 'cold start'
+        self.run_type = (
+            'cold_start' if self.use_cold_start
+            else ('warm_start' if self.use_warm_start
+                  else ('hindcast' if self.use_hindcast
+                        else 'forecast'))
+        )
 
         try:
             self.input_dir.mkdir(parents=True, exist_ok=True)
@@ -544,7 +554,7 @@ class RealizationBuilder:
         Initialize logging depending on run type
         """
         # Set location for msw-mgr log
-        if self.run_type in ('forecast', 'cold start'):
+        if self.run_type in ('forecast', 'cold start', 'warm_start', 'hindcast'):
             log_path = os.path.join(self.input_dir, 'logs')
         else:
             log_path = os.path.join(self.work_dir, 'logs')
@@ -1270,7 +1280,7 @@ class RealizationBuilder:
         Update BMI config files for t-route for forecast period
         """
         self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt)
-        logger.info("Updated noah and ueb config files for forecast")
+        logger.info("Updated t-route file for forecast")
 
     def _create_bmi_configs(self):
         """
