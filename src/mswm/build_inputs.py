@@ -282,7 +282,8 @@ class RealizationBuilder:
                   else ('Hindcast_Run' if self.use_hindcast
                         else 'Forecast_Run'))
         )
-        self.input_dir = Path(fcst_dir0, fcst_dir_name, self.fcst_run_name)
+        self.run_dir = Path(fcst_dir0, fcst_dir_name, self.fcst_run_name)
+        self.input_dir = self.run_dir / 'Input'
 
         # Set file basename based on forecast run type
         self.basename_opt = (
@@ -555,7 +556,7 @@ class RealizationBuilder:
         """
         # Set location for msw-mgr log
         if self.run_type in ('forecast', 'cold_start', 'warm_start', 'hindcast'):
-            log_path = os.path.join(self.input_dir, 'logs')
+            log_path = os.path.join(self.run_dir, 'logs')
         else:
             log_path = os.path.join(self.work_dir, 'logs')
 
@@ -1129,17 +1130,17 @@ class RealizationBuilder:
         Extract forcing files and symlink to input directory
         """
 
-        # Create forcing directory
-        self.forcing_path = os.path.join(self.input_dir, 'forcing')
-
-        try:
-            os.makedirs(self.forcing_path, exist_ok=True)
-        except Exception as e:
-            logger.critical(f"Invalid forcing directory: {e}. Check `main_dir` variable")
-            raise
-
         # For csv provider
         if self.forcing_provider == 'csv':
+
+            # Create forcing directory
+            self.forcing_path = os.path.join(self.input_dir, 'forcing')
+
+            try:
+                os.makedirs(self.forcing_path, exist_ok=True)
+            except Exception as e:
+                logger.critical(f"Invalid forcing directory: {e}. Check `main_dir` variable")
+                raise
 
             # Retrieve forcing_provider and forcing_dir
             self.forcing_dir = (self.forcingSec.get('forcing_dir', "") or None)
@@ -1279,7 +1280,7 @@ class RealizationBuilder:
         """
         Update BMI config files for t-route for forecast period
         """
-        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt)
+        self.real_config = gfun.update_troute(self.real_config, self.run_dir, self.basename_opt)
         logger.info("Updated t-route file for forecast")
 
     def _create_bmi_configs(self):
@@ -1511,7 +1512,7 @@ class RealizationBuilder:
         new_basename = os.path.basename(self.real_input_file).replace("valid_best", self.basename_opt)
 
         # save the new realization file
-        self.realization_file = Path(self.input_dir, new_basename)
+        self.realization_file = Path(self.run_dir, new_basename)
         try:
             with open(self.realization_file, 'w') as outfile:
                 json.dump(self.real_config, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
@@ -1522,7 +1523,7 @@ class RealizationBuilder:
             logger.critical(f"Unexpected error while writing realization data to JSON: {self.realization_file}\n{e}")
             raise
 
-        logger.info(f"Realization file is created at: {self.realization_file}")
+        logger.info(f"Realization file created at: {self.realization_file}")
 
     def _write_partition(self):
         """

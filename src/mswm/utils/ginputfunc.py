@@ -1845,7 +1845,7 @@ def update_noah_ueb_topo_times(
 
 def update_troute(
         real_config: dict,
-        input_dir: Path,
+        run_dir: Path,
         basename_opt: str
 ) -> dict:
     """
@@ -1855,7 +1855,7 @@ def update_troute(
     Arguments
     ---------
     real_config: dictionary containing the realization configuration
-    input_dir: folder for the new BMI config files
+    run_dir: folder for the new troute output file
     basename_opt: new file basename for forecast or cold start
 
     Returns
@@ -1908,7 +1908,7 @@ def update_troute(
     new_basename = os.path.basename(src).replace("valid_best", basename_opt)
 
     try:
-        new_file = Path(input_dir, new_basename)
+        new_file = Path(run_dir, new_basename)
         with open(new_file, 'w') as file:
             yaml.dump(rt_config, file, sort_keys=False, default_flow_style=False, indent=4)
     except yaml.YAMLError as e:
