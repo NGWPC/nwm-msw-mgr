@@ -1727,6 +1727,7 @@ def create_topmodel_input(
 def update_noah_ueb_topo_times(
         real_config: dict,
         input_dir: Path,
+        basename_opt: str,
 ) -> dict:
     """
     For noah-owp-modular, Topoflow-Glacier, & UEB, create new BMI config files with adjusted start/end times, and then
@@ -1736,6 +1737,7 @@ def update_noah_ueb_topo_times(
     ---------
     real_config: dictionary containing the realization configuration
     input_dir: folder for the new BMI config files
+    basename_opt: suffix for new BMI config files
 
     Returns
     -------
@@ -1800,9 +1802,13 @@ def update_noah_ueb_topo_times(
                             lines[8] = f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0\n'
                             lines[9] = f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0\n'
 
+                    # Rename basename from _valid to basename_opt
+                    src_basename = os.path.basename(f1)
+                    new_basename = src_basename.replace('_valid', f'_{basename_opt}')
+
                     # write to new BMI config files
                     try:
-                        with open(Path(dst, os.path.basename(f1)), 'w') as outfile:
+                        with open(Path(dst, new_basename), 'w') as outfile:
                             outfile.writelines(lines)
                     except FileNotFoundError as e:
                         logger.critical(f"File not found error when writing to {dst}\n{e}")
@@ -1814,13 +1820,19 @@ def update_noah_ueb_topo_times(
                         logger.critical(f"OS error when writing to {dst}\n{e}")
                         raise
 
-                # Update path in module
-                mod_params['init_config'] = str(Path(dst, os.path.basename(src0)))
+                # replace path to BMI config file in realization file
+                src_basename_init = os.path.basename(src0)
+                new_basename_init = src_basename_init.replace('_valid', f'_{basename_opt}')
+                mod_params['init_config'] = str(Path(dst, new_basename_init))
 
             # Update times with yaml-based editting for TopoflowGlacier
             elif model_name == 'BmiTopoflowGlacier':
                 for f1 in glob.glob(f'{src}'):
-                    cfg_path = Path(dst, os.path.basename(f1))
+                    # Rename basename from _valid to basename_opt
+                    src_basename = os.path.basename(f1)
+                    new_basename = src_basename.replace('_valid', f'_{basename_opt}')
+                    cfg_path = Path(dst, new_basename)
+
                     with open(f1, 'r') as yaml_file:
                         cfg = yaml.safe_load(yaml_file)
 
@@ -1830,15 +1842,23 @@ def update_noah_ueb_topo_times(
                     cfg['start_time'] = startdate_topo
                     cfg['end_time'] = enddate_topo
 
-                    with open(cfg_path, 'w') as yaml_file:
-                        yaml.dump(cfg, yaml_file, default_flow_style=False, sort_keys=False)
+                    try:
+                        with open(cfg_path, 'w') as yaml_file:
+                            yaml.dump(cfg, yaml_file, default_flow_style=False, sort_keys=False)
+                    except FileNotFoundError as e:
+                        logger.critical(f"File not found error when writing to {cfg_path}\n{e}")
+                        raise
+                    except PermissionError as e:
+                        logger.critical(f"Permission denied when writing to {cfg_path}\n{e}")
+                        raise
+                    except OSError as e:
+                        logger.critical(f"OS error when writing to {cfg_path}\n{e}")
+                        raise
 
-                    # Update path in realization
-                    mod_params['init_config'] = str(dst / os.path.basename(src0))
-
-            # Reassign modules back to realization
-            if real_format == 'uniform':
-                real_config['global']['formulations'][0]['params']['modules'] = modules_list
+                # replace path to BMI config file in realization file
+                src_basename_init = os.path.basename(src0)
+                new_basename_init = src_basename_init.replace('_valid', f'_{basename_opt}')
+                mod_params['init_config'] = str(Path(dst, new_basename_init))
 
     return real_config
 
