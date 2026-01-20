@@ -826,9 +826,21 @@ class RealizationBuilder:
                 logger.critical(msg)
                 raise RuntimeError(msg) from e
 
+        # Read layers from hydrofabric
+        try:
+            self.divides_df = gpd.read_file(self.gpkg_file, layer='divides')
+            self.divides_df = self.divides_df.set_index('div_id', inplace=True)
+            self.gages_df = gpd.read_file(self.gpkg_file, layer='gages')
+            self.flowpaths_df = gpd.read_file(self.gpkg_file, layer='flowpaths')
+            self.catids = self.divides_df['div_id'].tolist()
+            logger.info(f"Divides and gages layers loaded from: {self.gpkg_file}")
+        except Exception as e:
+            logger.critical(f"Error while reading geopackage file: {e}")
+            raise
+
         # Create crosswalk file between catchments and gages for calibration run
         if self.run_type == 'calibration':
-            gfun.create_walk_file(self.basin, self.gpkg_file, self.walk_file)
+            gfun.create_walk_file(self.basin, self.divides_df, self.gages_df, self.walk_file)
             logger.info(f"Crosswalk file created at: {self.walk_file}")
 
         # Read catchment parameter values from geopackage divide-attributes
@@ -927,8 +939,8 @@ class RealizationBuilder:
 
             # Retrieve list of catchments where glaciated percent >= 50
             glacier_thresh = 50
-            topo_cats = self.attr_file[self.attr_file['glacier_percent'] >= glacier_thresh].index.tolist()
-            nontopo_cats = self.attr_file[self.attr_file['glacier_percent'] < glacier_thresh].index.tolist()
+            topo_cats = self.divides_df[self.divides_df['glacier_percent'] >= glacier_thresh].index.tolist()
+            nontopo_cats = self.divides_df[self.divides_df['glacier_percent'] < glacier_thresh].index.tolist()
 
             # Ensure catchments exist where topoflow-glacier can be applied
             if len(topo_cats) == 0:
