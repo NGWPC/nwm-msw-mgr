@@ -282,8 +282,6 @@ class DataFileConfig(StrictBaseModel):
     ueb_parameter_dir: Optional[str] = None
     lasam_parameter_dir: Optional[str] = None
     lstm_parameter_dir: Optional[str] = None
-    sac_sma_parameter_dir: Optional[str] = None
-    snow_17_parameter_dir: Optional[str] = None
     attributes_file: Optional[str] = None
     ngen_exe_file: str
     sloth_lib: Optional[str] = None

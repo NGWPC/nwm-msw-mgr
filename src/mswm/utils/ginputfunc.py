@@ -11,11 +11,10 @@ import glob
 import json
 import os
 import subprocess
-import math
+from ambiance import Atmosphere
 from pathlib import Path
 from typing import List, Union, Dict, Any, Tuple
 from collections import OrderedDict
-from pyproj import Transformer
 import geopandas as gpd
 import pandas as pd
 import yaml
@@ -68,7 +67,6 @@ def is_probably_regex(pattern):
 __all__ = [
     'init_ginput_logger',
     'call_icefabric_gpkg',
-    'change_hydrofab_attr',
     'create_walk_file',
     'create_cfe_input',
     'create_noah_input',
@@ -186,180 +184,20 @@ def call_icefabric_gpkg(
     return gpkg_fp
 
 
-def change_hydrofab_attr(
-        dfa: gpd.GeoDataFrame,
-        divides_layer: gpd.GeoDataFrame
-) -> gpd.GeoDataFrame:
-    """ Set attribute names depending on geographic region and and adjust other hydrofabric values
-
-    Parameters
-    ----------
-    dfa: dataframe containing model parameter attributes
-    divides_layer: geodataframe containing hydrofabric divides layer
-
-    Returns
-    ----------
-    dictionary of attribute names
-    """
-
-    # Retrieve vpu id from dfa
-    vpu_fieldname = "vpuid"
-    vpu_series = dfa[vpu_fieldname]
-    if len(vpu_series) == 0:
-        msg = f"No records for dfa series {vpu_fieldname}"
-        logger.critical(msg)
-        raise RuntimeError(msg)
-    vpu = vpu_series.mode()[0]
-
-    # Set attr names
-    if vpu == 'hi' or vpu == 'ak':
-        attr_dict = {'X': 'centroid_x',
-                     'Y': 'centroid_y',
-                     'mode.bexp_soil_layers_stag.1': 'mode.bexp_soil_layers_stag=1',
-                     'mode.bexp_soil_layers_stag.2': 'mode.bexp_soil_layers_stag=2',
-                     'mode.bexp_soil_layers_stag.3': 'mode.bexp_soil_layers_stag=3',
-                     'mode.bexp_soil_layers_stag.4': 'mode.bexp_soil_layers_stag=4',
-                     'geom_mean.dksat_soil_layers_stag.1': 'geom_mean.dksat_soil_layers_stag=1',
-                     'geom_mean.dksat_soil_layers_stag.2': 'geom_mean.dksat_soil_layers_stag=2',
-                     'geom_mean.dksat_soil_layers_stag.3': 'geom_mean.dksat_soil_layers_stag=3',
-                     'geom_mean.dksat_soil_layers_stag.4': 'geom_mean.dksat_soil_layers_stag=4',
-                     'mean.smcmax_soil_layers_stag.1': 'mean.smcmax_soil_layers_stag=1',
-                     'mean.smcmax_soil_layers_stag.2': 'mean.smcmax_soil_layers_stag=2',
-                     'mean.smcmax_soil_layers_stag.3': 'mean.smcmax_soil_layers_stag=3',
-                     'mean.smcmax_soil_layers_stag.4': 'mean.smcmax_soil_layers_stag=4',
-                     'geom_mean.psisat_soil_layers_stag.1': 'geom_mean.psisat_soil_layers_stag=1',
-                     'geom_mean.psisat_soil_layers_stag.2': 'geom_mean.psisat_soil_layers_stag=2',
-                     'geom_mean.psisat_soil_layers_stag.3': 'geom_mean.psisat_soil_layers_stag=3',
-                     'geom_mean.psisat_soil_layers_stag.4': 'geom_mean.psisat_soil_layers_stag=4',
-                     'mean.smcwlt_soil_layers_stag.1': 'mean.smcwlt_soil_layers_stag=1',
-                     'mean.smcwlt_soil_layers_stag.2': 'mean.smcwlt_soil_layers_stag=2',
-                     'mean.smcwlt_soil_layers_stag.3': 'mean.smcwlt_soil_layers_stag=3',
-                     'mean.smcwlt_soil_layers_stag.4': 'mean.smcwlt_soil_layers_stag=4'}
-
-        logger.info('Setting hydrofabric attribute names to AK/HI region')
-
-    elif vpu == 'prvi':
-        attr_dict = {'X': 'centroid_x',
-                     'Y': 'centroid_y',
-                     'dksat_Time._soil_layers_stag.1': 'geom_mean.dksat_soil_layers_stag=1',
-                     'dksat_Time._soil_layers_stag.2': 'geom_mean.dksat_soil_layers_stag=2',
-                     'dksat_Time._soil_layers_stag.3': 'geom_mean.dksat_soil_layers_stag=3',
-                     'dksat_Time._soil_layers_stag.4': 'geom_mean.dksat_soil_layers_stag=4',
-                     'mean.cwpvt_Time.': 'mean.cwpvt',
-                     'mean.mfsno_Time.': 'mean.mfsno',
-                     'mean.mp_Time.': 'mean.mp',
-                     'mean.refkdt_Time.': 'mean.refkdt',
-                     'mean.slope_Time.': 'mean.slope_1km',
-                     'mean.smcmax_Time._soil_layers_stag.1': 'mean.smcmax_soil_layers_stag=1',
-                     'mean.smcmax_Time._soil_layers_stag.2': 'mean.smcmax_soil_layers_stag=2',
-                     'mean.smcmax_Time._soil_layers_stag.3': 'mean.smcmax_soil_layers_stag=3',
-                     'mean.smcmax_Time._soil_layers_stag.4': 'mean.smcmax_soil_layers_stag=4',
-                     'mean.smcwlt_Time._soil_layers_stag.1': 'mean.smcwlt_soil_layers_stag=1',
-                     'mean.smcwlt_Time._soil_layers_stag.2': 'mean.smcwlt_soil_layers_stag=2',
-                     'mean.smcwlt_Time._soil_layers_stag.3': 'mean.smcwlt_soil_layers_stag=3',
-                     'mean.smcwlt_Time._soil_layers_stag.4': 'mean.smcwlt_soil_layers_stag=4',
-                     'mean.vcmx25_Time.': 'mean.vcmx25',
-                     'mode.bexp_Time._soil_layers_stag.1': 'mode.bexp_soil_layers_stag=1',
-                     'mode.bexp_Time._soil_layers_stag.2': 'mode.bexp_soil_layers_stag=2',
-                     'mode.bexp_Time._soil_layers_stag.3': 'mode.bexp_soil_layers_stag=3',
-                     'mode.bexp_Time._soil_layers_stag.4': 'mode.bexp_soil_layers_stag=4',
-                     'psisat_Time._soil_layers_stag.1': 'geom_mean.psisat_soil_layers_stag=1',
-                     'psisat_Time._soil_layers_stag.2': 'geom_mean.psisat_soil_layers_stag=2',
-                     'psisat_Time._soil_layers_stag.3': 'geom_mean.psisat_soil_layers_stag=3',
-                     'psisat_Time._soil_layers_stag.4': 'geom_mean.psisat_soil_layers_stag=4'}
-
-        logger.info('Setting hydrofabric attribute names to PRVI region')
-
-    else:
-        # Leave hydrofabric attributes names as they are
-        logger.info('Setting hydrofabric attribute names to CONUS region')
-
-    # Rename columns in attribute dataframe
-    if vpu == 'ak' or vpu == 'hi' or vpu == 'prvi':
-        dfa.rename(columns=attr_dict, inplace=True)
-
-    # Get catchment area from divides layer and append to attributes data frame
-    divide_vals = divides_layer[['divide_id', 'lengthkm', 'areasqkm']]
-    dfa = dfa.join(divide_vals.set_index('divide_id'), on='divide_id')
-
-    # Fill Nan lengthkm (coastal divides) with 0
-    dfa['lengthkm'] = dfa['lengthkm'].fillna(0)
-
-    # Soil and vegetation types are read from the gpkg as floats, but need to be ints
-    dfa = dfa.astype({'mode.ISLTYP': 'int'})
-    dfa = dfa.astype({'mode.IVGTYP': 'int'})
-
-    # Adjust Zmax units from mm to m (CFE expects m)  # TODO: Make sure this is correct
-    dfa['mean.Zmax'] = dfa['mean.Zmax'].apply(lambda x: x / 1000)
-
-    # Convert elevation from cm to m. Except for AK, which is still in m.
-    if vpu != 'ak':
-        dfa['mean.elevation'] = dfa['mean.elevation'].apply(lambda x: x / 100)
-
-    # Convert centroid_x and centroid_y (lat/lon) from the domain's CRS to WGS84 for decimal degrees for 2.2.
-    crs = divides_layer.crs
-    transformer = Transformer.from_crs(crs, 4326)
-    for index, row in dfa.iterrows():
-        y = row['centroid_y']
-        x = row['centroid_x']
-        wgs84_latlon = transformer.transform(x, y)
-        dfa.loc[index, 'centroid_y'] = wgs84_latlon[0]  # latitude
-        dfa.loc[index, 'centroid_x'] = wgs84_latlon[1]  # longitude
-
-    # If a soil divide attribute less than the min value or greater than the max value, reset to min or max.
-    soil_attr = [{"name": "mode.bexp_soil_layers_stag=1", "min": 2, "max": 15},
-                 {"name": "geom_mean.dksat_soil_layers_stag=1", "min": 0.0000000195, "max": 0.000141},
-                 {"name": "geom_mean.psisat_soil_layers_stag=1", "min": 0.036, "max": 0.955},
-                 {"name": "mean.smcmax_soil_layers_stag=1", "min": 0.16, "max": 0.9},
-                 {"name": "mean.smcwlt_soil_layers_stag=1", "min": 0.05, "max": 0.30}]
-
-    for attr in soil_attr:
-        dfa.loc[dfa[attr['name']] > attr['max'], attr['name']] = attr['max']
-        dfa.loc[dfa[attr['name']] < attr['min'], attr['name']] = attr['min']
-
-    # Lookup quartz value by soil type as recommended in the Deltares spreadsheet.
-    # Quartz value by soil type source:  https://doi.org/10.1175/1520-0469(1998)055%3C1209:TEOSTC%3E2.0.CO;2
-    # Dictionary maps soil type (ISLTYP) to quartz value.
-    # Add a new column in the dataframe for quartz.
-    quartz_map = {1: 0.92,  # Sand
-                  2: 0.82,  # Loamy Sand
-                  3: 0.6,   # Sandy Loam
-                  4: 0.25,  # Silt Loam
-                  5: 0.1,  # Silt
-                  6: 0.4,  # Loam
-                  7: 0.6,  # Sandy Clay Loam
-                  8: 0.1,  # Silty Clay Loam
-                  9: 0.35,  # Clay Loam
-                  10: 0.52,  # Sandy Clay
-                  11: 0.1,  # Silty Clay
-                  12: 0.25,  # Clay
-                  13: 0,  # Organic Material,
-                  14: 0,  # Water
-                  15: 0,  # Bedrock
-                  16: 0,  # Other
-                  17: 0,  # Playa
-                  18: 0,  # Lava
-                  19: 0,  # White Sand
-                  }
-
-    dfa['quartz'] = dfa['mode.ISLTYP'].map(quartz_map)
-
-    # Return updated attributes
-    return dfa
-
-
 def create_walk_file(
         gageID: str,
-        gpkg_file: Union[str, Path],
+        divides_df: gpd.GeoDataFrame,
+        gages_df: gpd.GeoDataFrame,
         walk_file: Union[str, Path],
 ) -> None:
     """ Create crosswalk file
 
     Parameters
     ----------
-    gageID : stream gage ID at the outlet of basin
-    gpkg_file : hydrofabric GeoPackage file
-    walk_file : crosswalk file
+    gageID: stream gage ID at the outlet of basin
+    divides_df: dvidies layer of the hydrofabric GeoPackage file
+    gages_df: gages layer of the hydrofabric GeoPackage file
+    walk_file: output crosswalk file path
 
     Returns
     ----------
@@ -367,93 +205,32 @@ def create_walk_file(
 
     """
 
-    df_cat = gpd.read_file(gpkg_file, layer='divides')
-    df_cat.set_index('divide_id', inplace=True)
-    df_nexus = gpd.read_file(gpkg_file, layer='nexus')
+    # TODO: Make sure no NHF gpkgs have more than 1 gage
+    if len(gages_df) > 1:
+        logger.critical("More than 1 gage present in hydrofabric gpkg gages layer")
+        raise
 
-    # read hl_uri info from network or hydrolocations layers and make sure the gageID is contained in the hl_uri column
-    # check the hydrolocations layer first, if conditions are not met, check the network layer
-    df_network = gpd.read_file(gpkg_file, layer='network')
-    df_hydro = gpd.read_file(gpkg_file, layer='hydrolocations')
-    if (len(df_network) > 0) and ('toid' in df_network.columns) and ('hl_uri' in df_network.columns) and (
-            df_network['hl_uri'].str.contains(gageID).any()):
-        df_network = df_network[['toid', 'hl_uri']].drop_duplicates()
-        df_network.columns = ['id', 'hl_uri']
-        df_nexus = df_nexus.merge(df_network, on="id")
-    else:
-        if (len(df_hydro) > 0) and ('nex_id' in df_hydro.columns) and ('hl_uri' in df_hydro.columns) and (
-                df_hydro['hl_uri'].str.contains(gageID).any()):
-            df_hydro = df_hydro[['nex_id', 'hl_uri']].drop_duplicates()
-            df_hydro.columns = ['id', 'hl_uri']
-            df_nexus = df_nexus.merge(df_hydro, on="id")
+    # Filter for specified gage
+    gage_match = gages_df[gages_df['site_no'] == gageID]
+    if gage_match.empty:
+        try:
+            raise Exception(f"Gage id {gageID} not found in gages layer")
+        except Exception as e:
+            logger.critical(e)
+            raise
 
-    if 'hl_uri' not in df_nexus.columns:
-        if ('hl_uri' not in df_network.columns) and ('hl_uri' not in df_hydro.columns):
-            try:
-                raise Exception(f"Gage id {gageID}: 'hl_uri' column not found in network or hydrolocations layers in {gpkg_file}")
-            except Exception as e:
-                logger.critical(e)
-                raise
-        else:
-            try:
-                raise Exception(f"Gage id {gageID} not found in 'hl_uri' column in network or hydrolocations layers in {gpkg_file}")
-            except Exception as e:
-                logger.critical(e)
-                raise
+    # Retireve catchment ID (fp_id) for specified gage
+    outlet_cat_id = gage_match['fp_id'].iloc[0]
 
-    df_nexus.set_index('id', inplace=True)
-    df_flowpaths = gpd.read_file(gpkg_file, layer='flowpaths')
-    df_flowpaths = df_flowpaths.sort_values('hydroseq')
-    df_flowpaths.set_index('toid', inplace=True)
-
-    gageid = []
+    # Build crosswalk dictionary
     cw = {}
-    for x in df_cat.index:
-        nex_id = df_cat.loc[x, 'toid']
-        catcw = {x: {"Gage_no": ""}}
+    for cat_id in divides_df.index:
+        if cat_id == outlet_cat_id:
+            cw[cat_id] = {"Gage_no": gageID}
+        else:
+            cw[cat_id] = {"Gage_no": ""}
 
-        if nex_id in df_nexus.index:
-            try:
-                hu_list = df_nexus.loc[nex_id, 'hl_uri']
-            except KeyError:
-                try:
-                    raise Exception(f"Gage id {gageID}: nex_id '{nex_id}' could not be accessed in df_nexus when retrieving hl_uri for file {gpkg_file}")
-                except Exception as e:
-                    logger.critical(e)
-                    raise
-
-            if isinstance(hu_list, str) or hu_list is None:
-                hu_list = [hu_list]
-            elif isinstance(hu_list, pd.Series):
-                hu_list = list(hu_list)
-            else:
-                try:
-                    raise Exception(f"Gage id {gageID}: Unsupported return value for hl_uri; must be None, str, or pd.Series (got {type(hu_list)}) for file {gpkg_file}")
-                except Exception as e:
-                    logger.critical(e)
-                    raise
-            for hu in hu_list:
-                if hu and hu.lower().startswith('gage'):
-                    if len(hu.split(',')) > 1 and gageID in hu:
-                        gage = gageID
-                    else:
-                        gage = hu.split('-')[1]
-                    gageid.append(gage)
-                    if gage == gageID:
-                        subdf = df_flowpaths.loc[[df_cat.loc[x, 'toid']]]
-                        if subdf.shape[0] == 1:
-                            catcw = {x: {"Gage_no": gage}}
-                            break
-                        else:
-                            # Select nearest one among multiple catchments draining to the gage
-                            if subdf['id'].iloc[-1].replace('wb', 'cat') == x:
-                                catcw = {x: {"Gage_no": gage}}
-                                break
-
-        cw.update(catcw)
-
-    if len(set(gageid)) > 1:
-        logger.info(f'More than 1 gage found in hydrofabric GeoPackage file {gpkg_file}')
+    logger.info(f"Created crosswalk for gage {gageID} with outlet catchment {outlet_cat_id}")
     with open(walk_file, 'w') as outfile:
         json.dump(cw, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
 
@@ -461,7 +238,7 @@ def create_walk_file(
 def create_cfe_input(
         catids: List[str],
         modules: Union[List[str], List[List[str]]],
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
         cfe_input_dir: Union[str, Path],
         run_type: str,
         is_aet_rootzone: Union[int, dict],
@@ -473,7 +250,7 @@ def create_cfe_input(
     ----------
     catids : catchment IDs in the basin
     modules: list of modules in the formulation
-    dfa: dataframe containing model parameter attributes
+    divides_df: dataframe containing hydrofabric divides attributes
     cfe_input_dir: directory to save configuration files
     run_type: type of run (calib, regionalization, or default)
     is_aet_rootzone: flag for CFE rootzone option
@@ -523,25 +300,25 @@ def create_cfe_input(
         if 'cfes' in mods:
             f.write("%s" % ("is_sft_coupled=" + sft_coupled + "\n"))
             f.write("%s" % ("ice_content_threshold=0.15\n"))
-        f.write("%s" % ("alpha_fc=0.33\n"))  # TODO Update per soil type
-        f.write("%s" % ("Cgw=" + str(dfa.loc[catID]['mean.Coeff']) + "[m/hr]\n"))
-        f.write("%s" % ("expon=" + str(dfa.loc[catID]['mode.Expon']) + "[]\n"))
+        f.write("%s" % ("alpha_fc=0.33\n"))
+        f.write("%s" % ("Cgw=" + str(divides_df.loc[catID]['cgw']) + "[m/hr]\n"))
+        f.write("%s" % ("expon=" + str(divides_df.loc[catID]['expon']) + "[]\n"))
         f.write("%s" % ("giuh_ordinates=0.55, 0.25, 0.2[]\n"))
         f.write("%s" % ("gw_storage=0.05[m/m]\n"))
         f.write("%s" % ("K_lf=0.01[]\n"))
         f.write("%s" % ("K_nash=0.003[1/m]\n"))
-        f.write("%s" % ("max_gw_storage=" + str(dfa.loc[catID]['mean.Zmax'] / 1000.) + "[m]\n"))  # TODO: Confirm this divide by 100
+        f.write("%s" % ("max_gw_storage=" + str(divides_df.loc[catID]['max_gw_storage']) + "[m]\n"))
         f.write("%s" % ("nash_storage=0.0,0.0[]\n"))
-        f.write("%s" % ("refkdt=" + str(dfa.loc[catID]['mean.refkdt']) + "[]\n"))
-        f.write("%s" % ("soil_params.b=" + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + "[]\n"))
+        f.write("%s" % ("refkdt=" + str(divides_df.loc[catID]['refkdt_mean']) + "[]\n"))
+        f.write("%s" % ("soil_params.b=" + str(divides_df.loc[catID]['bexp_mode']) + "[]\n"))
         f.write("%s" % ("soil_params.depth=2.0[m]\n"))
         f.write("%s" % ("soil_params.expon=1[]\n"))
         f.write("%s" % ("soil_params.expon_secondary=1[]\n"))
-        f.write("%s" % ("soil_params.satdk=" + str(dfa.loc[catID]['geom_mean.dksat_soil_layers_stag=1']) + "[m/s]\n"))
-        f.write("%s" % ("soil_params.satpsi=" + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + "[m]\n"))
-        f.write("%s" % ("soil_params.slop=" + str(dfa.loc[catID]['mean.slope_1km']) + "[m/m]\n"))
-        f.write("%s" % ("soil_params.smcmax=" + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + "[m/m]\n"))
-        f.write("%s" % ("soil_params.wltsmc=" + str(dfa.loc[catID]['mean.smcwlt_soil_layers_stag=1']) + "[m/m]\n"))
+        f.write("%s" % ("soil_params.satdk=" + str(divides_df.loc[catID]['dksat_geomean']) + "[m/s]\n"))
+        f.write("%s" % ("soil_params.satpsi=" + str(divides_df.loc[catID]['psisat_geomean']) + "[m]\n"))
+        f.write("%s" % ("soil_params.slop=" + str(divides_df.loc[catID]['slope1km_mean']) + "[m/m]\n"))
+        f.write("%s" % ("soil_params.smcmax=" + str(divides_df.loc[catID]['smcmax_mean']) + "[m/m]\n"))
+        f.write("%s" % ("soil_params.wltsmc=" + str(divides_df.loc[catID]['smcwlt_mean']) + "[m/m]\n"))
         f.write("%s" % ("soil_storage=0.5[m/m]\n"))
 
         # Add aet_rootzone parameters if option is selected
@@ -552,10 +329,10 @@ def create_cfe_input(
 
         # add the new parameters for cfex
         if scheme == 'Xinanjiang':
-            f.write("%s" % ("a_Xinanjiang_inflection_point_parameter=-0.212938[]\n"))  # TODO: Replace with catchment specific parameters in NHF
-            f.write("%s" % ("b_Xinanjiang_shape_parameter=0.666238[]\n"))
-            f.write("%s" % ("x_Xinanjiang_shape_parameter=0.02414[]\n"))
-            f.write("%s" % ("urban_decimal_fraction=0.0[]\n"))
+            f.write("%s" % ("a_Xinanjiang_inflection_point_parameter=" + str(divides_df.loc[catID]['a_xinanjiang_inflection_point_parameter']) + "[]\n"))
+            f.write("%s" % ("b_Xinanjiang_shape_parameter=" + str(divides_df.loc[catID]['b_xininjiang_shape_parameter']) + "[]\n"))
+            f.write("%s" % ("x_Xinanjiang_shape_parameter=" + str(divides_df.loc[catID]['x_xininjiang_shape_parameter']) + "[]\n"))
+            f.write("%s" % ("urban_decimal_fraction=0.0[]\n"))  # TODO: Does this need to be specified for each catchment or is it a constant?
 
         f.close()
 
@@ -563,7 +340,7 @@ def create_cfe_input(
 def create_noah_input(
         catids: List[str],
         time_period: dict,
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         noah_input_dir: Union[str, Path],
         run_type: str
@@ -574,7 +351,7 @@ def create_noah_input(
     ----------
     catids : catchment IDs in the basin
     time_period : simulation and evaluation time period
-    dfa: dataframe containing model parameter attributes
+    divides_df: dataframe containing hydrofabric divides attributes
     param_dir_source : source directory containing Noah-OWP-Modular parameter files
     noah_input_dir: directory to save configuration files
     run_type: type of run (calib, regionalization, or default)
@@ -622,12 +399,12 @@ def create_noah_input(
 
             # Specify options for namelist file
             for catID in catids:
-                tslp = dfa.loc[catID]['mean.slope']
-                azimuth = dfa.loc[catID]['circ_mean.aspect']
-                lat = dfa.loc[catID]['centroid_y']
-                lon = dfa.loc[catID]['centroid_x']
-                isltype = int(dfa.loc[catID]["mode.ISLTYP"])
-                vegtype = int(dfa.loc[catID]["mode.IVGTYP"])
+                tslp = divides_df.loc[catID]['slope1km_mean']
+                azimuth = divides_df.loc[catID]['aspect_circmean']
+                lat = divides_df.loc[catID]['lat']
+                lon = divides_df.loc[catID]['lon']
+                isltype = int(divides_df.loc[catID]['isltyp_mod'])
+                vegtype = int(divides_df.loc[catID]["ivgtyp_mode"])
                 sfctype = 2 if vegtype == 16 else 1
                 nom_lst = ['&timing',
                            "  " + "dt".ljust(19) + "= 3600.0" + "                       ! timestep [seconds]",
@@ -706,7 +483,7 @@ def create_noah_input(
 def create_sft_smp_input(
         catids: List[str],
         modules: Union[List[str], List[List[str]]],
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
         sft_dir: Union[str, Path],
         smp_dir: Union[str, Path],
         run_type: str,
@@ -719,7 +496,7 @@ def create_sft_smp_input(
     ----------
     catids : catchment IDs in the basin
     modules: list of modules in the formulation
-    dfa: dataframe containing model parameter attributes
+    divides_df: dataframe containing hydrofabric divides attributes
     sft_dir : directory for writing sft bmi configuration files
     smp_dir : directory for writing smp bmi configuration files
     sm_frac_depth: depth at which to output soil moisture fraction
@@ -758,10 +535,10 @@ def create_sft_smp_input(
                    'soil_moisture_bmi=1',
                    'end_time=1.[d]',
                    'dt=1.0[h]',
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + '[m/m]',
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + '[]',
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + '[m]',
-                   'soil_params.quartz=' + str(dfa.loc[catID]['quartz']) + '[m]',
+                   'soil_params.smcmax=' + str(divides_df.loc[catID]['smcmax_mean']) + '[m/m]',
+                   'soil_params.b=' + str(divides_df.loc[catID]['bexp_mode']) + '[]',
+                   'soil_params.satpsi=' + str(divides_df.loc[catID]['psisat_geomean']) + '[m]',
+                   'soil_params.quartz=' + str(divides_df.loc[catID]['quartz_mean']) + '[m]',
                    'ice_fraction_scheme=' + icefscheme,
                    'soil_z=' + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
                    'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
@@ -774,9 +551,9 @@ def create_sft_smp_input(
 
         # Create smp list
         smp_lst = ['verbosity=none',
-                   'soil_params.smcmax=' + str(dfa.loc[catID]['mean.smcmax_soil_layers_stag=1']) + '[m/m]',
-                   'soil_params.b=' + str(dfa.loc[catID]['mode.bexp_soil_layers_stag=1']) + '[]',
-                   'soil_params.satpsi=' + str(dfa.loc[catID]['geom_mean.psisat_soil_layers_stag=1']) + '[m]',
+                   'soil_params.smcmax=' + str(divides_df.loc[catID]['smcmax_mean']) + '[m/m]',
+                   'soil_params.b=' + str(divides_df.loc[catID]['bexp_mode']) + '[]',
+                   'soil_params.satpsi=' + str(divides_df.loc[catID]['psisat_geomean']) + '[m]',
                    'soil_z=' + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
                    'soil_moisture_fraction_depth=' + str(sm_frac_depth) + '[m]']
 
@@ -795,8 +572,7 @@ def create_sft_smp_input(
 
 def create_snow17_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
-        param_dir_source: Union[str, Path],
+        divides_df: gpd.GeoDataFrame,
         snow17_input_dir: str
 ) -> None:
     """ Create BMI configuration file for Snow17
@@ -804,9 +580,7 @@ def create_snow17_input(
     Parameters
     ----------
     catids : catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
-    gpkg_file: GeoPackage hydrofabric file
-    param_dir_source : directory containing snow17 parameter files
+    divides_df: dataframe containing hydrofabric divides attributes
     snow17_input_dir : directory for the snow17 bmi configuration files
 
     Returns
@@ -816,22 +590,17 @@ def create_snow17_input(
    """
     os.makedirs(snow17_input_dir, exist_ok=True)
 
-    # Read snow17 parameter file
-    param_filename = f'{param_dir_source}/snow17_params_2.2.csv'
-    params_df = pd.read_csv(param_filename)
-    params_df.set_index('divide_id', inplace=True)
-
     for catID in catids:
 
         # Set catchment-specific snow17 config parameters
         param_list = ['hru_id ' + catID,
-                      'hru_area ' + str(dfa.loc[catID]['areasqkm']),
-                      'latitude ' + str(dfa.loc[catID]['centroid_y']),
-                      'elev ' + str(dfa.loc[catID]['mean.elevation']),
+                      'hru_area ' + str(divides_df.loc[catID]['area_sqkm']),
+                      'latitude ' + str(divides_df.loc[catID]['lat']),
+                      'elev ' + str(divides_df.loc[catID]['elevation_mean']),
                       'scf 1.100',
-                      'mfmax ' + str(params_df.loc[catID]['MFMAX']),
-                      'mfmin ' + str(params_df.loc[catID]['MFMIN']),
-                      'uadj ' + str(params_df.loc[catID]['UADJ']),
+                      'mfmax ' + str(divides_df.loc[catID]['mfmax_mean']),
+                      'mfmin ' + str(divides_df.loc[catID]['mfmin_mean']),
+                      'uadj ' + str(divides_df.loc[catID]['uadj_mean']),
                       'si 500.00',
                       'pxtemp 1.000',
                       'nmf 0.150',
@@ -857,7 +626,7 @@ def create_snow17_input(
         with open(param_file, "w") as f:
             f.writelines('\n'.join(param_list))
 
-        # Namelist file is only used when module is run separately from ngen
+        # Namelist file is only used when module is run separately from ngen  # TODO: Do we need to create a working standalone snow17 file
         input_list = ['&SNOW17_CONTROL',
                       '! === run control file for snow17bmi v. 1.x ===',
                       '',
@@ -894,10 +663,9 @@ def create_snow17_input(
 def create_ueb_input(
         catids: List[str],
         time_period: dict,
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         ueb_input_dir: str,
-        bmi_dir: Union[str, Path],
         run_type: str
 ) -> None:
     """ Create BMI configuration file for ueb
@@ -906,10 +674,9 @@ def create_ueb_input(
     ----------
     catids : catchment IDs in the basin
     time_period: simulation time period
-    dfa: dataframe containing model parameter attributes
+    divides_df: dataframe containing hydrofabric divides attributes
     param_dir_source : directory containing UEB parameter files
     ueb_input_dir : directory for the UEB bmi configuration file
-    bmi_dir: directory path containing existing sitevar files (e.g., from EDS)
     run_type: type of run (calib, regionalization, or default)
 
     Returns
@@ -945,55 +712,47 @@ def create_ueb_input(
         os.symlink(src, dst)
         logger.info(f'Creating symlink from {src} to {dst}')
 
+    # Read template sitevars file
+    temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
+    with open(temp_file) as f:
+        template_lines = f.readlines()
+
     # sitevars file
     for catID in catids:
-        # Set sitevars file from EDFS BMI dir if it exists
+        # create the sitevars file based on a template file
         site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
-        if bmi_dir != '':
-            src = glob.glob(os.path.join(bmi_dir, 'ueb_sitevars*' + catID + '*'))
-            if len(src) == 0:
-                try:
-                    raise ValueError(f'No sitevars file found for {catID} in {bmi_dir}')
-                except ValueError as e:
-                    logger.critical(e)
-                    raise
-            elif len(src) > 1:
-                try:
-                    raise ValueError(f'More than one sitevars file found for {catID} in {bmi_dir}')
-                except ValueError as e:
-                    logger.critical(e)
-                    raise
 
-            with open(src[0]) as f:
-                # create a symbolic link
-                if os.path.exists(site_file) or os.path.islink(site_file):
-                    try:
-                        os.unlink(site_file)
-                    except Exception as e:
-                        logger.error(f"Failed to remove existing {site_file}: {e}")
-                        raise
+        # retrieve slope, aspect, lat and lon from precomputed attributes file
+        tslp = divides_df.loc[catID]['slope1km_mean']
+        azimuth = divides_df.loc[catID]['aspect_circmean']
+        lat = divides_df.loc[catID]['lat']
+        lon = divides_df.loc[catID]['lon']
 
-                os.symlink(src[0], site_file)
-                logger.info(f'Creating symlink from {src[0]} to {site_file}')
+        # Compute atmospheric pressure based on elevation
+        std_atm_pressure = round(Atmosphere(divides_df.loc[catID]['elevation_mean']).pressure[0], 4)
 
-        else:  # create the sitevars file based on a template file
+        # Update template with catchment-specific values
+        lines = template_lines.copy()
+        lines[18] = f"{std_atm_pressure}\n"
+        lines[39] = f'{tslp}\n'
+        lines[42] = f'{azimuth}\n'
+        lines[45] = f'{lat}\n'
+        lines[57] = f"{divides_df['temp_delta_jan_mean']}\n"
+        lines[60] = f"{divides_df['temp_delta_feb_mean']}\n"
+        lines[63] = f"{divides_df['temp_delta_mar_mean']}\n"
+        lines[66] = f"{divides_df['temp_delta_apr_mean']}\n"
+        lines[69] = f"{divides_df['temp_delta_may_mean']}\n"
+        lines[72] = f"{divides_df['temp_delta_jun_mean']}\n"
+        lines[75] = f"{divides_df['temp_delta_jul_mean']}\n"
+        lines[78] = f"{divides_df['temp_delta_aug_mean']}\n"
+        lines[81] = f"{divides_df['temp_delta_sep_mean']}\n"
+        lines[84] = f"{divides_df['temp_delta_oct_mean']}\n"
+        lines[87] = f"{divides_df['temp_delta_nov_mean']}\n"
+        lines[90] = f"{divides_df['temp_delta_dec_mean']}\n"
+        lines[96] = f'{lon}\n'
 
-            # retrieve slope, aspect, lat and lon from precomputed attributes file
-            tslp = dfa.loc[catID]['mean.slope']
-            azimuth = dfa.loc[catID]['circ_mean.aspect']
-            lat = dfa.loc[catID]['centroid_y']
-            lon = dfa.loc[catID]['centroid_x']
-
-            temp_file = Path(param_dir_source, 'ueb_sitevars.dat').resolve(strict=True)
-            with open(temp_file) as f:
-                lines = f.readlines()
-            lines[39] = f'{tslp}\n'
-            lines[42] = f'{azimuth}\n'
-            lines[45] = f'{lat}\n'
-            lines[96] = f'{lon}\n'
-
-            with open(site_file, 'w') as outfile:
-                outfile.writelines(lines)
+        with open(site_file, 'w') as outfile:
+            outfile.writelines(lines)
 
     # ueb-init files need to be created for both calibration and validation runs or regionalization runs
     if run_type == 'calibration':
@@ -1027,7 +786,7 @@ def create_ueb_input(
                     '1.0',
                     '-7.0',
                     '0',
-                    '1 15 16',
+                    '1 15 16',  # TODO: Confirm time zone offset is correct
                     '1 1'
                 ]
                 with open(input_file, "w") as f:
@@ -1036,8 +795,7 @@ def create_ueb_input(
 
 def create_sac_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
-        param_dir_source: Union[str, Path],
+        divides_df: gpd.GeoDataFrame,
         sac_input_dir: str
 ) -> None:
     """ Create BMI configuration file for sac-sma
@@ -1045,8 +803,7 @@ def create_sac_input(
     Parameters
     ----------
     catids : catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
-    param_dir_source : directory for sac parameter file
+    divides_df: dataframe containing hydrofabric divides attributes
     sac_input_dir : directory for the sac bmi configuration file
 
     Returns
@@ -1056,29 +813,24 @@ def create_sac_input(
     """
     os.makedirs(sac_input_dir, exist_ok=True)
 
-    # Read sac-sma parameter file
-    param_filename = f'{param_dir_source}/sac_sma_params_2.2.csv'
-    params_df = pd.read_csv(param_filename)
-    params_df.set_index('divide_id', inplace=True)
-
     for catID in catids:
 
         # Set catchment-specific sac-sma config parameters
         param_list = ['hru_id ' + catID,
-                      'hru_area ' + str(dfa.loc[catID]['areasqkm']),
-                      'uztwm ' + str(params_df.loc[catID]['UZTWM']),
-                      'uzfwm ' + str(params_df.loc[catID]['UZFWM']),
-                      'lztwm ' + str(params_df.loc[catID]['LZTWM']),
-                      'lzfpm ' + str(params_df.loc[catID]['LZFPM']),
-                      'lzfsm ' + str(params_df.loc[catID]['LZFSM']),
+                      'hru_area ' + str(divides_df.loc[catID]['area_sqkm']),
+                      'uztwm ' + str(divides_df.loc[catID]['uztwm_mean']),
+                      'uzfwm ' + str(divides_df.loc[catID]['uzfwm_mean']),
+                      'lztwm ' + str(divides_df.loc[catID]['lztwm_mean']),
+                      'lzfpm ' + str(divides_df.loc[catID]['lzfpm_mean']),
+                      'lzfsm ' + str(divides_df.loc[catID]['lzfsm_mean']),
                       'adimp 0.0000',
-                      'uzk ' + str(params_df.loc[catID]['UZK']),
-                      'lzpk ' + str(params_df.loc[catID]['LZPK']),
-                      'lzsk ' + str(params_df.loc[catID]['LZSK']),
-                      'zperc ' + str(params_df.loc[catID]['ZPERC']),
-                      'rexp ' + str(params_df.loc[catID]['REXP']),
+                      'uzk ' + str(divides_df.loc[catID]['uzk_mean']),
+                      'lzpk ' + str(divides_df.loc[catID]['lzpk_mean']),
+                      'lzsk ' + str(divides_df.loc[catID]['lzsk_mean']),
+                      'zperc ' + str(divides_df.loc[catID]['zperc_mean']),
+                      'rexp ' + str(divides_df.loc[catID]['rexp_mean']),
                       'pctim 0.0000',
-                      'pfree ' + str(params_df.loc[catID]['PFREE']),
+                      'pfree ' + str(divides_df.loc[catID]['pfree_mean']),
                       'riva 0.000',
                       'side 0.0000',
                       'rserv 0.3000',
@@ -1091,7 +843,7 @@ def create_sac_input(
         with open(param_file, "w") as f:
             f.writelines('\n'.join(param_list))
 
-        # Namelist file is only used when module is run separately from ngen
+        # Namelist file is only used when module is run separately from ngen  # TODO: Do we need a working sac-sma standalone file?
         input_list = ['&SAC_CONTROL',
                       '! === run control file for sacbmi v. 1.x ===',
                       '',
@@ -1289,7 +1041,7 @@ def create_lstm_config(
 
 def create_lstm_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         lstm_input_dir: Union[str, Path],
 ) -> None:
@@ -1299,8 +1051,7 @@ def create_lstm_input(
     Parameters
     ----------
     catids: catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
-    divides_layer: geodataframe containing hydrofabric divides layer
+    divides_df: dataframe containing hydrofabric divides attributes
     param_dir_source: direcetory for static lstm files
     lstm_input_dir: target directory for bmi configuration file output (lstm_input)
 
@@ -1318,20 +1069,14 @@ def create_lstm_input(
     # Create catchment specific LSTM bmi config files from scratch
     for catID in catids:
 
-        area = float(dfa.loc[catID]['areasqkm'])
-        slope = float(dfa.loc[catID]['mean.slope'])
-        elev = float(dfa.loc[catID]['mean.elevation'])
-        lat = float(dfa.loc[catID]['centroid_y'])
-        lon = float(dfa.loc[catID]['centroid_x'])
-
-        namelist = {'area_sqkm': area,
+        namelist = {'area_sqkm': float(divides_df.loc[catID]['area_sqkm']),
                     'basin_id': catID,
                     'basin_name': catID,
-                    'elev_mean': elev,
+                    'elev_mean': float(divides_df.loc[catID]['elevation_mean']),
                     'initial_state': 'zero',
-                    'lat': lat,
-                    'lon': lon,
-                    'slope_mean': slope,
+                    'lat': float(divides_df.loc[catID]['lat']),
+                    'lon': float(divides_df.loc[catID]['lon']),
+                    'slope_mean': float(divides_df.loc[catID]['slope1km_mean']),
                     'timestep': '1 hour',
                     'train_cfg_file': os.path.join(lstm_input_dir, 'config.yml'),
                     'verbose': '1'}
@@ -1360,7 +1105,7 @@ def create_pet_input(
     Parameters
     ----------
     catids : catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
+    divides_df: dataframe containing hydrofabric divides attributes
     pet_input_dir : directory for the pet input files
     pet_method: integer (1-5) correponding to PET method to be used
 
@@ -1406,9 +1151,9 @@ def create_pet_input(
         # Fill template with catchment-specific values
         config = base_config.copy()
         config.extend([
-            f'latitude_degrees={dfa.loc[catID]["centroid_y"]}',
-            f'longitude_degrees={dfa.loc[catID]["centroid_x"]}',
-            f'site_elevation_m={dfa.loc[catID]["mean.elevation"]}',
+            f'latitude_degrees={dfa.loc[catID]["lat"]}',
+            f'longitude_degrees={dfa.loc[catID]["lon"]}',
+            f'site_elevation_m={dfa.loc[catID]["elevation_mean"]}',
         ])
 
         # Write PET bmi config files
@@ -1420,7 +1165,7 @@ def create_pet_input(
 def create_lasam_input(
         catids: List[str],
         modules: Union[List[str], List[List[str]]],
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
         input_dir: Union[str, Path],
         param_dir: Union[str, Path],
         run_type: str
@@ -1431,7 +1176,7 @@ def create_lasam_input(
     ----------
     catids : catchment IDs in the basin
     modules: list of modules or a list of formulations for each catchment
-    dfa: dataframe containing model parameter attributes
+    divides_df: dataframe containing hydrofabric divides attributes
     input_dir : directory for the lasam input configuration file
     param_dir: directory for static lasam parameter files
     run_type: type of run (calib, regionalization, or default)
@@ -1470,10 +1215,10 @@ def create_lasam_input(
     # Create lasam list
     max_soil_types = 16
     lasam_lst = ['verbosity=none',
-                 'soil_params_file=' + soil_param_file,
+                 f'soil_params_file={soil_param_file}',
                  'layer_thickness=200.0[cm]',
                  'initial_psi=2000.0[cm]',
-                 'timestep=300[sec]',
+                 'timestep=300[sec]',  # TODO Where should this be supplied from?
                  'endtime=1000[hr]',  # TODO Where should this be supplied from?
                  'forcing_resolution=3600[sec]',
                  'ponded_depth_max=1.1[cm]',
@@ -1494,37 +1239,31 @@ def create_lasam_input(
         mods = modules
 
     # Create bmi config file
-    for i in range(len(catids)):
-        catID = catids[i]
+    for i, catID in enumerate(catids):
 
         # Set module list for each catchment during regionalization
         if run_type == 'regionalization':
             mods = modules[i]
 
-        # Copy static config
+        # Build catchment-specific configuration
         lasam_lst_catID = lasam_lst.copy()
-
-        # Insert soil type, checking that it doesn't exceed max_soil_types=16
-        isltyp = int(dfa.loc[catID]['mode.ISLTYP'])
+        isltyp = int(divides_df.loc[catID]['isltyp_mode'])
         if isltyp > max_soil_types:
-            msg = f"LASAM soil type value {isltyp} exceeds max_soil_types=16"
+            msg = f"LASAM soil type value {isltyp} exceeds max_soil_types={max_soil_types}"
             logger.critical(msg)
             raise ValueError(msg)
-        lasam_lst_catID[9] = lasam_lst_catID[9] + str(isltyp)
+        lasam_lst_catID[9] += str(isltyp)
+        lasam_lst_catID[16] += 'true' if 'sft' in mods else 'false'
 
-        # Check if sft is in use
-        sft_coupled_str = 'true' if 'sft' in mods else 'false'
-        lasam_lst_catID[16] += sft_coupled_str
-
+        # Write config file
         lasam_bmi_file = os.path.join(input_dir, catID + '_bmi_config_lasam.txt')
-
         with open(lasam_bmi_file, "w") as f:
             f.writelines('\n'.join(lasam_lst_catID))
 
 
 def create_topoflow_glacier_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
         time_period: dict,
         topo_input_dir: str,
         run_type: str,
@@ -1534,7 +1273,7 @@ def create_topoflow_glacier_input(
     Parameters
     ----------
     catids : catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
+    divides_df: dataframe containing hydrofabric divides attributes
     time_period: simulation time period
     topo_input_dir : directory for the bmi configuration file
     run_type: type of run (calib, regionalization, or default)
@@ -1570,12 +1309,12 @@ def create_topoflow_glacier_input(
                 'dt': 1,
                 'start_time': start_time,
                 'end_time': end_time,
-                'da': float(dfa.loc[catID]['areasqkm']),
-                'slope': float(dfa.loc[catID]['mean.slope']),
-                'aspect': float(dfa.loc[catID]['circ_mean.aspect']),
-                'lat': float(dfa.loc[catID]['centroid_y']),
-                'lon': float(dfa.loc[catID]['centroid_x']),
-                'elev': float(dfa.loc[catID]['mean.elevation']),
+                'da': float(divides_df.loc[catID]['area_sqkm']),
+                'slope': float(divides_df.loc[catID]['slope1km_mean']),
+                'aspect': float(divides_df.loc[catID]['aspect_circmean']),
+                'lat': float(divides_df.loc[catID]['lat']),
+                'lon': float(divides_df.loc[catID]['lon']),
+                'elev': float(divides_df.loc[catID]['elevation_mean']),
                 'h_active_layer': 0.125,
                 'h0_snow': 5,
                 'h0_ice': 2,
@@ -1592,7 +1331,8 @@ def create_topoflow_glacier_input(
 
 def create_topmodel_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
+        flowpaths_df: gpd.GeoDataFrame,
         inputDir: Union[str, Path],
 ) -> None:
     """ Create BMI configuration file for Topmodel
@@ -1600,7 +1340,8 @@ def create_topmodel_input(
     Parameters
     ----------
     catids : catchment IDs in the basin
-    dfa: dataframe containing model parameter attributes
+    divides_df: dataframe containing hydrofabric divides attributes
+    flowpaths_df: dataframe containing hydrofabric flowpaths attributes
     inputDir: directory for writing topmodel bmi configuration files
 
     Returns
@@ -1611,28 +1352,6 @@ def create_topmodel_input(
 
     os.makedirs(inputDir, exist_ok=True)
 
-    # Calculate median twi quartiles to fill missing values
-    # Extract quartile twi values from divide-attributes
-    twi_quart = []
-    for val in dfa['dist_4.twi'].dropna():
-        try:
-            quart = json.loads(val) if isinstance(val, str) else val
-        except json.JSONDecodeError:
-            continue
-
-        row_v = []
-        for q in quart:
-            v_val = q.get("v", math.nan)
-            row_v.append(v_val)
-        twi_quart.append(row_v)
-
-    # Convert all twi values to df
-    twi_quart_df = pd.DataFrame(twi_quart)
-    med_v = twi_quart_df.median(axis=0, skipna=True)
-
-    # Construct default twi quartiles
-    default_twi = [{"v": round(v, 3), "frequency": 0.25} for v in med_v]
-
     # loop through all catchments
     for catID in catids:
 
@@ -1641,41 +1360,31 @@ def create_topmodel_input(
         imap = 1
         yes_print_output = 1
         area = 1
-        twi = json.loads(dfa.loc[catID]['dist_4.twi'])
-        # If twi_dist_4 does not have proper values, set to default value
-        if not any('v' in d for d in twi):
-            twi = default_twi.copy()
-        twi_df = pd.DataFrame(twi)
-        num_topodex_values = len(twi)
+        num_topodex_values = 4
 
         num_channels = 1
         cum_dist_area_with_dist = 1
-        dist_from_outlet = round(dfa.loc[catID]['lengthkm'] * 1000)  # convert km to m
+        dist_from_outlet = round(flowpaths_df.loc[catID]['length_km'] * 1000)  # convert km to m
 
         # Format parameters for output
-        subcat_line1 = f"{num_sub_catchments} {imap} {yes_print_output} \n"
-        subcat_line2 = f"Extracted study basin:  {catID} \n"
-        subcat_line3 = f"{num_topodex_values} {area} \n"
-        subcat_line5 = f"{num_channels}\n"
-        subcat_line6 = f"{cum_dist_area_with_dist} {dist_from_outlet}\n"
+        subcat_lines = [
+            f"{num_sub_catchments} {imap} {yes_print_output} \n",
+            f"Extracted study basin:  {catID} \n",
+            f"{num_topodex_values} {area} \n",
+            f"{0.25} {divides_df.loc[catID]['twi_q25']}",
+            f"{0.25} {divides_df.loc[catID]['twi_q50']}",
+            f"{0.25} {divides_df.loc[catID]['twi_q75']}",
+            f"{0.25} {divides_df.loc[catID]['twi_q100']}",
+            f"{num_channels}\n",
+            f"{cum_dist_area_with_dist} {dist_from_outlet}\n"
+        ]
 
         # Write subcatchment data to file
         cfg_filename_subcat = f'{catID}_topmodel_subcat.dat'
         cfg_filename_subcat_path = os.path.join(inputDir, cfg_filename_subcat)
 
         with open(cfg_filename_subcat_path, 'w') as outfile:
-            outfile.write(subcat_line1)
-            outfile.write(subcat_line2)
-            outfile.write(subcat_line3)
-        try:
-            twi_df.to_csv(cfg_filename_subcat_path, mode='a', sep=' ', columns=['frequency', 'v'], index=False, header=False)
-        except Exception:
-            print(str(catID))
-            print(twi_df)
-            raise
-        with open(cfg_filename_subcat_path, 'a') as outfile:
-            outfile.write(subcat_line5)
-            outfile.write(subcat_line6)
+            outfile.writelines(subcat_lines)
 
         # Set topmodel_params.dat
         params = OrderedDict()
