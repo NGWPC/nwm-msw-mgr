@@ -263,78 +263,89 @@ def create_cfe_input(
 
     os.makedirs(cfe_input_dir, exist_ok=True)
 
-    # Set surface partitioning scheme and is_aet_rootzone flag
-    scheme = 'Schaake'
-    if run_type != 'regionalization':
-        mods = modules
-        if 'cfex' in mods:
-            scheme = 'Xinanjiang'
-        rootzone_flag = is_aet_rootzone if 'smp' in mods else 0
+    # Base configuration template
+    base_config = [
+        'forcing_file=BMI',
+        'verbosity=1',
+        'surface_runoff_scheme=GIUH',
+        'DEBUG=0',
+        'num_timesteps=10',
+        'alpha_fc=0.33',
+        'giuh_ordinates=0.55, 0.25, 0.2[]',
+        'gw_storage=0.05[m/m]',
+        'K_lf=0.01[]',
+        'K_nash=0.003[1/m]',
+        'nash_storage=0.0,0.0[]',
+        'soil_params.depth=2.0[m]',
+        'soil_params.expon=1[]',
+        'soil_params.expon_secondary=1[]',
+        'soil_storage=0.5[m/m]',
+    ]
+
+    # Set module list and rootzone flag for non-regionalization
+    mods_list = modules if run_type != 'regionalization' else None
+    rootzone_flag_default = is_aet_rootzone if run_type != 'regionalization' else None
 
     # Create bmi config files
-    for i in range(len(catids)):
-
-        catID = catids[i]
+    for i, catID in enumerate(catids):
 
         # Set module list and is_aet_rootzone flag for each catchment during regionalization
-        if run_type == 'regionalization':
-            mods = modules[i]
-            if ('cfex' in mods):
-                scheme = 'Xinanjiang'
-            rootzone_flag = is_aet_rootzone[catID] if 'smp' in mods else 0
+        mods = modules[i] if run_type == 'regionalization' else mods_list
+        rootzone_flag = is_aet_rootzone[catID] if run_type == 'regionalization' else rootzone_flag_default
 
-        # Set sft coupling
-        if 'sft' in mods:
-            sft_coupled = '1'
-        else:
-            sft_coupled = '0'
+        # Set sft coupling and surface partitioning scheme
+        scheme = 'Xinanjiang' if 'cfex' in mods else 'Schaake'
+        sft_coupled = '1' if 'sft' in mods else '0'
 
-        cfe_bmi_file = os.path.join(cfe_input_dir, catID + "_bmi_config_cfe.txt")
-        f = open(cfe_bmi_file, "w")
-        f.write("%s" % ("forcing_file=BMI\n"))
-        f.write("%s" % ("verbosity=1\n"))
-        f.write("%s" % ("surface_water_partitioning_scheme=" + scheme + "\n"))
-        f.write("%s" % ("surface_runoff_scheme=GIUH\n"))
-        f.write("%s" % ("DEBUG=0\n"))
-        f.write("%s" % ("num_timesteps=10\n"))
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
+
+        # Build catchment specific configuration
+        config = base_config.copy()
+        config.insert(2, f'surface_water_partitioning_scheme={scheme}')
+
+        # Add SFT parameters if in use
         if 'cfes' in mods:
-            f.write("%s" % ("is_sft_coupled=" + sft_coupled + "\n"))
-            f.write("%s" % ("ice_content_threshold=0.15\n"))
-        f.write("%s" % ("alpha_fc=0.33\n"))
-        f.write("%s" % ("Cgw=" + str(divides_df.loc[catID]['cgw']) + "[m/hr]\n"))
-        f.write("%s" % ("expon=" + str(divides_df.loc[catID]['expon']) + "[]\n"))
-        f.write("%s" % ("giuh_ordinates=0.55, 0.25, 0.2[]\n"))
-        f.write("%s" % ("gw_storage=0.05[m/m]\n"))
-        f.write("%s" % ("K_lf=0.01[]\n"))
-        f.write("%s" % ("K_nash=0.003[1/m]\n"))
-        f.write("%s" % ("max_gw_storage=" + str(divides_df.loc[catID]['max_gw_storage']) + "[m]\n"))
-        f.write("%s" % ("nash_storage=0.0,0.0[]\n"))
-        f.write("%s" % ("refkdt=" + str(divides_df.loc[catID]['refkdt_mean']) + "[]\n"))
-        f.write("%s" % ("soil_params.b=" + str(divides_df.loc[catID]['bexp_mode']) + "[]\n"))
-        f.write("%s" % ("soil_params.depth=2.0[m]\n"))
-        f.write("%s" % ("soil_params.expon=1[]\n"))
-        f.write("%s" % ("soil_params.expon_secondary=1[]\n"))
-        f.write("%s" % ("soil_params.satdk=" + str(divides_df.loc[catID]['dksat_geomean']) + "[m/s]\n"))
-        f.write("%s" % ("soil_params.satpsi=" + str(divides_df.loc[catID]['psisat_geomean']) + "[m]\n"))
-        f.write("%s" % ("soil_params.slop=" + str(divides_df.loc[catID]['slope1km_mean']) + "[m/m]\n"))
-        f.write("%s" % ("soil_params.smcmax=" + str(divides_df.loc[catID]['smcmax_mean']) + "[m/m]\n"))
-        f.write("%s" % ("soil_params.wltsmc=" + str(divides_df.loc[catID]['smcwlt_mean']) + "[m/m]\n"))
-        f.write("%s" % ("soil_storage=0.5[m/m]\n"))
+            config.extend([
+                f'is_sft_coupled={sft_coupled}',
+                'ice_content_threshold=0.15'
+            ])
 
-        # Add aet_rootzone parameters if option is selected
+        # Add catchment specific parameters
+        config.extend([
+            f'Cgw={cat_attrs["cgw"]}[m/hr]',
+            f'expon={cat_attrs["expon"]}[]',
+            f'max_gw_storage={cat_attrs["max_gw_storage"]}[m]',
+            f'refkdt={cat_attrs["refkdt_mean"]}[]',
+            f'soil_params.b={cat_attrs["bexp_mode"]}[]',
+            f'soil_params.satdk={cat_attrs["dksat_geomean"]}[m/s]',
+            f'soil_params.satpsi={cat_attrs["psisat_geomean"]}[m]',
+            f'soil_params.slop={cat_attrs["slope1km_mean"]}[m/m]',
+            f'soil_params.smcmax={cat_attrs["smcmax_mean"]}[m/m]',
+            f'soil_params.wltsmc={cat_attrs["smcwlt_mean"]}[m/m]',
+        ])
+
+        # Add rootzone parameters if enabled
         if rootzone_flag == 1:
-            f.write("%s" % ("is_aet_rootzone=1\n"))
-            f.write("%s" % ("max_rootzone_layer=2[m]\n"))
-            f.write("%s" % ("soil_layer_depths=" + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]\n"))
+            config.extend([
+                'is_aet_rootzone=1',
+                'max_rootzone_layer=2[m]',
+                'soil_layer_depths=' + ','.join(f'{float(depth):g}' for depth in sm_profile_depth) + '[m]\n'
+            ])
 
-        # add the new parameters for cfex
+        # Add Xinanjiang parameters if in use
         if scheme == 'Xinanjiang':
-            f.write("%s" % ("a_Xinanjiang_inflection_point_parameter=" + str(divides_df.loc[catID]['a_xinanjiang_inflection_point_parameter']) + "[]\n"))
-            f.write("%s" % ("b_Xinanjiang_shape_parameter=" + str(divides_df.loc[catID]['b_xininjiang_shape_parameter']) + "[]\n"))
-            f.write("%s" % ("x_Xinanjiang_shape_parameter=" + str(divides_df.loc[catID]['x_xininjiang_shape_parameter']) + "[]\n"))
-            f.write("%s" % ("urban_decimal_fraction=0.0[]\n"))  # TODO: Does this need to be specified for each catchment or is it a constant?
+            config.extend([
+                f'a_Xinanjiang_inflection_point_parameter={cat_attrs["a_xinanjiang_inflection_point_parameter"]}[]',
+                f'b_Xinanjiang_shape_parameter={cat_attrs["b_xininjiang_shape_parameter"]}[]',
+                f'x_Xinanjiang_shape_parameter={cat_attrs["x_xininjiang_shape_parameter"]}[]',
+                'urban_decimal_fraction=0.0[]',  # TODO: Does this need to be specified for each catchment or is it a constant?
+            ])
 
-        f.close()
+        # Write config file
+        cfe_bmi_file = os.path.join(cfe_input_dir, catID + "_bmi_config_cfe.txt")
+        with open(cfe_bmi_file, 'w') as f:
+            f.write('\n'.join(config))
 
 
 def create_noah_input(
@@ -362,13 +373,13 @@ def create_noah_input(
 
     """
 
-    # Create symlink for parameter directory
     os.makedirs(noah_input_dir, exist_ok=True)
+
+    # Create symlink for parameter directory
     noah_par_tables = ['SOILPARM.TBL', 'MPTABLE.TBL', 'GENPARM.TBL']
     for par in noah_par_tables:
         src = os.path.join(param_dir_source, par)
         dst = os.path.join(noah_input_dir, par)
-        # Remove existing symlink
         if os.path.exists(dst) or os.path.islink(dst):
             try:
                 os.unlink(dst)
@@ -382,102 +393,123 @@ def create_noah_input(
             raise
 
     # Files for either the calibration and validation run or the regionalization run
-    if run_type == 'calibration':
-        run_list = ['calib', 'valid']
-    elif run_type == 'regionalization':
-        run_list = ['region']
-    elif run_type == 'default':
-        run_list = ['default']
+    run_list_map = {
+        'calibration': ['calib', 'valid'],
+        'regionalization': ['region'],
+        'default': ['default'],
+    }
+    run_list = run_list_map.get(run_type)
+
+    # Set base namelist section
+    base_namelist = {
+        'timing': [
+            "  " + "dt".ljust(19) + "= 3600.0" + "                       ! timestep [seconds]",
+            "  " + "forcing_filename".ljust(19) + "= '.'" + "                          ! file containing forcing data",
+            "  " + "output_filename".ljust(19) + "= '.'",
+        ],
+        'parameters': [
+            "  " + "parameter_dir".ljust(19) + f"= '{noah_input_dir}'",
+            "  " + "general_table".ljust(19) + "= 'GENPARM.TBL'" + "                ! general param tables and misc params",
+            "  " + "soil_table".ljust(19) + "= 'SOILPARM.TBL'" + "               ! soil param table",
+            "  " + "noahowp_table".ljust(19) + "= 'MPTABLE.TBL'" + "                ! model param tables (includes veg)",
+            "  " + "soil_class_name".ljust(19) + "= 'STAS'" + "                       ! soil class data source - 'STAS' or 'STAS-RUC'",
+            "  " + "veg_class_name".ljust(19) + "= 'USGS'" + "                       ! vegetation class data source - 'MODIFIED_IGBP_MODIS_NOAH' or 'USGS'",
+
+        ],
+        'forcing': [
+            "  " + "ZREF".ljust(19) + "= 10.0" + "                         ! measurement height for wind speed (m)",
+            "  " + "rain_snow_thresh".ljust(19) + "= 0.5" + "                          ! rain-snow temperature threshold (degrees Celcius)",
+        ],
+        'model_options': [
+            "  " + "precip_phase_option".ljust(34) + "= 6",
+            "  " + "snow_albedo_option".ljust(34) + "= 1",
+            "  " + "dynamic_veg_option".ljust(34) + "= 4",
+            "  " + "runoff_option".ljust(34) + "= 3",
+            "  " + "drainage_option".ljust(34) + "= 8",
+            "  " + "frozen_soil_option".ljust(34) + "= 1",
+            "  " + "dynamic_vic_option".ljust(34) + "= 1",
+            "  " + "radiative_transfer_option".ljust(34) + "= 3",
+            "  " + "sfc_drag_coeff_option".ljust(34) + "= 1",
+            "  " + "canopy_stom_resist_option".ljust(34) + "= 1",
+            "  " + "crop_model_option".ljust(34) + "= 0",
+            "  " + "snowsoil_temp_time_option".ljust(34) + "= 3",
+            "  " + "soil_temp_boundary_option".ljust(34) + "= 2",
+            "  " + "supercooled_water_option".ljust(34) + "= 1",
+            "  " + "stomatal_resistance_option".ljust(34) + "= 1",
+            "  " + "evap_srfc_resistance_option".ljust(34) + "= 4",
+            "  " + "subsurface_option".ljust(34) + "= 2",
+        ],
+        'structure': [
+            "  " + "nsoil".ljust(17) + "= 4              ! number of soil levels",
+            "  " + "nsnow".ljust(17) + "= 3              ! number of snow levels",
+            "  " + "nveg".ljust(17) + "= 27             ! number of vegetation type",
+            "  " + "croptype".ljust(17) + "= 0              ! crop type (0 = no crops; this option is currently inactive)",
+            "  " + "soilcolor".ljust(17) + "= 4              ! soil color code",
+        ],
+        'initial_values': [
+            "  " + "dzsnso".ljust(10) + "= 0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0      ! level thickness [m]",
+            "  " + "sice".ljust(10) + "= 0.0, 0.0, 0.0, 0.0                     ! initial soil ice profile [m3/m3]",
+            "  " + "sh2o".ljust(10) + "= 0.3, 0.3, 0.3, 0.3                     ! initial soil liquid profile [m3/m3]",
+            "  " + "zwt".ljust(10) + "= -2.0                                   ! initial water table depth below surface [m]",
+        ],
+    }
 
     for run_name in run_list:
-        if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
-            # Date
-            startdate = time_period['run_time_period'][run_name][0]
-            startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S") + datetime.timedelta(hours=1)
-            startdate = startdate.strftime("%Y%m%d%H%M")
-            enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+        if not time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
+            continue
 
-            # Specify options for namelist file
-            for catID in catids:
-                tslp = divides_df.loc[catID]['slope1km_mean']
-                azimuth = divides_df.loc[catID]['aspect_circmean']
-                lat = divides_df.loc[catID]['lat']
-                lon = divides_df.loc[catID]['lon']
-                isltype = int(divides_df.loc[catID]['isltyp_mod'])
-                vegtype = int(divides_df.loc[catID]["ivgtyp_mode"])
-                sfctype = 2 if vegtype == 16 else 1
-                nom_lst = ['&timing',
-                           "  " + "dt".ljust(19) + "= 3600.0" + "                       ! timestep [seconds]",
-                           "  " + "startdate".ljust(19) + "= " + "'" + startdate + "'" + "               ! UTC time start of simulation (YYYYMMDDhhmm)",
-                           "  " + "enddate".ljust(19) + "= " + "'" + enddate + "'" + "               ! UTC time end of simulation (YYYYMMDDhhmm)",
-                           "  " + "forcing_filename".ljust(19) + "= '.'" + "                          ! file containing forcing data",
-                           "  " + "output_filename".ljust(19) + "= '.'",
-                           '/',
-                           "",
-                           '&parameters',
-                           "  " + "parameter_dir".ljust(19) + "= " + "'" + noah_input_dir + "'",
-                           "  " + "general_table".ljust(19) + "= 'GENPARM.TBL'" + "                ! general param tables and misc params",
-                           "  " + "soil_table".ljust(19) + "= 'SOILPARM.TBL'" + "               ! soil param table",
-                           "  " + "noahowp_table".ljust(19) + "= 'MPTABLE.TBL'" + "                ! model param tables (includes veg)",
-                           "  " + "soil_class_name".ljust(19) + "= 'STAS'" + "                       ! soil class data source - 'STAS' or 'STAS-RUC'",
-                           "  " + "veg_class_name".ljust(19) + "= 'USGS'" + "                       ! vegetation class data source - 'MODIFIED_IGBP_MODIS_NOAH' or 'USGS'",
-                           '/',
-                           "",
-                           '&location',
-                           "  " + "lat".ljust(19) + "= " + str(lat) + "            ! latitude [degrees]  (-90 to 90)",
-                           "  " + "lon".ljust(19) + "= " + str(lon) + "           ! longitude [degrees] (-180 to 180)",
-                           "  " + "terrain_slope".ljust(19) + "= " + str(tslp) + "           ! terrain slope [degrees]",
-                           "  " + "azimuth".ljust(19) + "= " + str(azimuth) + "           ! terrain azimuth or aspect [degrees clockwise from north]",
-                           '/',
-                           "",
-                           "&forcing",
-                           "  " + "ZREF".ljust(19) + "= 10.0" + "                         ! measurement height for wind speed (m)",
-                           "  " + "rain_snow_thresh".ljust(19) + "= 0.5" + "                          ! rain-snow temperature threshold (degrees Celcius)",
-                           "/",
-                           "",
-                           "&model_options",
-                           "  " + "precip_phase_option".ljust(34) + "= 6",
-                           "  " + "snow_albedo_option".ljust(34) + "= 1",
-                           "  " + "dynamic_veg_option".ljust(34) + "= 4",
-                           "  " + "runoff_option".ljust(34) + "= 3",
-                           "  " + "drainage_option".ljust(34) + "= 8",
-                           "  " + "frozen_soil_option".ljust(34) + "= 1",
-                           "  " + "dynamic_vic_option".ljust(34) + "= 1",
-                           "  " + "radiative_transfer_option".ljust(34) + "= 3",
-                           "  " + "sfc_drag_coeff_option".ljust(34) + "= 1",
-                           "  " + "canopy_stom_resist_option".ljust(34) + "= 1",
-                           "  " + "crop_model_option".ljust(34) + "= 0",
-                           "  " + "snowsoil_temp_time_option".ljust(34) + "= 3",
-                           "  " + "soil_temp_boundary_option".ljust(34) + "= 2",
-                           "  " + "supercooled_water_option".ljust(34) + "= 1",
-                           "  " + "stomatal_resistance_option".ljust(34) + "= 1",
-                           "  " + "evap_srfc_resistance_option".ljust(34) + "= 4",
-                           "  " + "subsurface_option".ljust(34) + "= 2",
-                           "/",
-                           "",
-                           "&structure",
-                           "  " + "isltyp".ljust(17) + "= " + str(isltype) + "              ! soil texture class",
-                           "  " + "nsoil".ljust(17) + "= 4              ! number of soil levels",
-                           "  " + "nsnow".ljust(17) + "= 3              ! number of snow levels",
-                           "  " + "nveg".ljust(17) + "= 27             ! number of vegetation type",
-                           "  " + "vegtyp".ljust(17) + "= " + str(vegtype) + "             ! vegetation type",
-                           "  " + "croptype".ljust(17) + "= 0              ! crop type (0 = no crops; this option is currently inactive)",
-                           "  " + "sfctyp".ljust(17) + "= " + str(sfctype) + "              ! land surface type, 1:soil, 2:lake",
-                           "  " + "soilcolor".ljust(17) + "= 4              ! soil color code",
-                           "/",
-                           "",
-                           "&initial_values",
-                           "  " + "dzsnso".ljust(10) + "= 0.0, 0.0, 0.0, 0.1, 0.3, 0.6, 1.0      ! level thickness [m]",
-                           "  " + "sice".ljust(10) + "= 0.0, 0.0, 0.0, 0.0                     ! initial soil ice profile [m3/m3]",
-                           "  " + "sh2o".ljust(10) + "= 0.3, 0.3, 0.3, 0.3                     ! initial soil liquid profile [m3/m3]",
-                           "  " + "zwt".ljust(10) + "= -2.0                                   ! initial water table depth below surface [m]",
-                           "/",
-                           ]
+        # Parse dates
+        startdate = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S")
+        startdate = (startdate + datetime.timedelta(hours=1)).strftime("%Y%m%d%H%M")  # TODO: Should NOAH have a start time + 1 hour?
+        enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
 
-                namelst = os.path.join(noah_input_dir, '{}'.format(catID) + '_' + run_name + '.input')
-                with open(namelst, 'w') as outfile:
-                    outfile.writelines('\n'.join(nom_lst))
-                    outfile.write("\n")
+        # Specify options for namelist file
+        for catID in catids:
+            # Get catchment attributes
+            cat_attrs = divides_df.loc[catID]
+            tslp = cat_attrs['slope1km_mean']
+            azimuth = cat_attrs['aspect_circmean']
+            lat = cat_attrs['lat']
+            lon = cat_attrs['lon']
+            isltype = int(cat_attrs['isltyp_mod'])
+            vegtype = int(cat_attrs["ivgtyp_mode"])
+            sfctype = 2 if vegtype == 16 else 1
+
+            # Build catchment specific namelist file
+            nom_lst = ['&timing']
+            nom_lst.extend(base_namelist['timing'])
+            nom_lst.extend([
+                "  " + "startdate".ljust(19) + f"= '{startdate}'" + "               ! UTC time start of simulation (YYYYMMDDhhmm)",
+                "  " + "enddate".ljust(19) + f"= '{enddate}'" + "               ! UTC time end of simulation (YYYYMMDDhhmm)",
+            ])
+            nom_lst.extend(['/', '', '&parameters'])
+            nom_lst.extend(base_namelist['parameters'])
+            nom_lst.extend(['/', '', '&location'])
+            nom_lst.extend([
+                "  " + "lat".ljust(19) + f"= {lat}" + "            ! latitude [degrees]  (-90 to 90)",
+                "  " + "lon".ljust(19) + f"= {lon}" + "           ! longitude [degrees] (-180 to 180)",
+                "  " + "terrain_slope".ljust(19) + f"= {tslp}" + "           ! terrain slope [degrees]",
+                "  " + "azimuth".ljust(19) + f"= {azimuth}" + "           ! terrain azimuth or aspect [degrees clockwise from north]",
+
+            ])
+            nom_lst.extend(['/', '', '&forcing'])
+            nom_lst.extend(base_namelist['forcing'])
+            nom_lst.extend(['/', '', '&model_options'])
+            nom_lst.extend(base_namelist['model_options'])
+            nom_lst.extend(['/', '', '&structure'])
+            nom_lst.extend([
+                "  " + "isltyp".ljust(17) + f"= {isltype}" + "              ! soil texture class",
+                "  " + "vegtyp".ljust(17) + f"= {vegtype}" + "             ! vegetation type",
+                "  " + "sfctyp".ljust(17) + f"= {sfctype}" + "              ! land surface type, 1:soil, 2:lake",
+            ])
+            nom_lst.extend(base_namelist['structure'])
+            nom_lst.extend(['/', '', '&initial_values'])
+            nom_lst.extend(base_namelist['initial_values'])
+            nom_lst.append('/')
+
+            namelst = os.path.join(noah_input_dir, f'{catID}_{run_name}.input')
+            with open(namelst, 'w') as outfile:
+                outfile.write('\n'.join(nom_lst) + '\n')
 
 
 def create_sft_smp_input(
@@ -519,55 +551,80 @@ def create_sft_smp_input(
     mtemp = 280.372  # TODO: Are we okay with a soil temp of 45 degrees for each layer
     soil_temp_str = ','.join([str(mtemp)] * 4)
 
-    # Create bmi config files
-    for i in range(len(catids)):
+    # Base SFT config template
+    sft_base = [
+        'verbosity=none',
+        'soil_moisture_bmi=1',
+        'end_time=1.[d]',
+        'dt=1.0[h]',
+    ]
 
-        catID = catids[i]
+    # Base SMP config template
+    smp_base = [
+        'verbosity=none',
+    ]
+
+    # SMP model-specific configurations
+    smp_model_configs = {
+        'cfe': ['soil_moisture_model=conceptual', 'soil_storage_depth=2.0'],
+        'sac': ['soil_moisture_model=conceptual', 'soil_storage_depth=2.0'],
+        'topmodel': ['soil_storage_model=TopModel', 'water_table_based_method=flux_based'],
+        'lasam': ['soil_storage_model=layered', 'soil_moisture_profile_option=constant', 'soil_depth_layers=2.0', 'water_table_depth=10[m]'],
+    }
+
+    # Create bmi config files
+    for i, catID in enumerate(catids):
 
         # Set module list for each catchment during regionalization
-        if run_type == 'regionalization':
-            mods = modules[i]
-            if ('cfex' in mods):
-                icefscheme = 'Xinanjiang'
+        mods = modules[i] if run_type == 'regionalization' else mods_list
 
-        # Create sft list
-        sft_lst = ['verbosity=none',
-                   'soil_moisture_bmi=1',
-                   'end_time=1.[d]',
-                   'dt=1.0[h]',
-                   'soil_params.smcmax=' + str(divides_df.loc[catID]['smcmax_mean']) + '[m/m]',
-                   'soil_params.b=' + str(divides_df.loc[catID]['bexp_mode']) + '[]',
-                   'soil_params.satpsi=' + str(divides_df.loc[catID]['psisat_geomean']) + '[m]',
-                   'soil_params.quartz=' + str(divides_df.loc[catID]['quartz_mean']) + '[m]',
-                   'ice_fraction_scheme=' + icefscheme,
-                   'soil_z=' + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
-                   'soil_temperature=' + ','.join([str(mtemp)] * 4) + '[K]'
-                   ]
+        # Determine ice fraction scheme
+        icefscheme = 'Xinanjiang' if 'cfex' in mods else 'Schaake'
 
-        # Write sft config to file
-        sft_bmi_file = os.path.join(sft_dir, catID + '_bmi_config_sft.txt')
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
+
+        # Build SFT config
+        sft_config = sft_base.copy()
+        sft_config.extend([
+            f'soil_params.smcmax={cat_attrs["smcmax_mean"]}[m/m]',
+            f'soil_params.b={cat_attrs["bexp_mode"]}[]',
+            f'soil_params.satpsi={cat_attrs["psisat_geomean"]}[m]',
+            f'soil_params.quartz={cat_attrs["quartz_mean"]}[m]',
+            f'ice_fraction_scheme={icefscheme}',
+            f'soil_z={sm_profile_str}[m]',
+            f'soil_temperature={soil_temp_str}[K]',
+        ])
+
+        # Write SFT config
+        sft_bmi_file = os.path.join(sft_dir, f'{catID}_bmi_config_sft.txt')
         with open(sft_bmi_file, "w") as f:
-            f.writelines('\n'.join(sft_lst))
+            f.write('\n'.join(sft_config))
 
-        # Create smp list
-        smp_lst = ['verbosity=none',
-                   'soil_params.smcmax=' + str(divides_df.loc[catID]['smcmax_mean']) + '[m/m]',
-                   'soil_params.b=' + str(divides_df.loc[catID]['bexp_mode']) + '[]',
-                   'soil_params.satpsi=' + str(divides_df.loc[catID]['psisat_geomean']) + '[m]',
-                   'soil_z=' + ",".join(f"{float(depth):g}" for depth in sm_profile_depth) + "[m]",
-                   'soil_moisture_fraction_depth=' + str(sm_frac_depth) + '[m]']
+        # Build SMP config
+        smp_config = smp_base.copy()
+        smp_config.extend([
+            f'soil_params.smcmax={cat_attrs["smcmax_mean"]}[m/m]',
+            f'soil_params.b={cat_attrs["bexp_mode"]}[]',
+            f'soil_params.satpsi={cat_attrs["psisat_geomean"]}[m]',
+            f'soil_z={sm_profile_str}[m]',
+            f'soil_moisture_fraction_depth={sm_frac_depth}[m]',
+        ])
 
-        if 'cfes' in mods or 'cfex' in mods or 'sac' in mods:
-            smp_lst += ['soil_storage_model=conceptual', 'soil_storage_depth=2.0']
+        # Add model-specific parameters
+        if 'cfes' in mods or 'cfex' in mods:
+            smp_config.extend(smp_model_configs['cfe'])
+        elif 'sac' in mods:
+            smp_config.extend(smp_model_configs['sac'])
         elif 'topmodel' in mods:
-            smp_lst += ['soil_storage_model=TopModel', 'water_table_based_method=flux_based']
+            smp_config.extend(smp_model_configs['topmodel'])
         elif 'lasam' in mods:
-            smp_lst += ['soil_storage_model=layered', 'soil_moisture_profile_option=constant', 'soil_depth_layers=2.0', 'water_table_depth=10[m]']
+            smp_config.extend(smp_model_configs['lasam'])
 
-        # Write smp to to file
-        smp_bmi_file = os.path.join(smp_dir, catID + '_bmi_config_smp.txt')
+        # Write SMP config
+        smp_bmi_file = os.path.join(smp_dir, f'{catID}_bmi_config_smp.txt')
         with open(smp_bmi_file, "w") as f:
-            f.writelines('\n'.join(smp_lst))
+            f.write('\n'.join(smp_config))
 
 
 def create_snow17_input(
@@ -590,74 +647,91 @@ def create_snow17_input(
    """
     os.makedirs(snow17_input_dir, exist_ok=True)
 
+    # Base parameter template
+    param_base = [
+        'scf 1.100',
+        'si 500.00',
+        'pxtemp 1.000',
+        'nmf 0.150',
+        'tipm 0.100',
+        'mbase 0.000',
+        'plwhc 0.030',
+        'daygm 0.000',
+        'adc1 0.050',
+        'adc2 0.100',
+        'adc3 0.200',
+        'adc4 0.300',
+        'adc5 0.400',
+        'adc6 0.500',
+        'adc7 0.600',
+        'adc8 0.700',
+        'adc9 0.800',
+        'adc10 0.900',
+        'adc11 1.000',
+
+    ]
+
+    # Base namelist template # TODO: Do we need to create a working standalone snow17 file
+    namelist_base = [
+        '&SNOW17_CONTROL',
+        '! === run control file for snow17bmi v. 1.x ===',
+        '',
+        '! -- basin config and path information',
+        'n_hrus              = 1            ! number of sub-areas in model',
+        'forcing_root        = "extern/snow17/test_cases/ex1/input/forcing/forcing.snow17bmi."',
+        'output_root         = "data/output/output.snow17bmi."',
+        'output_hrus         = 1            ! output HRU results? (1=yes; 0=no)',
+        '',
+        '! -- run period information',
+        'start_datehr        = 2017120101   ! start date time, backward looking (check)',
+        'end_datehr          = 2017120123   ! end date time',
+        'model_timestep      = 3600        ! in seconds (86400 seconds = 1 day)',
+        '',
+        '! -- state start/write flags and files',
+        'warm_start_run      = 0  ! is this run started from a state file?  (no=0 yes=1)',
+        "write_states        = 0  ! write restart/state files for 'warm_start' runs (no=0 yes=1)",
+        '',
+        '! -- filenames only needed if warm_start_run = 1',
+        'snow_state_in_root  = "data/state/snow17_states."  ! input state filename root',
+        '',
+        '! -- filenames only needed if write_states = 1',
+        'snow_state_out_root = "data/state/snow17_states."  ! output states filename root',
+        '/',
+        ''
+    ]
+
     for catID in catids:
 
-        # Set catchment-specific snow17 config parameters
-        param_list = ['hru_id ' + catID,
-                      'hru_area ' + str(divides_df.loc[catID]['area_sqkm']),
-                      'latitude ' + str(divides_df.loc[catID]['lat']),
-                      'elev ' + str(divides_df.loc[catID]['elevation_mean']),
-                      'scf 1.100',
-                      'mfmax ' + str(divides_df.loc[catID]['mfmax_mean']),
-                      'mfmin ' + str(divides_df.loc[catID]['mfmin_mean']),
-                      'uadj ' + str(divides_df.loc[catID]['uadj_mean']),
-                      'si 500.00',
-                      'pxtemp 1.000',
-                      'nmf 0.150',
-                      'tipm 0.100',
-                      'mbase 0.000',
-                      'plwhc 0.030',
-                      'daygm 0.000',
-                      'adc1 0.050',
-                      'adc2 0.100',
-                      'adc3 0.200',
-                      'adc4 0.300',
-                      'adc5 0.400',
-                      'adc6 0.500',
-                      'adc7 0.600',
-                      'adc8 0.700',
-                      'adc9 0.800',
-                      'adc10 0.900',
-                      'adc11 1.000']
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
 
-        input_file = os.path.join(snow17_input_dir, 'snow17-init-' + catID + '.namelist.input')
-        param_file = os.path.join(snow17_input_dir, 'snow17_params-' + catID + '.txt')
-
-        with open(param_file, "w") as f:
-            f.writelines('\n'.join(param_list))
-
-        # Namelist file is only used when module is run separately from ngen  # TODO: Do we need to create a working standalone snow17 file
-        input_list = ['&SNOW17_CONTROL',
-                      '! === run control file for snow17bmi v. 1.x ===',
-                      '',
-                      '! -- basin config and path information',
-                      'main_id             = "' + catID + '"     ! basin label or gage id',
-                      'n_hrus              = 1            ! number of sub-areas in model',
-                      'forcing_root        = "extern/snow17/test_cases/ex1/input/forcing/forcing.snow17bmi."',
-                      'output_root         = "data/output/output.snow17bmi."',
-                      'snow17_param_file   = "' + param_file + '"',
-                      'output_hrus         = 1            ! output HRU results? (1=yes; 0=no)',
-                      '',
-                      '! -- run period information',
-                      'start_datehr        = 2017120101   ! start date time, backward looking (check)',
-                      'end_datehr          = 2017120123   ! end date time',
-                      'model_timestep      = 3600        ! in seconds (86400 seconds = 1 day)',
-                      '',
-                      '! -- state start/write flags and files',
-                      'warm_start_run      = 0  ! is this run started from a state file?  (no=0 yes=1)',
-                      "write_states        = 0  ! write restart/state files for 'warm_start' runs (no=0 yes=1)",
-                      '',
-                      '! -- filenames only needed if warm_start_run = 1',
-                      'snow_state_in_root  = "data/state/snow17_states."  ! input state filename root',
-                      '',
-                      '! -- filenames only needed if write_states = 1',
-                      'snow_state_out_root = "data/state/snow17_states."  ! output states filename root',
-                      '/',
-                      ''
+        # Build catchment-specific snow17 config parameters
+        param_list = [f'hru_id {catID}',
+                      f'hru_area {cat_attrs["area_sqkm"]}',
+                      f'latitude {cat_attrs["lat"]}',
+                      f'elev {cat_attrs["elevation_mean"]}',
                       ]
+        param_list.extend(param_base)
+        param_list.extend([
+            f'mfmax {cat_attrs["mfmax_mean"]}',
+            f'mfmin {cat_attrs["mfmin_mean"]}',
+            f'uadj {cat_attrs["uadj_mean"]}',
+        ])
 
+        # Write parameter file
+        param_file = os.path.join(snow17_input_dir, f'snow17_params-{catID}.txt')
+        with open(param_file, "w") as f:
+            f.write('\n'.join(param_list))
+
+        # Build namelist file
+        input_list = namelist_base.copy()
+        input_list.insert(4, f'main_id             = "{catID}"     ! basin label or gage id')
+        input_list.insert(8, f'snow17_param_file   = "{param_file}"')
+
+        # Write namelist file
+        input_file = os.path.join(snow17_input_dir, f'snow17-init-{catID}.namelist.input')
         with open(input_file, "w") as f:
-            f.writelines('\n'.join(input_list))
+            f.write('\n'.join(input_list))
 
 
 def create_ueb_input(
@@ -690,15 +764,15 @@ def create_ueb_input(
     const_file_str = ['inputctr', 'outputctr', 'params']
     const_files = {}
     for par in const_file_str:
-        src = Path(param_dir_source, 'ueb_' + par + '.dat').absolute()
+        src = Path(param_dir_source, f'ueb_{par}.dat').absolute()
         if not os.path.exists(src):
             try:
                 raise FileNotFoundError(src)
             except FileNotFoundError as e:
                 logger.critical(e)
                 raise
-        dst = os.path.join(ueb_input_dir, 'ueb_' + par + '.dat')
-        const_files.update({par: dst})
+        dst = os.path.join(ueb_input_dir, f'ueb_{par}.dat')
+        const_files[par] = dst
 
         # Remove existing file or symlink
         if os.path.exists(dst) or os.path.islink(dst):
@@ -717,19 +791,34 @@ def create_ueb_input(
     with open(temp_file) as f:
         template_lines = f.readlines()
 
-    # sitevars file
-    for catID in catids:
-        # create the sitevars file based on a template file
-        site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
+    # Temperature delta line mapping
+    temp_delta_lines = {
+        'temp_delta_jan_mean': 57,
+        'temp_delta_feb_mean': 60,
+        'temp_delta_mar_mean': 63,
+        'temp_delta_apr_mean': 66,
+        'temp_delta_may_mean': 69,
+        'temp_delta_jun_mean': 72,
+        'temp_delta_jul_mean': 75,
+        'temp_delta_aug_mean': 78,
+        'temp_delta_sep_mean': 81,
+        'temp_delta_oct_mean': 84,
+        'temp_delta_nov_mean': 87,
+        'temp_delta_dec_mean': 90,
+    }
 
-        # retrieve slope, aspect, lat and lon from precomputed attributes file
-        tslp = divides_df.loc[catID]['slope1km_mean']
-        azimuth = divides_df.loc[catID]['aspect_circmean']
-        lat = divides_df.loc[catID]['lat']
-        lon = divides_df.loc[catID]['lon']
+    # Create sitevars files for each catchment
+    for catID in catids:
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
+        tslp = cat_attrs['slope1km_mean']
+        azimuth = cat_attrs['aspect_circmean']
+        lat = cat_attrs['lat']
+        lon = cat_attrs['lon']
+        elevation = cat_attrs['elevation_mean']
 
         # Compute atmospheric pressure based on elevation
-        std_atm_pressure = round(Atmosphere(divides_df.loc[catID]['elevation_mean']).pressure[0], 4)
+        std_atm_pressure = round(Atmosphere(elevation).pressure[0], 4)
 
         # Update template with catchment-specific values
         lines = template_lines.copy()
@@ -737,60 +826,64 @@ def create_ueb_input(
         lines[39] = f'{tslp}\n'
         lines[42] = f'{azimuth}\n'
         lines[45] = f'{lat}\n'
-        lines[57] = f"{divides_df['temp_delta_jan_mean']}\n"
-        lines[60] = f"{divides_df['temp_delta_feb_mean']}\n"
-        lines[63] = f"{divides_df['temp_delta_mar_mean']}\n"
-        lines[66] = f"{divides_df['temp_delta_apr_mean']}\n"
-        lines[69] = f"{divides_df['temp_delta_may_mean']}\n"
-        lines[72] = f"{divides_df['temp_delta_jun_mean']}\n"
-        lines[75] = f"{divides_df['temp_delta_jul_mean']}\n"
-        lines[78] = f"{divides_df['temp_delta_aug_mean']}\n"
-        lines[81] = f"{divides_df['temp_delta_sep_mean']}\n"
-        lines[84] = f"{divides_df['temp_delta_oct_mean']}\n"
-        lines[87] = f"{divides_df['temp_delta_nov_mean']}\n"
-        lines[90] = f"{divides_df['temp_delta_dec_mean']}\n"
         lines[96] = f'{lon}\n'
 
+        # Update temperature delta values
+        for col, line_idx in temp_delta_lines.items():
+            lines[line_idx] = f"{cat_attrs[col]}\n"
+
+        # Write sitevars file
+        site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-f{catID}.dat')
         with open(site_file, 'w') as outfile:
             outfile.writelines(lines)
 
-    # ueb-init files need to be created for both calibration and validation runs or regionalization runs
-    if run_type == 'calibration':
-        run_list = ['calib', 'valid']
-    elif run_type == 'regionalization':
-        run_list = ['region']
-    elif run_type == 'default':
-        run_list = ['default']
+    # Determine run list based on run type
+    run_list_map = {
+        'calibration': ['calib', 'valid'],
+        'regionalization': ['region'],
+        'default': ['default']
+    }
+    run_list = run_list_map.get(run_type)
+
+    # Set base init file template
+    init_base = ['UEBGrid Model Driver Test for TWDEF',  # TODO does this need to be updated?
+                 '1.0',
+                 '-7.0',
+                 '0',
+                 '1 15 16',  # TODO: Confirm time zone offset is correct
+                 '1 1'
+                 ]
 
     for run_name in run_list:
-        if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
-            # Date
-            startdate = time_period['run_time_period'][run_name][0]
-            startdate = datetime.datetime.strptime(startdate, "%Y-%m-%d %H:%M:%S")
-            startdate = startdate.strftime("%Y%m%d%H%M")
-            enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
-            for catID in catids:
-                input_file = os.path.join(ueb_input_dir, 'ueb-init-' + catID + '_' + run_name + '.dat')
-                site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-' + catID + '.dat')
-                input_list = [
-                    'UEBGrid Model Driver Test for TWDEF',  # TODO does this need to be updated?
-                    const_files['params'],
-                    site_file,
-                    const_files['inputctr'],
-                    const_files['outputctr'],
-                    param_dir_source + '/aggout.nc ',
-                    param_dir_source + '/watershed_onecell.nc',
-                    'watershed y x',
-                    f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0',
-                    f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0',
-                    '1.0',
-                    '-7.0',
-                    '0',
-                    '1 15 16',  # TODO: Confirm time zone offset is correct
-                    '1 1'
-                ]
-                with open(input_file, "w") as f:
-                    f.writelines('\n'.join(input_list))
+        if not time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
+            continue
+
+        # Parse dates
+        startdate = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S")
+        enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+
+        for catID in catids:
+            site_file = os.path.join(ueb_input_dir, f'ueb_sitevars-{catID}.dat')
+
+            # Build init file
+            input_list = [
+                init_base[0],
+                const_files['params'],
+                site_file,
+                const_files['inputctr'],
+                const_files['outputctr'],
+                f'{param_dir_source}/aggout.nc ',
+                f'{param_dir_source}/watershed_onecell.nc',
+                'watershed y x',
+                f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0',
+                f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0',
+            ]
+            input_list.extend(init_base[1:])
+
+            # Write init file
+            input_file = os.path.join(ueb_input_dir, f'ueb-init-{catID}_{run_name}.dat')
+            with open(input_file, "w") as f:
+                f.write('\n'.join(input_list))
 
 
 def create_sac_input(
@@ -813,67 +906,83 @@ def create_sac_input(
     """
     os.makedirs(sac_input_dir, exist_ok=True)
 
+    # Set base parameter template
+    param_base = [
+        'adimp 0.0000',
+        'pctim 0.0000',
+        'riva 0.000',
+        'side 0.0000',
+        'rserv 0.3000',
+        'giuh_ordinates 0.06,0.51,0.28,0.12,0.03',
+    ]
+
+    # Set namelist template  # TODO: Do we need a working sac-sma standalone file?
+    namelist_base = [
+        '&SAC_CONTROL',
+        '! === run control file for sacbmi v. 1.x ===',
+        '',
+        '! -- basin config and path information',
+        'n_hrus              = 1            ! number of sub-areas in model',
+        'forcing_root        = ""',
+        'output_root         = ""',
+        'output_hrus         = 0            ! output HRU results? (1=yes; 0=no)',
+        '',
+        '! -- run period information',
+        'start_datehr        = 2015120112   ! start date time, backward looking (check)',
+        'end_datehr          = 2015123012   ! end date time',
+        'model_timestep      = 3600        ! in seconds (86400 seconds = 1 day)',
+        '',
+        '! -- state start/write flags and files',
+        'warm_start_run      = 0  ! is this run started from a state file?  (no=0 yes=1)',
+        "write_states        = 0  ! write restart/state files for 'warm_start' runs (no=0 yes=1)",
+        '',
+        '! -- filenames only needed if warm_start_run = 1',
+        'sac_state_in_root  = "../state/sac_states."  ! input state filename root',
+        '',
+        '! -- filenames only needed if write_states = 1',
+        'sac_state_out_root = "../state/sac_states."  ! output states filename root',
+        '/',
+        ''
+    ]
+
     for catID in catids:
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
 
-        # Set catchment-specific sac-sma config parameters
-        param_list = ['hru_id ' + catID,
-                      'hru_area ' + str(divides_df.loc[catID]['area_sqkm']),
-                      'uztwm ' + str(divides_df.loc[catID]['uztwm_mean']),
-                      'uzfwm ' + str(divides_df.loc[catID]['uzfwm_mean']),
-                      'lztwm ' + str(divides_df.loc[catID]['lztwm_mean']),
-                      'lzfpm ' + str(divides_df.loc[catID]['lzfpm_mean']),
-                      'lzfsm ' + str(divides_df.loc[catID]['lzfsm_mean']),
-                      'adimp 0.0000',
-                      'uzk ' + str(divides_df.loc[catID]['uzk_mean']),
-                      'lzpk ' + str(divides_df.loc[catID]['lzpk_mean']),
-                      'lzsk ' + str(divides_df.loc[catID]['lzsk_mean']),
-                      'zperc ' + str(divides_df.loc[catID]['zperc_mean']),
-                      'rexp ' + str(divides_df.loc[catID]['rexp_mean']),
-                      'pctim 0.0000',
-                      'pfree ' + str(divides_df.loc[catID]['pfree_mean']),
-                      'riva 0.000',
-                      'side 0.0000',
-                      'rserv 0.3000',
-                      'giuh_ordinates 0.06,0.51,0.28,0.12,0.03'
-                      ]
+        # Build parameter file
+        param_list = [
+            f'hru_id {catID}',
+            f'hru_area {cat_attrs["area_sqkm"]}',
+            f'uztwm {cat_attrs["uztwm_mean"]}',
+            f'uzfwm {cat_attrs["uzfwm_mean"]}',
+            f'lztwm {cat_attrs["lztwm_mean"]}',
+            f'lzfpm {cat_attrs["lzfpm_mean"]}',
+            f'lzfsm {cat_attrs["lzfsm_mean"]}',
+            f'uzk {cat_attrs["uzk_mean"]}',
+            f'lzpk {cat_attrs["lzpk_mean"]}',
+            f'lzsk {cat_attrs["lzsk_mean"]}',
+            f'zperc {cat_attrs["zperc_mean"]}',
+            f'rexp {cat_attrs["rexp_mean"]}',
+            f'pfree {cat_attrs["pfree_mean"]}',
+        ]
 
-        input_file = os.path.join(sac_input_dir, 'sac-init-' + catID + '.namelist.input')
-        param_file = os.path.join(sac_input_dir, 'sac_params-' + catID + '.txt')
+        # Add static parameters
+        param_list.extend(param_base)
 
+        # Write parameter file
+        param_file = os.path.join(sac_input_dir, f'sac_params-{catID}.txt')
         with open(param_file, "w") as f:
-            f.writelines('\n'.join(param_list))
+            f.write('\n'.join(param_list))
 
-        # Namelist file is only used when module is run separately from ngen  # TODO: Do we need a working sac-sma standalone file?
-        input_list = ['&SAC_CONTROL',
-                      '! === run control file for sacbmi v. 1.x ===',
-                      '',
-                      '! -- basin config and path information',
-                      'main_id             = "' + catID + '"     ! basin label or gage id',
-                      'n_hrus              = 1            ! number of sub-areas in model',
-                      'forcing_root        = ""',
-                      'output_root         = ""',
-                      'sac_param_file   = "' + param_file + '"',
-                      'output_hrus         = 0            ! output HRU results? (1=yes; 0=no)',
-                      '',
-                      '! -- run period information',
-                      'start_datehr        = 2015120112   ! start date time, backward looking (check)',
-                      'end_datehr          = 2015123012   ! end date time',
-                      'model_timestep      = 3600        ! in seconds (86400 seconds = 1 day)',
-                      '',
-                      '! -- state start/write flags and files',
-                      'warm_start_run      = 0  ! is this run started from a state file?  (no=0 yes=1)',
-                      "write_states        = 0  ! write restart/state files for 'warm_start' runs (no=0 yes=1)",
-                      '',
-                      '! -- filenames only needed if warm_start_run = 1',
-                      'sac_state_in_root  = "../state/sac_states."  ! input state filename root',
-                      '',
-                      '! -- filenames only needed if write_states = 1',
-                      'sac_state_out_root = "../state/sac_states."  ! output states filename root',
-                      '/',
-                      ''
-                      ]
+        # Build namelist file
+        input_list = namelist_base.copy()
+        input_list.insert(4, f'main_id             = "{catID}"     ! basin label or gage id')
+        input_list.insert(8, f'sac_param_file   = "{param_file}"',)
+
+        # Write namelist file
+        input_file = os.path.join(sac_input_dir, f'sac-init-{catID}.namelist.input')
         with open(input_file, "w") as f:
-            f.writelines('\n'.join(input_list))
+            f.write('\n'.join(input_list))
 
 
 def update_lstm_parameters(
@@ -1066,23 +1175,33 @@ def create_lstm_input(
     # Create static LSTM config yaml files
     create_lstm_config(param_dir_source, lstm_input_dir)
 
+    # Set base namelist template
+    namelist_base = {
+        'initial_state': 'zero',
+        'timestep': '1 hour',
+        'train_cfg_file': os.path.join(lstm_input_dir, 'config.yml'),
+        'verbose': '1',
+    }
+
     # Create catchment specific LSTM bmi config files from scratch
     for catID in catids:
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
 
-        namelist = {'area_sqkm': float(divides_df.loc[catID]['area_sqkm']),
-                    'basin_id': catID,
-                    'basin_name': catID,
-                    'elev_mean': float(divides_df.loc[catID]['elevation_mean']),
-                    'initial_state': 'zero',
-                    'lat': float(divides_df.loc[catID]['lat']),
-                    'lon': float(divides_df.loc[catID]['lon']),
-                    'slope_mean': float(divides_df.loc[catID]['slope1km_mean']),
-                    'timestep': '1 hour',
-                    'train_cfg_file': os.path.join(lstm_input_dir, 'config.yml'),
-                    'verbose': '1'}
+        # Build catchment-specific namelist
+        namelist = namelist_base.copy()
+        namelist.update({
+            'area_sqkm': float(cat_attrs['area_sqkm']),
+            'basin_id': catID,
+            'basin_name': catID,
+            'elev_mean': float(cat_attrs['elevation_mean']),
+            'lat': float(cat_attrs['lat']),
+            'lon': float(cat_attrs['lon']),
+            'slope_mean': float(cat_attrs['slope1km_mean']),
+        })
 
         # Write config to file
-        input_file = os.path.join(lstm_input_dir, catID + '.yml')
+        input_file = os.path.join(lstm_input_dir, f'{catID}.yml')
         try:
             with open(input_file, "w") as f:
                 yaml.dump(namelist, f, default_flow_style=False)
@@ -1096,7 +1215,7 @@ def create_lstm_input(
 
 def create_pet_input(
         catids: List[str],
-        dfa: gpd.GeoDataFrame,
+        divides_df: gpd.GeoDataFrame,
         pet_input_dir: str,
         pet_method: int | None = None,
 ) -> None:
@@ -1148,12 +1267,15 @@ def create_pet_input(
 
     for catID in catids:
 
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
+
         # Fill template with catchment-specific values
         config = base_config.copy()
         config.extend([
-            f'latitude_degrees={dfa.loc[catID]["lat"]}',
-            f'longitude_degrees={dfa.loc[catID]["lon"]}',
-            f'site_elevation_m={dfa.loc[catID]["elevation_mean"]}',
+            f'latitude_degrees={cat_attrs["lat"]}',
+            f'longitude_degrees={cat_attrs["lon"]}',
+            f'site_elevation_m={cat_attrs["elevation_mean"]}',
         ])
 
         # Write PET bmi config files
@@ -1189,7 +1311,7 @@ def create_lasam_input(
 
     os.makedirs(input_dir, exist_ok=True)
 
-    # make sure param_dir and parameter files exist
+    # Validate and retrieve param_dir and parameter files
     if param_dir and os.path.exists(param_dir):
         soil_param_file = os.path.join(param_dir, 'vG_default_params.dat')
         if not os.path.exists(soil_param_file):
@@ -1212,53 +1334,54 @@ def create_lasam_input(
             logger.critical(e)
             raise
 
-    # Create lasam list
+    # Create base LASAM config template
     max_soil_types = 16
-    lasam_lst = ['verbosity=none',
-                 f'soil_params_file={soil_param_file}',
-                 'layer_thickness=200.0[cm]',
-                 'initial_psi=2000.0[cm]',
-                 'timestep=300[sec]',  # TODO Where should this be supplied from?
-                 'endtime=1000[hr]',  # TODO Where should this be supplied from?
-                 'forcing_resolution=3600[sec]',
-                 'ponded_depth_max=1.1[cm]',
-                 'use_closed_form_G=false',
-                 'layer_soil_type=',
-                 'max_soil_types=' + str(max_soil_types),
-                 'wilting_point_psi=15495.0[cm]',
-                 'field_capacity_psi=340.9[cm]',
-                 'giuh_ordinates=0.06,0.51,0.28,0.12,0.03',
-                 'calib_params=true',
-                 'adaptive_timestep=true',
-                 'sft_coupled=',
-                 'soil_z=10,30,100.0,200.0[cm]'
-                 ]
+    lasam_base = [
+        'verbosity=none',
+        f'soil_params_file={soil_param_file}',
+        'layer_thickness=200.0[cm]',
+        'initial_psi=2000.0[cm]',
+        'timestep=300[sec]',  # TODO Where should this be supplied from?
+        'endtime=1000[hr]',  # TODO Where should this be supplied from?
+        'forcing_resolution=3600[sec]',
+        'ponded_depth_max=1.1[cm]',
+        'use_closed_form_G=false',
+        'layer_soil_type=',
+        f'max_soil_types={max_soil_types}',
+        'wilting_point_psi=15495.0[cm]',
+        'field_capacity_psi=340.9[cm]',
+        'giuh_ordinates=0.06,0.51,0.28,0.12,0.03',  # TODO: Should the LASAM giuh ordinates match those used by other modules?
+        'calib_params=true',
+        'adaptive_timestep=true',
+        'sft_coupled=',
+        'soil_z=10,30,100.0,200.0[cm]',  # TODO: Should this match soil moisture depths supplied by user?
+    ]
 
     # Set module list for non-regionalization run
-    if run_type != 'regionalization':
-        mods = modules
+    mods_list = modules if run_type != 'regionalization' else None
 
     # Create bmi config file
     for i, catID in enumerate(catids):
-
         # Set module list for each catchment during regionalization
-        if run_type == 'regionalization':
-            mods = modules[i]
+        mods = modules[i] if run_type != 'regionalization' else mods_list
+
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
 
         # Build catchment-specific configuration
-        lasam_lst_catID = lasam_lst.copy()
-        isltyp = int(divides_df.loc[catID]['isltyp_mode'])
+        lasam_config = lasam_base.copy()
+        isltyp = int(cat_attrs['isltyp_mode'])
         if isltyp > max_soil_types:
             msg = f"LASAM soil type value {isltyp} exceeds max_soil_types={max_soil_types}"
             logger.critical(msg)
             raise ValueError(msg)
-        lasam_lst_catID[9] += str(isltyp)
-        lasam_lst_catID[16] += 'true' if 'sft' in mods else 'false'
+        lasam_config[9] += str(isltyp)
+        lasam_config[16] += 'true' if 'sft' in mods else 'false'
 
         # Write config file
-        lasam_bmi_file = os.path.join(input_dir, catID + '_bmi_config_lasam.txt')
+        lasam_bmi_file = os.path.join(input_dir, f'{catID}_bmi_config_lasam.txt')
         with open(lasam_bmi_file, "w") as f:
-            f.writelines('\n'.join(lasam_lst_catID))
+            f.write('\n'.join(lasam_config))
 
 
 def create_topoflow_glacier_input(
@@ -1283,48 +1406,57 @@ def create_topoflow_glacier_input(
     None
 
     """
-
     os.makedirs(topo_input_dir, exist_ok=True)
 
-    # Topoflow-glacier files need to be created for both calibration and validation runs or regionalization runs
-    if run_type == 'calibration':
-        run_list = ['calib', 'valid']
-    elif run_type == 'regionalization':
-        run_list = ['region']
-    elif run_type == 'default':
-        run_list = ['default']
+    # Determine run list based on run type
+    run_list_map = {
+        'calibration': ['calib', 'valid'],
+        'regionalization': ['region'],
+        'default': ['default'],
+    }
+    run_list = run_list_map.get(run_type)
+
+    # Set base parameter template
+    param_base = {
+        'forcing_file': '.',
+        'dt': 1,
+        'h_active_layer': 0.125,
+        'h0_snow': 5,
+        'h0_ice': 2,
+        'h0_swe': 0.25,
+        'h0_iwe': 1.834,
+        'T_rain_snow': 0
+    }
 
     for run_name in run_list:
-        if time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
-            # Retrieve datetimes
-            start_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
-            end_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
+        if not time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
+            continue
+
+        # Parse dates
+        start_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
+        end_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
 
         # Create topoflow-glacier parameter yaml file
         for catID in catids:
+            # Get catchment attributes
+            cat_attrs = divides_df.loc[catID]
 
-            param_dict = {
+            # Build catchment-specific dictionary
+            param_dict = param_base.copy()
+            param_dict.update({
                 'site_prefix': catID,
-                'forcing_file': '.',
-                'dt': 1,
                 'start_time': start_time,
                 'end_time': end_time,
-                'da': float(divides_df.loc[catID]['area_sqkm']),
-                'slope': float(divides_df.loc[catID]['slope1km_mean']),
-                'aspect': float(divides_df.loc[catID]['aspect_circmean']),
-                'lat': float(divides_df.loc[catID]['lat']),
-                'lon': float(divides_df.loc[catID]['lon']),
-                'elev': float(divides_df.loc[catID]['elevation_mean']),
-                'h_active_layer': 0.125,
-                'h0_snow': 5,
-                'h0_ice': 2,
-                'h0_swe': 0.25,
-                'h0_iwe': 1.834,
-                'T_rain_snow': 0
-            }
+                'da': float(cat_attrs["area_sqkm"]),
+                'slope': float(cat_attrs["slope1km_mean"]),
+                'aspect': float(cat_attrs["aspect_circmean"]),
+                'lat': float(cat_attrs["lat"]),
+                'lon': float(cat_attrs["lon"]),
+                'elev': float(cat_attrs["elevation_mean"]),
+            })
 
             # Write bmi to file
-            topo_bmi_file = os.path.join(topo_input_dir, catID + '_' + run_name + '.yaml')
+            topo_bmi_file = os.path.join(topo_input_dir, f'{catID}_{run_name}.yaml')
             with open(topo_bmi_file, 'w') as f:
                 yaml.dump(param_dict, f, default_flow_style=False, sort_keys=False)
 
@@ -1333,7 +1465,7 @@ def create_topmodel_input(
         catids: List[str],
         divides_df: gpd.GeoDataFrame,
         flowpaths_df: gpd.GeoDataFrame,
-        inputDir: Union[str, Path],
+        input_dir: Union[str, Path],
 ) -> None:
     """ Create BMI configuration file for Topmodel
 
@@ -1342,7 +1474,7 @@ def create_topmodel_input(
     catids : catchment IDs in the basin
     divides_df: dataframe containing hydrofabric divides attributes
     flowpaths_df: dataframe containing hydrofabric flowpaths attributes
-    inputDir: directory for writing topmodel bmi configuration files
+    input_dir: directory for writing topmodel bmi configuration files
 
     Returns
     ----------
@@ -1350,87 +1482,86 @@ def create_topmodel_input(
 
     """
 
-    os.makedirs(inputDir, exist_ok=True)
+    os.makedirs(input_dir, exist_ok=True)
 
-    # loop through all catchments
+    # Create base topmodel parameters template
+    params_base = OrderedDict([
+        ('szm', '0.0125'),
+        ('t0', '0.000075'),
+        ('td', '20'),
+        ('chv', '1000'),
+        ('rv', '1000'),
+        ('srmax', '0.04'),
+        ('Q0', '0.0000328'),
+        ('sr0', '0'),
+        ('infex', '0'),
+        ('xk0', '2'),
+        ('hf', '0.1'),
+        ('dth', '0.1'),
+    ])
+
+    # Set static topmodel parameters
+    num_sub_catchments = 1
+    imap = 1
+    yes_print_output = 1
+    area = 1
+    num_topodex_values = 4
+    num_channels = 1
+    cum_dist_area_with_dist = 1
+    stand_alone = '0\n'  # Set to false for BMI
+
+    # Parent directory for forcing/output files
+    parent_dir = os.path.dirname(os.path.dirname(input_dir))
+
+    # Create topmodel configuration files
     for catID in catids:
+        # Get catchment attributes
+        cat_attrs_divides = divides_df.loc[catID]
+        cat_attrs_flowpaths = flowpaths_df.loc[catID]
 
-        # Set topmodel parameters
-        num_sub_catchments = 1
-        imap = 1
-        yes_print_output = 1
-        area = 1
-        num_topodex_values = 4
+        # Calculate distance from outlet (convert km to m)
+        dist_from_outlet = round(cat_attrs_flowpaths['length_km'] * 1000)
 
-        num_channels = 1
-        cum_dist_area_with_dist = 1
-        dist_from_outlet = round(flowpaths_df.loc[catID]['length_km'] * 1000)  # convert km to m
-
-        # Format parameters for output
+        # Create subcatchment file
         subcat_lines = [
             f"{num_sub_catchments} {imap} {yes_print_output} \n",
             f"Extracted study basin:  {catID} \n",
             f"{num_topodex_values} {area} \n",
-            f"{0.25} {divides_df.loc[catID]['twi_q25']}",
-            f"{0.25} {divides_df.loc[catID]['twi_q50']}",
-            f"{0.25} {divides_df.loc[catID]['twi_q75']}",
-            f"{0.25} {divides_df.loc[catID]['twi_q100']}",
+            f"{0.25} {cat_attrs_divides['twi_q25']}",
+            f"{0.25} {cat_attrs_divides['twi_q50']}",
+            f"{0.25} {cat_attrs_divides['twi_q75']}",
+            f"{0.25} {cat_attrs_divides['twi_q100']}",
             f"{num_channels}\n",
             f"{cum_dist_area_with_dist} {dist_from_outlet}\n"
         ]
 
-        # Write subcatchment data to file
-        cfg_filename_subcat = f'{catID}_topmodel_subcat.dat'
-        cfg_filename_subcat_path = os.path.join(inputDir, cfg_filename_subcat)
+        # Write subcat file
+        subcat_file = os.path.join(input_dir, f'{catID}_topmodel_subcat.dat')
+        with open(subcat_file, 'w') as f:
+            f.writelines(subcat_lines)
 
-        with open(cfg_filename_subcat_path, 'w') as outfile:
-            outfile.writelines(subcat_lines)
+        # Create and write parameters file
+        params_values = " ".join([str(v) for v in params_base.values()])
+        params_file = os.path.join(input_dir, f'{catID}_topmodel_params.dat')
+        with open(params_file, 'w') as f:
+            f.write(f'{catID}\n')
+            f.write(params_values)
 
-        # Set topmodel_params.dat
-        params = OrderedDict()
-        params['szm'] = "0.0125"
-        params['t0'] = "0.000075"
-        params['td'] = "20"
-        params['chv'] = "1000"
-        params['rv'] = "1000"
-        params['srmax'] = "0.04"
-        params['Q0'] = "0.0000328"
-        params['sr0'] = "0"
-        params['infex'] = "0"
-        params['xk0'] = "2"
-        params['hf'] = "0.1"
-        params['dth'] = "0.1"
+        # Create run configuration file
+        run_config = [
+            stand_alone,
+            f'{catID}\n',
+            f'{os.path.join(parent_dir, catID)}_forcing.csv\n',
+            f'{subcat_file}\n',
+            f'{params_file}\n',
+            f'{os.path.join(parent_dir, catID)}_topmod.out\n',
+            f'{os.path.join(parent_dir, catID)}_hyd.out\n',
+        ]
 
-        # Format parameters for output
-        line1 = catID + '\n'
-        line2 = " ".join([str(v) for v in params.values()])
-
-        # Write parameter data to file
-        cfg_filename_dat = f'{catID}_topmodel_params.dat'
-        cfg_filename_dat_path = os.path.join(inputDir, cfg_filename_dat)
-        with open(cfg_filename_dat_path, 'w') as outfile:
-            outfile.write(line1)
-            outfile.write(line2)
-
-        # Create primary configuration file
-        stand_alone = '0\n'  # Set to false for BMI
-        title = f'{catID}\n'
-        input_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_forcing.csv\n')
-        subcat_fptr = os.path.join(inputDir, '{}'.format(catID) + '_topmodel_subcat.dat\n')
-        params_fptr = os.path.join(inputDir, '{}'.format(catID) + '_topmodel_params.dat\n')
-        output_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_topmod.out\n')
-        out_hyd_fptr = os.path.join(os.path.dirname(os.path.dirname(inputDir)), '{}'.format(catID) + '_hyd.out\n')
-
-        cfg_filename_run = f'{catID}_topmodel.run'
-        cfg_filename_path = os.path.join(inputDir, cfg_filename_run)
-        with open(cfg_filename_path, 'w') as outfile:
-            outfile.write(stand_alone)
-            outfile.write(title)
-            outfile.write(input_fptr)
-            outfile.write(subcat_fptr)
-            outfile.write(params_fptr)
-            outfile.write(output_fptr)
-            outfile.write(out_hyd_fptr)
+        # Write run file
+        run_file = os.path.join(input_dir, f'{catID}_topmodel.run')
+        with open(run_file, 'w') as f:
+            f.writelines(run_config)
 
 
 def update_noah_ueb_topo_times(
@@ -1457,18 +1588,22 @@ def update_noah_ueb_topo_times(
     real_format = 'grouped' if 'formulation_groups' in real_config else 'uniform'
 
     # Retrieve times from realization
-    start_time = real_config['time']['start_time']
-    end_time = real_config['time']['end_time']
-
     try:
+        start_time = real_config['time']['start_time']
+        end_time = real_config['time']['end_time']
         startdate = pd.to_datetime(start_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
         enddate = pd.to_datetime(end_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+        startdate_topo = pd.to_datetime(start_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
+        enddate_topo = pd.to_datetime(end_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
     except Exception as e:
         logger.critical(f"Error converting yaml config times: {real_config['time']}\n{e}")
         raise
 
     # Set modules to update
-    mod_dict = {'NoahOWP': 'noah-owp-modular', 'UEB': 'ueb', 'BmiTopoflowGlacier': 'topoflow-glacier'}
+    mod_dict = {
+        'NoahOWP': 'noah-owp-modular',
+        'UEB': 'ueb',
+        'BmiTopoflowGlacier': 'topoflow-glacier'}
 
     if real_format == 'uniform':
         modules_list = real_config['global']['formulations'][0]['params']['modules']
@@ -1479,37 +1614,42 @@ def update_noah_ueb_topo_times(
                 modules_list.extend(form['params']['modules'])
 
     # Loop through modules and update start/end times
-    for i1, form in enumerate(modules_list):
+    for form in modules_list:
         mod_params = form.get('params')
         model_name = mod_params.get('model_type_name')
-        if model_name in ['NoahOWP', 'UEB', 'BmiTopoflowGlacier']:
 
-            # read the BMI config files from the source directory in the realization file
-            src0 = mod_params.get('init_config')
-            src = Path(src0.replace('{{id}}', '*'))
-            dst = Path(input_dir, mod_dict.get(model_name) + '_input')
+        if model_name not in dict:
+            continue
 
-            try:
-                dst.mkdir(parents=True, exist_ok=True)
-            except OSError as e:
-                logger.critical(f"Failed to create directory: {dst}\n{e}")
+        # Get source files and create destination directory
+        src0 = mod_params.get('init_config')
+        src = Path(src0.replace('{{id}}', '*'))
+        dst = Path(input_dir, f'{mod_dict[model_name]}_input')
 
-            # Update times with line based editting for NoahOWP/UEB
-            if model_name in ['NoahOWP', 'UEB']:
-                for f1 in glob.glob(f'{src}'):
-                    with open(f1) as f:
-                        lines = f.readlines()
+        try:
+            dst.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            logger.critical(f"Failed to create directory: {dst}\n{e}")
+            raise
+
+        # Update times with line based editting for NoahOWP/UEB
+        if model_name in ['NoahOWP', 'UEB']:
+            for f1 in glob.glob(f'{src}'):
+                with open(f1) as f:
+                    lines = f.readlines()
 
                     # update start/end times
-                    for i2, l1 in enumerate(lines):
+                    for i, line in enumerate(lines):
                         if model_name == 'NoahOWP':
-                            if 'startdate' in l1:
-                                lines[i2] = "  " + "startdate".ljust(19) + "= " + "'" + startdate + "'" + "               ! UTC time start of simulation (YYYYMMDDhhmm)\n"
-                            elif 'enddate' in l1:
-                                lines[i2] = "  " + "enddate".ljust(19) + "= " + "'" + enddate + "'" + "               ! UTC time end of simulation (YYYYMMDDhhmm)\n"
+                            if 'startdate' in line:
+                                lines[i] = "  " + "startdate".ljust(19) + f"= '{startdate}'" + "               ! UTC time start of simulation (YYYYMMDDhhmm)\n"
+                            elif 'enddate' in line:
+                                lines[i] = "  " + "enddate".ljust(19) + f"= '{enddate}'" + "               ! UTC time end of simulation (YYYYMMDDhhmm)\n"
                         elif model_name == 'UEB':
-                            lines[8] = f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0\n'
-                            lines[9] = f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0\n'
+                            if i == 8:
+                                lines[i] = f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0\n'
+                            elif i == 9:
+                                lines[i] = f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0\n'
 
                     # Rename basename from _valid to basename_opt
                     src_basename = os.path.basename(f1)
@@ -1519,14 +1659,8 @@ def update_noah_ueb_topo_times(
                     try:
                         with open(Path(dst, new_basename), 'w') as outfile:
                             outfile.writelines(lines)
-                    except FileNotFoundError as e:
-                        logger.critical(f"File not found error when writing to {dst}\n{e}")
-                        raise
-                    except PermissionError as e:
-                        logger.critical(f"Permission denied when writing to {dst}\n{e}")
-                        raise
-                    except OSError as e:
-                        logger.critical(f"OS error when writing to {dst}\n{e}")
+                    except (FileNotFoundError, PermissionError, OSError) as e:
+                        logger.critical(f"Error writing to {dst}\n{e}")
                         raise
 
                 # replace path to BMI config file in realization file
@@ -1534,35 +1668,23 @@ def update_noah_ueb_topo_times(
                 new_basename_init = src_basename_init.replace('_valid', f'_{basename_opt}')
                 mod_params['init_config'] = str(Path(dst, new_basename_init))
 
-            # Update times with yaml-based editting for TopoflowGlacier
-            elif model_name == 'BmiTopoflowGlacier':
-                for f1 in glob.glob(f'{src}'):
-                    # Rename basename from _valid to basename_opt
-                    src_basename = os.path.basename(f1)
-                    new_basename = src_basename.replace('_valid', f'_{basename_opt}')
-                    cfg_path = Path(dst, new_basename)
+        # Update times with yaml-based editting for TopoflowGlacier
+        elif model_name == 'BmiTopoflowGlacier':
+            for f1 in glob.glob(f'{src}'):
+                cfg_path = Path(dst, os.path.basename(f1))
 
+                try:
                     with open(f1, 'r') as yaml_file:
                         cfg = yaml.safe_load(yaml_file)
-
-                    startdate_topo = pd.to_datetime(start_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
-                    enddate_topo = pd.to_datetime(end_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
 
                     cfg['start_time'] = startdate_topo
                     cfg['end_time'] = enddate_topo
 
-                    try:
-                        with open(cfg_path, 'w') as yaml_file:
-                            yaml.dump(cfg, yaml_file, default_flow_style=False, sort_keys=False)
-                    except FileNotFoundError as e:
-                        logger.critical(f"File not found error when writing to {cfg_path}\n{e}")
-                        raise
-                    except PermissionError as e:
-                        logger.critical(f"Permission denied when writing to {cfg_path}\n{e}")
-                        raise
-                    except OSError as e:
-                        logger.critical(f"OS error when writing to {cfg_path}\n{e}")
-                        raise
+                    with open(cfg_path, 'w') as yaml_file:
+                        yaml.dump(cfg, yaml_file, default_flow_style=False, sort_keys=False)
+                except (FileNotFoundError, PermissionError, OSError) as e:
+                    logger.critical(f"Error updating Topoflow-glacier config at {cfg_path}: {e}")
+                    raise
 
                 # replace path to BMI config file in realization file
                 src_basename_init = os.path.basename(src0)
@@ -1605,11 +1727,8 @@ def update_troute(
     try:
         with open(src) as fp1:
             rt_config = yaml.safe_load(fp1)
-    except FileNotFoundError as e:
-        logger.critical(f'Config file does not exist: {src}\n{e}')
-        raise
-    except yaml.YAMLError as e:
-        logger.critical(f"YAML parsing error in config file: {src}\n{e}")
+    except (FileNotFoundError, yaml.YAMLError) as e:
+        logger.critical(f'Error loading config file: {src}\n{e}')
         raise
     except Exception as e:
         logger.critical(f"Unexpected error loading config at: {src}\n{e}")
@@ -1620,18 +1739,16 @@ def update_troute(
         start_time = pd.to_datetime(real_config['time']['start_time'], format="%Y-%m-%d %H:%M:%S") - pd.Timedelta(hours=1)
         end_time = pd.to_datetime(real_config['time']['end_time'], format="%Y-%m-%d %H:%M:%S")
         nts = len(pd.date_range(start=start_time, end=end_time, freq='5min')) - 1
+        max_loop_size = divmod(nts * 300, 3600)[0] + 1
     except Exception as e:
         logger.critical(f"Error converting yaml config times: {real_config['time']}\n{e}")
         raise
-
-    max_loop_size = divmod(nts * 300, 3600)[0] + 1
-    stream_output_time = divmod(nts * 300, 3600)[0] + 1
 
     # update t-route config
     rt_config['compute_parameters']['restart_parameters']['start_datetime'] = str(start_time)
     rt_config['compute_parameters']['forcing_parameters']['nts'] = nts
     rt_config['compute_parameters']['forcing_parameters']['max_loop_size'] = max_loop_size
-    rt_config['output_parameters']['stream_output']['stream_output_time'] = stream_output_time
+    rt_config['output_parameters']['stream_output']['stream_output_time'] = max_loop_size
 
     # write to new t-route config file
     new_basename = os.path.basename(src).replace("valid_best", basename_opt)
@@ -1648,6 +1765,7 @@ def update_troute(
         raise
     except OSError as e:
         logger.critical(f"Unexpected error while writing YAML file: {new_file}\n{e}")
+        raise
 
     # update path to new t-route config in realization
     real_config['routing']['t_route_config_file_with_path'] = str(new_file)
@@ -1677,102 +1795,77 @@ def create_troute_config(
     None
 
     """
-    # Set run names
-    if run_type == 'calibration':
-        run_names = ['calib', 'valid', 'valid']
-    elif run_type == 'default':
-        run_names = ['default']
-    elif run_type == 'regionalization':
-        run_names = ['region']
+    # Determine run names based on run type
+    run_type_map = {
+        'calibration': ['calib', 'valid', 'valid'],
+        'regionalization': ['region'],
+        'default': ['default'],
+    }
+    run_names = run_type_map.get(run_type)
+
+    # Set base bmi parameters
+    bmi_param = {"flowpath_columns": ["id", "toid", "lengthkm"],
+                 "attributes_columns": ['attributes_id', 'gage', 'WaterbodyID', 'MusK', 'MusX', 'n',
+                                        'So', 'ChSlp', 'BtmWdth', 'nCC', 'TopWdthCC', 'TopWdth'],
+                 "waterbody_columns": ['hl_link', 'ifd', 'LkArea', 'LkMxE', 'OrificeA', 'OrificeC',
+                                       'OrificeE', 'WeirC', 'WeirE', 'WeirL'],
+                 "network_columns": ['network_id', 'hydroseq', 'hl_uri'],
+                 }
+
+    # Set base log parameters
+    log_param = {"showtiming": True, "log_level": 'DEBUG'}
+
+    # Network topology column mapping
+    columns = {"key": "id", "downstream": "toid", "dx": "lengthkm", "n": "n", "ncc": "nCC", "s0": "So",
+               "bw": "BtmWdth", "waterbody": "WaterbodyID", "gages": "gage", "tw": "TopWdth",
+               "twcc": "TopWdthCC", "musk": "MusK", "musx": "MusX", "cs": "ChSlp", "alt": "alt",
+               }
+
+    # Set duplicate waterbody segments  #TODO: How do we handle duplicate segments for NHF?
+    dupseg = ["717696", "1311881", "3133581", "1010832", "1023120", "1813525",
+              "1531545", "1304859", "1320604", "1233435", "11816", "1312051",
+              "2723765", "2613174", "846266", "1304891", "1233595", "1996602",
+              "2822462", "2384576", "1021504", "2360642", "1326659", "1826754",
+              "572364", "1336910", "1332558", "1023054", "3133527", "3053788",
+              "3101661", "2043487", "3056866", "1296744", "1233515", "2045165",
+              "1230577", "1010164", "1031669", "1291638", "1637751",
+              ]
+
+    # Set network topology parameters
+    nwtopo_param = {"supernetwork_parameters": {"network_type": "HYFeaturesNetwork",
+                                                "geo_file_path": gpkg_file,
+                                                "columns": columns,
+                                                "duplicate_wb_segments": dupseg},
+                    "waterbody_parameters": {"break_network_at_waterbodies": True,
+                                             "level_pool": {"level_pool_waterbody_parameter_file_path": gpkg_file}},
+                    }
+
+    # Set base data assimilation parameters
+    res_da = {"reservoir_persistence_da": {"reservoir_persistence_usgs": False,
+                                           "reservoir_persistence_usace": False},
+              "reservoir_rfc_da": {"reservoir_rfc_forecasts": False,
+                                   "reservoir_rfc_forecasts_time_series_path": None,
+                                   "reservoir_rfc_forecasts_lookback_hours": 28,
+                                   "reservoir_rfc_forecasts_offset_hours": 28,
+                                   "reservoir_rfc_forecast_persist_days": 11},
+              "reservoir_parameter_file": None,
+              }
+
+    stream_da = {"streamflow_nudging": False,
+                 "diffusive_streamflow_nudging": False,
+                 "gage_segID_crosswalk_file": None,
+                 }
 
     for file_name, run_name in zip(run_configs, run_names):
-        routing_config_file = os.path.join(rt_cfg_file + file_name)
-        run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
-        if len(time_period['run_time_period'][run_name][0]) != 0 & len(time_period['run_time_period'][run_name][0]):
-            run_range = pd.to_datetime(time_period['run_time_period'][run_name])
-            nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
+        if not len(time_period['run_time_period'][run_name][0]) != 0 & len(time_period['run_time_period'][run_name][0]):
+            continue
 
-        # bmi_parameters
-        bmi_param = {"flowpath_columns": ["id", "toid", "lengthkm"],
-                     "attributes_columns": ['attributes_id',
-                                            'gage',
-                                            'WaterbodyID',
-                                            'MusK',
-                                            'MusX',
-                                            'n',
-                                            'So',
-                                            'ChSlp',
-                                            'BtmWdth',
-                                            'nCC',
-                                            'TopWdthCC',
-                                            'TopWdth'],
-                     "waterbody_columns": ['hl_link',
-                                           'ifd',
-                                           'LkArea',
-                                           'LkMxE',
-                                           'OrificeA',
-                                           'OrificeC',
-                                           'OrificeE',
-                                           'WeirC',
-                                           'WeirE',
-                                           'WeirL'],
-                     "network_columns": ['network_id', 'hydroseq', 'hl_uri'],
-                     }
+        # Parse time and compute time steps
+        run_range = pd.to_datetime(time_period['run_time_period'][run_name])
+        nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
+        loop_size = divmod(nts * 300, 3600)[0] + 1
 
-        # log_parameters
-        log_param = {"showtiming": True, "log_level": 'DEBUG'}
-
-        # network_topology_parameters
-        columns = {"key": "id",
-                   "downstream": "toid",
-                   "dx": "lengthkm",
-                   "n": "n",
-                   "ncc": "nCC",
-                   "s0": "So",
-                   "bw": "BtmWdth",
-                   "waterbody": "WaterbodyID",
-                   "gages": "gage",
-                   "tw": "TopWdth",
-                   "twcc": "TopWdthCC",
-                   "musk": "MusK",
-                   "musx": "MusX",
-                   "cs": "ChSlp",
-                   "alt": "alt",
-                   }
-
-        dupseg = ["717696", "1311881", "3133581", "1010832", "1023120", "1813525",
-                  "1531545", "1304859", "1320604", "1233435", "11816", "1312051",
-                  "2723765", "2613174", "846266", "1304891", "1233595", "1996602",
-                  "2822462", "2384576", "1021504", "2360642", "1326659", "1826754",
-                  "572364", "1336910", "1332558", "1023054", "3133527", "3053788",
-                  "3101661", "2043487", "3056866", "1296744", "1233515", "2045165",
-                  "1230577", "1010164", "1031669", "1291638", "1637751",
-                  ]
-
-        nwtopo_param = {"supernetwork_parameters": {"network_type": "HYFeaturesNetwork",
-                                                    "geo_file_path": gpkg_file,
-                                                    "columns": columns,
-                                                    "duplicate_wb_segments": dupseg},
-                        "waterbody_parameters": {"break_network_at_waterbodies": True,
-                                                 "level_pool": {"level_pool_waterbody_parameter_file_path": gpkg_file}},
-                        }
-
-        # compute_parameters
-        res_da = {"reservoir_persistence_da": {"reservoir_persistence_usgs": False,
-                                               "reservoir_persistence_usace": False},
-                  "reservoir_rfc_da": {"reservoir_rfc_forecasts": False,
-                                       "reservoir_rfc_forecasts_time_series_path": None,
-                                       "reservoir_rfc_forecasts_lookback_hours": 28,
-                                       "reservoir_rfc_forecasts_offset_hours": 28,
-                                       "reservoir_rfc_forecast_persist_days": 11},
-                  "reservoir_parameter_file": None,
-                  }
-
-        stream_da = {"streamflow_nudging": False,
-                     "diffusive_streamflow_nudging": False,
-                     "gage_segID_crosswalk_file": None,
-                     }
-
+        # Set compute parameters
         comp_param = {"parallel_compute_method": "by-subnetwork-jit-clustered",
                       "subnetwork_target_size": 10000,
                       "cpu_pool": 16,
@@ -1784,7 +1877,7 @@ def create_troute_config(
                                              "qlat_input_folder": ".",
                                              "qlat_file_pattern_filter": "nex-*",
                                              "nts": nts,
-                                             "max_loop_size": divmod(nts * 300, 3600)[0] + 1},
+                                             "max_loop_size": loop_size},
                       "data_assimilation_parameters": {"usgs_timeslices_folder": None,
                                                        "usace_timeslices_folder": None,
                                                        "timeslice_lookback_hours": 48,
@@ -1793,9 +1886,9 @@ def create_troute_config(
                                                        "reservoir_da": res_da},
                       }
 
-        # output_parameters
+        # Set output_parameters
         output_param = {'stream_output': {'stream_output_directory': ".",
-                                          'stream_output_time': divmod(nts * 300, 3600)[0] + 1,
+                                          'stream_output_time': loop_size,
                                           'stream_output_type': '.nc',
                                           'stream_output_internal_frequency': 60,
                                           },
@@ -1810,8 +1903,10 @@ def create_troute_config(
                   }
 
         # Save configuration into yaml file
+        routing_config_file = f'{rt_cfg_file}{file_name}'
         with open(routing_config_file, 'w') as file:
             yaml.dump(config, file, sort_keys=False, default_flow_style=False, indent=4)
+        run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
         logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
 
 
