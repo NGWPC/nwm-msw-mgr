@@ -1530,6 +1530,8 @@ def create_topoflow_glacier_input(
 
     """
 
+    os.makedirs(topo_input_dir, exist_ok=True)
+
     # Topoflow-glacier files need to be created for both calibration and validation runs or regionalization runs
     if run_type == 'calibration':
         run_list = ['calib', 'valid']
