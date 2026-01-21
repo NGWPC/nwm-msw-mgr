@@ -3287,7 +3287,7 @@ def create_reg_realization_file(
             # Add additional mapping for bmi regionalization
             if forcing_provider == 'bmi':
                 var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
-                var_maps['input'][name_sw.get('csv')] = name_lw.get(forcing_provider)
+                var_maps['input'][name_sw.get('csv')] = name_sw.get(forcing_provider)
                 var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
                 var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
                 var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
@@ -3728,7 +3728,7 @@ def create_realization_file(
         # Add additional mapping for bmi regionalization
         if forcing_provider == 'bmi':
             var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
-            var_maps['input'][name_sw.get('csv')] = name_lw.get(forcing_provider)
+            var_maps['input'][name_sw.get('csv')] = name_sw.get(forcing_provider)
             var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
             var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
             var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
