@@ -2344,29 +2344,59 @@ def update_forcing_in_realization(
     return real_config
 
 
+def get_forcing_vars_map() -> dict:
+    """
+    Get CSDMS to forcing engine variable name mapping
+    """
+    return {
+        "prcp": {
+            "csv": "atmosphere_water__liquid_equivalent_precipitation_rate",
+            "bmi": "RAINRATE_ELEMENT",
+        },
+        "Q2": {
+            "csv": "atmosphere_air_water~vapor__relative_saturation",
+            "bmi": "Q2D_ELEMENT",
+        },
+        "temp": {
+            "csv": "land_surface_air__temperature",
+            "bmi": "T2D_ELEMENT",
+        },
+        "xwind": {
+            "csv": "land_surface_wind__x_component_of_velocity",
+            "bmi": "U2D_ELEMENT",
+        },
+        "ywind": {
+            "csv": "land_surface_wind__y_component_of_velocity",
+            "bmi": "V2D_ELEMENT",
+        },
+        "lw": {
+            "csv": "land_surface_radiation~incoming~longwave__energy_flux",
+            "bmi": "LWDOWN_ELEMENT",
+        },
+        "sw": {
+            "csv": "land_surface_radiation~incoming~shortwave__energy_flux",
+            "bmi": "SWDOWN_ELEMENT",
+        },
+        "pressure": {
+            "csv": "land_surface_air__pressure",
+            "bmi": "PSFC_ELEMENT",
+        },
+    }
+
+
 def map_var_names_forcing_engine(
         mod_var_names: dict
 ) -> Dict[str, str]:
     """
     Set realization variables_names_map for forcing engine based on module name
     """
+    forcing_var_map = get_forcing_vars_map()
 
     # Set variable name mapping based on forcing provider
-    name_dict = {"atmosphere_water__liquid_equivalent_precipitation_rate": "RAINRATE_ELEMENT",
-                 "atmosphere_air_water~vapor__relative_saturation": "Q2D_ELEMENT",
-                 "land_surface_air__temperature": "T2D_ELEMENT",
-                 "land_surface_wind__x_component_of_velocity": "U2D_ELEMENT",
-                 "land_surface_wind__y_component_of_velocity": "V2D_ELEMENT",
-                 "land_surface_radiation~incoming~longwave__energy_flux": "LWDOWN_ELEMENT",
-                 "land_surface_radiation~incoming~shortwave__energy_flux": "SWDOWN_ELEMENT",
-                 "land_surface_air__pressure": "PSFC_ELEMENT"}
+    name_dict = {forcing_var_map[key]["csv"]: forcing_var_map[key]["bmi"]
+                 for key in forcing_var_map}
 
-    # Update variable names to forcing provider names
-    new_mod_var_names = {
-        key: name_dict.get(value, value) for key, value in mod_var_names.items()
-    }
-
-    return new_mod_var_names
+    return {key: name_dict.get(value, value) for key, value in mod_var_names.items()}
 
 
 def var_mapping(
@@ -2409,47 +2439,40 @@ def var_mapping(
     if 'pet' in modules and ('sac' in modules or 'lasam' in modules):
         var_maps['input'][pet_in] = "water_potential_evaporation_flux"
 
-    # snowmelt
-    if 'snow17' in modules:
-        var_maps['input'][pcp_in] = 'raim'
-        if output_dict['output_swe']:
-            var_maps['output']['swe_out'] = 'sneqv'
-            var_maps['output']['swe_out_header'] = 'SWE_mm'
-            var_maps['output']['swe_out_units'] = 'mm'
-        else:
-            var_maps['output']['swe_out'] = ''
-    elif 'ueb' in modules:
-        var_maps['input'][pcp_in] = "SWIT"
-        if output_dict['output_swe']:
-            var_maps['output']['swe_out'] = 'SWE'
-            var_maps['output']['swe_out_header'] = 'SWE_m'
-            var_maps['output']['swe_out_units'] = 'm'
-        else:
-            var_maps['output']['swe_out'] = ''
-    elif 'noah' in modules:  # check noah last since it can also be included to provided ET
-        var_maps['input'][pcp_in] = "QINSUR"
-        if output_dict['output_swe']:
-            var_maps['output']['swe_out'] = 'SNEQV'
-            var_maps['output']['swe_out_header'] = 'SWE_mm'
-            var_maps['output']['swe_out_units'] = 'mm'
-        else:
-            var_maps['output']['swe_out'] = ''
+    # Map precipitation and swe output
+    swe_precip_map = {
+        'snow17': (pcp_in, 'raim', 'sneqv', 'SWE_mm', 'mm'),
+        'ueb': (pcp_in, 'SWIT', 'SWE', 'SWE_m', 'm'),
+        'noah': (pcp_in, 'QINSUR', 'SNEQV', 'SWE_mm', 'mm')
+    }
+
+    for mod, (pcp_key, pcp_var, swe_var, swe_hdr, swe_unit) in swe_precip_map.item():
+        if mod in modules:
+            # Only add precip input if pcp_var is not None
+            if pcp_var is not None:
+                var_maps['input'][pcp_key] = pcp_var
+            if output_dict['output_swe']:
+                var_maps['output']['swe_out'] = swe_var
+                var_maps['output']['swe_out_header'] = swe_hdr
+                var_maps['output']['swe_out_units'] = swe_unit
+            else:
+                var_maps['output']['swe_out'] = ''
+            break
     else:
-        # Assign precipitation forcing mapping if needed
-        if pcp_in != pcp_forcing:
-            var_maps['input'][pcp_in] = pcp_forcing
+        # Default swe_out if module is not in swe_precip_map
         var_maps['output']['swe_out'] = ''
 
     # soil moisture fraction
     if 'smp' in modules and output_dict['output_sm']:
-        # for soil moisture fraction at specified depth
+        sm_frac_depth = output_dict["sm_frac_depth"]
+        depths = output_dict.get("sm_profile_depth", [])
+
         var_maps["output"]["sm_out"] = ["soil_moisture_fraction"]
-        var_maps["output"]["sm_out_header"] = ["sm_frac_" + str(output_dict["sm_frac_depth"]) + "m"]
+        var_maps["output"]["sm_out_header"] = [f"sm_frac_{float(sm_frac_depth):g}m"]
         var_maps["output"]["sm_out_units"] = ["1"]
         var_maps["output"]["sm_out_index"] = ["0"]
 
-        # for soil moisture profile, create dictionary for each depth
-        depths = output_dict.get("sm_profile_depth", [])
+        # Add soil moisture profile for each depth
         for i, d in enumerate(depths):
             var_maps["output"]["sm_out"].append("soil_moisture_profile")
             var_maps["output"]["sm_out_header"].append(f"sm_profile_{float(d):g}m")
