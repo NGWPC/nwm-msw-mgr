@@ -1284,7 +1284,7 @@ class RealizationBuilder:
         """
         Update BMI config files for t-route for forecast period
         """
-        self.real_config = gfun.update_troute(self.real_config, self.run_dir, self.basename_opt)
+        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt)
         logger.info("Updated t-route file for forecast")
 
     def _create_bmi_configs(self):
