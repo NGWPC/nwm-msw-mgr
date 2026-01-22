@@ -402,7 +402,7 @@ class RealizationBuilder:
                 raise
 
         # Check that catchment group file is properly formatted
-        cat_req_columns = {'gage_id', 'divide_id'}
+        cat_req_columns = {'gage_id', 'div_id'}
         if not cat_req_columns.issubset(self.cat_grp_df.columns):
             missing_cols = cat_req_columns - set(self.cat_grp_df.columns)
             try:
@@ -411,7 +411,7 @@ class RealizationBuilder:
                 logger.critical(e)
                 raise
 
-        if self.cat_grp_df["divide_id"].isnull().all():
+        if self.cat_grp_df["div_id"].isnull().all():
             try:
                 raise ValueError(f"Regionalization catchment group file must not have missing values: {self.cat_grp_file}")
             except ValueError as e:
@@ -426,7 +426,7 @@ class RealizationBuilder:
         Load grouped catchment files produced by regionalization and store grouped catchment ids
         """
         # Relate formulation groups to catchment IDS
-        self.grp_to_cat = (self.cat_grp_df.groupby("gage_id")["divide_id"].apply(list).to_dict())
+        self.grp_to_cat = (self.cat_grp_df.groupby("gage_id")["div_id"].apply(list).to_dict())
 
         logger.info(f"Regionalization catchment files loaded from: {self.assign_file}")
 
@@ -839,10 +839,11 @@ class RealizationBuilder:
         # Read layers from hydrofabric
         try:
             self.divides_df = gpd.read_file(self.gpkg_file, layer='divides')
-            self.divides_df = self.divides_df.set_index('div_id', inplace=True)
+            self.catids = self.divides_df['div_id'].tolist()
+            self.divides_df.set_index('div_id', inplace=True)
             self.gages_df = gpd.read_file(self.gpkg_file, layer='gages')
             self.flowpaths_df = gpd.read_file(self.gpkg_file, layer='flowpaths')
-            self.catids = self.divides_df['div_id'].tolist()
+            self.flowpaths_df.set_index('div_id', inplace=True)
             logger.info(f"Divides and gages layers loaded from: {self.gpkg_file}")
         except Exception as e:
             logger.critical(f"Error while reading geopackage file: {e}")
@@ -1143,8 +1144,9 @@ class RealizationBuilder:
             self.all_mod = modules1.copy()
 
             # Add LSTM to all_mod if it's used in a formulation
-            if any('lstm' in form for form in self.grp_to_form.values()):
-                self.all_mod.append('lstm')
+            for mod in ['lstm', 'topoflow-glacier']:
+                if any(mod in form for form in self.grp_to_form.values()):
+                    self.all_mod.append(mod)
         else:
             modules1 = [m1 for m1 in self.modules if m1 not in ['troute', 'lstm', 'topoflow-glacier']]
 
@@ -1221,7 +1223,7 @@ class RealizationBuilder:
             # Symlink forcing files
             missing_catchment_files = []
             for catID in self.catids:
-                ffile = os.path.join(self.forcing_dir, catID + '.csv')
+                ffile = os.path.join(self.forcing_dir, f'{catID}.csv')
                 # Make sure we have the file
                 if not os.path.exists(ffile):
                     logger.info(f'Forcing file {ffile} does not exist')
@@ -1460,12 +1462,12 @@ class RealizationBuilder:
                     for scheme in ['cfes', 'cfex', 'lasam', 'topmodel', 'sac']:
                         scheme_sft_grps = [grp for grp, mods in self.grp_to_form.items() if scheme in mods and 'sft' in mods]
 
-                    if scheme_sft_grps:
-                        # Retrieve catchments and formulations corresponding to scheme
-                        scheme_cat = [cat for grp in scheme_sft_grps for cat in self.grp_to_cat[grp]]
-                        scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
-                        gfun.create_sft_smp_input(scheme_cat, scheme_form, self.divides_df, sft_dir, smp_dir, self.run_type,
-                                                  self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
+                        if scheme_sft_grps:
+                            # Retrieve catchments and formulations corresponding to scheme
+                            scheme_cat = [cat for grp in scheme_sft_grps for cat in self.grp_to_cat[grp]]
+                            scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
+                            gfun.create_sft_smp_input(scheme_cat, scheme_form, self.divides_df, sft_dir, smp_dir, self.run_type,
+                                                      self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
                 else:
                     gfun.create_sft_smp_input(cat_mod, mod_all, self.divides_df, sft_dir, smp_dir, self.run_type,
                                               self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
@@ -1556,6 +1558,7 @@ class RealizationBuilder:
         for m1 in self.modules:
             m2 = settings.modules_all.loc[settings.modules_all['module'] == m1, 'name_ui'].iloc[0]
             bmi_dir[m1] = os.path.join(self.input_dir, m2 + '_input')
+
         rt_dict = {"routing": {"t_route_config_file_with_path": routing_config_file}}
 
         # Write realization file
@@ -1891,7 +1894,7 @@ def validate_topoflow_glacier(gpkg_file: str) -> dict:
     """
 
     # Read attributes from provided geopackge
-    attr_df = gpd.read_file(gpkg_file, layer='divide-attributes')
+    attr_df = gpd.read_file(gpkg_file, layer='divides')
 
     # Count number of catchments with glacier percent >= 50%
     glacier_thresh = 50
