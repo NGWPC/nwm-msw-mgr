@@ -75,10 +75,13 @@ __all__ = [
     'create_snow17_input',
     'create_ueb_input',
     'create_sac_input',
+    'update_lstm_parameters',
+    'create_symlinks',
+    'create_lstm_config',
+    'create_lstm_input',
     'create_pet_input',
     'create_lasam_input',
     'create_topoflow_glacier_input',
-    'create_lstm_input',
     'create_topmodel_input',
     'update_noah_ueb_topo_times',
     'update_troute',
@@ -86,10 +89,20 @@ __all__ = [
     'create_fcst_times',
     'replace_forcing_placeholders',
     'update_fcst_forcing_config',
+    'update_hist_forcing_config',
     'update_forcing_in_realization',
+    'get_forcing_vars_map',
     'map_var_names_forcing_engine',
-    'create_reg_realization_file',
+    'var_mapping',
+    'get_model_type_name',
+    'create_lib_symlinks',
+    'get_sloth_params',
+    'get_smp_var_map',
+    'build_base_config',
+    'build_module_config',
+    'build_output_vars',
     'create_realization_file',
+    'create_reg_realization_file',
     'create_calib_config_file',
     'create_partition_file',
 ]
@@ -338,13 +351,13 @@ def create_cfe_input(
         if scheme == 'Xinanjiang':
             config.extend([
                 f'a_Xinanjiang_inflection_point_parameter={cat_attrs["a_xinanjiang_inflection_point_parameter"]}[]',
-                f'b_Xinanjiang_shape_parameter={cat_attrs["b_xininjiang_shape_parameter"]}[]',
-                f'x_Xinanjiang_shape_parameter={cat_attrs["x_xininjiang_shape_parameter"]}[]',
+                f'b_Xinanjiang_shape_parameter={cat_attrs["b_xinanjiang_shape_parameter"]}[]',
+                f'x_Xinanjiang_shape_parameter={cat_attrs["x_xinanjiang_shape_parameter"]}[]',
                 'urban_decimal_fraction=0.0[]',  # TODO: Does this need to be specified for each catchment or is it a constant?
             ])
 
         # Write config file
-        cfe_bmi_file = os.path.join(cfe_input_dir, catID + "_bmi_config_cfe.txt")
+        cfe_bmi_file = os.path.join(cfe_input_dir, f"{catID}_bmi_config_cfe.txt")
         with open(cfe_bmi_file, 'w') as f:
             f.write('\n'.join(config))
 
@@ -472,7 +485,7 @@ def create_noah_input(
             azimuth = cat_attrs['aspect_circmean']
             lat = cat_attrs['lat']
             lon = cat_attrs['lon']
-            isltype = int(cat_attrs['isltyp_mod'])
+            isltype = int(cat_attrs['isltyp_mode'])
             vegtype = int(cat_attrs["ivgtyp_mode"])
             sfctype = 2 if vegtype == 16 else 1
 
@@ -860,7 +873,7 @@ def create_ueb_input(
             continue
 
         # Parse dates
-        startdate = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S")
+        startdate = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
         enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
 
         for catID in catids:
@@ -1357,13 +1370,13 @@ def create_lasam_input(
         'soil_z=10,30,100.0,200.0[cm]',  # TODO: Should this match soil moisture depths supplied by user?
     ]
 
-    # Set module list for non-regionalization run
-    mods_list = modules if run_type != 'regionalization' else None
-
     # Create bmi config file
     for i, catID in enumerate(catids):
         # Set module list for each catchment during regionalization
-        mods = modules[i] if run_type != 'regionalization' else mods_list
+        if run_type == 'regionalization':
+            mods = modules[i]
+        else:
+            mods = modules
 
         # Get catchment attributes
         cat_attrs = divides_df.loc[catID]
@@ -1546,11 +1559,11 @@ def create_topmodel_input(
         run_config = [
             stand_alone,
             f'{catID}\n',
-            f'{os.path.join(parent_dir, catID)}_forcing.csv\n',
+            f'{os.path.join(parent_dir, str(catID))}_forcing.csv\n',
             f'{subcat_file}\n',
             f'{params_file}\n',
-            f'{os.path.join(parent_dir, catID)}_topmod.out\n',
-            f'{os.path.join(parent_dir, catID)}_hyd.out\n',
+            f'{os.path.join(parent_dir, str(catID))}_topmod.out\n',
+            f'{os.path.join(parent_dir, str(catID))}_hyd.out\n',
         ]
 
         # Write run file
@@ -2441,7 +2454,7 @@ def var_mapping(
         'noah': (pcp_in, 'QINSUR', 'SNEQV', 'SWE_mm', 'mm')
     }
 
-    for mod, (pcp_key, pcp_var, swe_var, swe_hdr, swe_unit) in swe_precip_map.item():
+    for mod, (pcp_key, pcp_var, swe_var, swe_hdr, swe_unit) in swe_precip_map.items():
         if mod in modules:
             # Only add precip input if pcp_var is not None
             if pcp_var is not None:
@@ -2578,8 +2591,8 @@ def get_smp_var_map(modules: List) -> dict:
 
 def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: str, forcing_provider: str, forcing_vars: dict) -> dict:
     """Build module configuration templates for realization"""
-    templates = {
-        'noah': {
+    if module == 'noah':
+        return {
             "name": "bmi_fortran",
             "model_type_name": get_model_type_name('noah'),
             "main_output_variable": "QINSUR",
@@ -2597,8 +2610,9 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
                                     "SOLDN": forcing_vars['sw'].get(forcing_provider),
                                     "SFCPRS": forcing_vars['pressure'].get(forcing_provider),
                                     },
-        },
-        'cfes': {
+        }
+    elif module == 'cfes':
+        return {
             "name": "bmi_c",
             "model_type_name": get_model_type_name('cfes'),
             "main_output_variable": "Q_OUT",
@@ -2609,8 +2623,9 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "uses_forcing_file": False,
             "registration_function": "register_bmi_cfe",
             "precip_output": "atmosphere_water__liquid_equivalent_precipitation_rate_out",
-        },
-        'cfex': {
+        }
+    elif module == 'cfex':
+        return {
             "name": "bmi_c",
             "model_type_name": get_model_type_name('cfex'),
             "main_output_variable": "Q_OUT",
@@ -2621,8 +2636,9 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "uses_forcing_file": False,
             "registration_function": "register_bmi_cfe",
             "precip_output": "atmosphere_water__liquid_equivalent_precipitation_rate_out",
-        },
-        'topmodel': {
+        }
+    elif module == 'topmodel':
+        return {
             "name": "bmi_c",
             "model_type_name": get_model_type_name('topmodel'),
             "main_output_variable": "Qout",
@@ -2633,8 +2649,10 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "uses_forcing_file": False,
             "registration_function": "register_bmi_topmodel",
             "precip_output": "atmosphere_water__liquid_equivalent_precipitation_rate_out",
-        },
-        'sac': {
+        }
+    elif module == 'sac':
+        return {
+            "name": "bmi_fortran",
             "model_type_name": get_model_type_name('sac'),
             "main_output_variable": "tci_giuh",
             "library_file": lib_mod['sac'],
@@ -2644,8 +2662,10 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "uses_forcing_file": False,
             "registration_function": "register_bmi_sac",
             "precip_output": "precip_out",
-        },
-        'snow17': {
+        }
+    elif module == 'snow17':
+        return {
+            "name": "bmi_fortran",
             "model_type_name": get_model_type_name('snow17'),
             "main_output_variable": "raim",
             "library_file": lib_mod['snow17'],
@@ -2657,8 +2677,9 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
                 "precip": forcing_vars['prcp'].get(forcing_provider),
                 "tair": forcing_vars['temp'].get(forcing_provider)
             },
-        },
-        'ueb': {
+        }
+    elif module == 'ueb':
+        return {
             "name": "bmi_c++",
             "model_type_name": get_model_type_name('ueb'),
             "main_output_variable": "SWIT",
@@ -2677,8 +2698,10 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
                 "Qsi": forcing_vars['sw'].get(forcing_provider),
                 "AP": forcing_vars['pressure'].get(forcing_provider)
             },
-        },
-        'pet': {
+        }
+    elif module == 'pet':
+        return {
+            "name": "bmi_c",
             "model_type_name": get_model_type_name('pet'),
             "main_output_variable": "water_potential_evaporation_flux",
             "library_file": lib_mod['pet'],
@@ -2687,8 +2710,9 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "fixed_time_step": False,
             "uses_forcing_file": False,
             "registration_function": "register_bmi_pet",
-        },
-        'sloth': {
+        }
+    elif module == 'sloth':
+        return {
             "name": "bmi_c++",
             "model_type_name": get_model_type_name('sloth'),
             "main_output_variable": "z",
@@ -2697,27 +2721,32 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "allow_exceed_end_time": True,
             "fixed_time_step": False,
             "uses_forcing_file": False,
-        },
-        'sft': {
+        }
+    elif module == 'sft':
+        return {
             "name": "bmi_c++",
             "model_type_name": get_model_type_name('sft'),
             "main_output_variable": "num_cells",
             "library_file": lib_mod['sft'],
             "init_config": os.path.join(bmi_dir['sft'], '{{id}}_bmi_config_sft.txt'),
             "allow_exceed_end_time": True,
+            "fixed_time_step": False,
             "uses_forcing_file": False,
             "variables_names_map": {"ground_temperature": "TGS"},
-        },
-        'smp': {
+        }
+    elif module == 'smp':
+        return {
             "name": "bmi_c++",
             "model_type_name": get_model_type_name('smp'),
             "main_output_variable": "soil_water_table",
             "library_file": lib_mod['smp'],
             "init_config": os.path.join(bmi_dir['smp'], '{{id}}_bmi_config_smp.txt'),
             "allow_exceed_end_time": True,
+            "fixed_time_step": False,
             "uses_forcing_file": False,
-        },
-        'lasam': {
+        }
+    elif module == 'lasam':
+        return {
             "name": "bmi_c++",
             "model_type_name": get_model_type_name('lasam'),
             "main_output_variable": "total_discharge",
@@ -2727,8 +2756,9 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "uses_forcing_file": False,
             "bmi_multi_output_var": "total_discharge",
             "precip_output": "precipitation_rate_out",
-        },
-        'lstm': {
+        }
+    elif module == 'lstm':
+        return {
             "name": "bmi_python",
             "python_type": "lstm.bmi_lstm.bmi_LSTM",
             "model_type_name": get_model_type_name('lstm'),
@@ -2744,8 +2774,10 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
                 "useGPU": False,
             },
             "precip_output": "precipitation_rate",
-        },
-        'topoflow-glacier': {
+            "requires_all_bmi_forcing": True,
+        }
+    elif module == 'topoflow-glacier':
+        return {
             "name": "bmi_python",
             "python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
             "model_type_name": get_model_type_name('topoflow-glacier'),
@@ -2753,14 +2785,14 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "init_config": os.path.join(bmi_dir['topoflow-glacier'], "{{id}}_" + run_type_abbr + ".yaml"),
             "allow_exceed_end_time": True,
             "uses_forcing_file": False,
+            "variables_names_map": {
+                'streamflow_cms': 'channel_water_x-section__volume_flow_rate'},
             "precip_output": "precipitation_rate",
-        },
-    }
-
-    return templates.get(module)
+            "requires_all_bmi_forcing": True,
+        }
 
 
-def build_module_config(mod: str, base: dict, modules: List[str]) -> dict:
+def build_module_config(mod: str, base: dict, modules: List[str], forcing_provider: str = 'csv', forcing_vars: dict = None) -> dict:
     """Build module realization configuration section from base templates"""
     config = {
         'name': base.get('name'),
@@ -2786,6 +2818,20 @@ def build_module_config(mod: str, base: dict, modules: List[str]) -> dict:
     # Add SMP variable mapping
     if mod == 'smp':
         config['params']['variables_names_map'] = get_smp_var_map(modules)
+
+    # Add CSV to BMI forcing variables if module requires them lstm/topoflow-glacier
+    if base.get('requires_all_bmi_forcing') and forcing_provider == 'bmi' and forcing_vars:
+        # Add all forcing variable mappings
+        config['params']['variables_names_map'].update({
+            forcing_vars['lw'].get('csv'): forcing_vars['lw'].get('bmi'),
+            forcing_vars['sw'].get('csv'): forcing_vars['sw'].get('bmi'),
+            forcing_vars['pressure'].get('csv'): forcing_vars['pressure'].get('bmi'),
+            forcing_vars['Q2'].get('csv'): forcing_vars['Q2'].get('bmi'),
+            forcing_vars['prcp'].get('csv'): forcing_vars['prcp'].get('bmi'),
+            forcing_vars['temp'].get('csv'): forcing_vars['temp'].get('bmi'),
+            forcing_vars['xwind'].get('csv'): forcing_vars['xwind'].get('bmi'),
+            forcing_vars['ywind'].get('csv'): forcing_vars['ywind'].get('bmi'),
+        })
 
     return config
 
@@ -2887,9 +2933,9 @@ def create_realization_file(
             continue
 
         # Build realization config section for requested module
-        base_config = build_base_config(mod, lib_mod, bmi_dir, run_type_abbr, forcing_vars)
+        base_config = build_base_config(mod, lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
         base_configs[mod] = base_config
-        model_configs[mod] = build_module_config(mod, base_config, modules)
+        model_configs[mod] = build_module_config(mod, base_config, modules, forcing_provider, forcing_vars)
 
     # Determine rainfall-runoff module
     rr_mods = [m for m in modules if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m, 'process'].values[0]]
@@ -2923,7 +2969,9 @@ def create_realization_file(
         var_maps['input'][forcing_vars['prcp'].get('csv')] = forcing_vars['prcp'].get('bmi')
 
     # Apply variable mapping to RR module
-    model_configs[rr_mod]['params']['variables_names_map'] = var_maps['input']
+    if 'variables_names_map' not in model_configs[rr_mod]['params']:
+        model_configs[rr_mod]['params']['variables_names_map'] = {}
+    model_configs[rr_mod]['params']['variables_names_map'].update(var_maps['input'])
 
     # Retrieve precip_output from module that supplies it
     precip_suppliers = ['noah', 'lstm', 'topoflow-glacier']
@@ -2940,6 +2988,9 @@ def create_realization_file(
         logger.critical(err_msg)
         raise Exception(err_msg)
 
+    # Build output variable dictionary
+    output_vars = build_output_vars(var_maps, output_dict, precip_output)
+
     # Build main bmi_multi config
     # Set main_output_variable from bmi_multi_output_var if available, otherwise, use main_output_var from rr module
     rr_base_config = base_configs.get(rr_mod, {})
@@ -2954,16 +3005,10 @@ def create_realization_file(
             'fixed_time_step': False,
             'uses_forcing_file': False,
             'main_output_variable': bmi_multi_output,
+            'output_variables': output_vars if (calib_output_vars or run_type_abbr != 'calib') else [],
             'modules': [model_configs[m] for m in modules if m != 'troute'],
         }
     }
-
-    # Add output variables if requested
-    output_vars = build_output_vars(var_maps, output_dict, precip_output)
-    if calib_output_vars or run_type_abbr != 'calib':
-        gbmain['params']['output_variables'] = output_vars
-    else:
-        gbmain['params']['output_variables'] = []
 
     # Build output_config dict from output_vars for return (used in calibration)
     output_config = {
@@ -3072,9 +3117,13 @@ def create_reg_realization_file(
                 continue
 
             # Build realization config section for requested module
-            base_config = build_base_config(mod, lib_mod, bmi_dir, run_type_abbr, forcing_vars)
+            base_config = build_base_config(mod, lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
             base_configs[mod] = base_config
-            model_configs[mod] = build_module_config(mod, base_config, grp_mod)
+            model_configs[mod] = build_module_config(mod, base_config, grp_mod, forcing_provider, forcing_vars)
+
+            # Add group-specific parameters if available
+            if grp_params.get(mod, {}).get(grp):
+                model_configs[mod]['params']['model_params'] = grp_params[mod][grp]
 
         # Determine rainfall-runoff module
         rr_mods = [m for m in grp_mod if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m, 'process'].values[0]]
@@ -3107,7 +3156,10 @@ def create_reg_realization_file(
         if forcing_provider == 'bmi' and rr_mod in ['cfes', 'cfex', 'topmodel', 'lasam']:
             var_maps['input'][forcing_vars['prcp'].get('csv')] = forcing_vars['prcp'].get('bmi')
 
-        model_configs[rr_mod]['params']['variables_names_map'] = var_maps['input']
+        # Apply variable mapping to RR module
+        if 'variables_names_map' not in model_configs[rr_mod]['params']:
+            model_configs[rr_mod]['params']['variables_names_map'] = {}
+        model_configs[rr_mod]['params']['variables_names_map'].update(var_maps['input'])
 
         # Retrieve precip_output from module that supplies it
         precip_suppliers = ['cfes', 'cfex', 'sac', 'topmodel', 'lasam', 'lstm', 'topoflow-glacier']
@@ -3124,6 +3176,9 @@ def create_reg_realization_file(
             logger.critical(err_msg)
             raise Exception(err_msg)
 
+        # Build output variable dictionary
+        output_vars = build_output_vars(var_maps, output_dict, precip_output)
+
         # Build main bmi_multi config
         # Set main_output_variable from bmi_multi_output_var if available, otherwise, use main_output_var from rr module
         rr_base_config = base_configs.get(rr_mod, {})
@@ -3138,16 +3193,10 @@ def create_reg_realization_file(
                 'fixed_time_step': False,
                 'uses_forcing_file': False,
                 'main_output_variable': bmi_multi_output,
+                'output_variables': output_vars if (calib_output_vars or run_type_abbr != 'calib') else [],
                 'modules': [model_configs[m] for m in grp_mod if m != 'troute'],
             }
         }
-
-        # Add output variables if requested
-        output_vars = build_output_vars(var_maps, output_dict, precip_output)
-        if calib_output_vars or run_type_abbr != 'calib':
-            grp_configs['params']['output_variables'] = output_vars
-        else:
-            gbmain['params']['output_variables'] = []
 
         # Add group configs to group main section
         grp_main[grp] = [grp_configs]
