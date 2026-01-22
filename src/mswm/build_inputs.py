@@ -1423,6 +1423,14 @@ class RealizationBuilder:
             if m1 in ['sloth']:
                 continue
 
+            # Create input file directory
+            if m1 != 'troute':
+                try:
+                    os.makedirs(mod_input_dir, exist_ok=True)
+                except Exception as e:
+                    logger.critical(f"Failed to create input directory for {m1}: {mod_input_dir} - {e}")
+                    raise
+
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
                 if is_regionalization:
@@ -1436,7 +1444,7 @@ class RealizationBuilder:
             elif m1 == 'snow17':
                 gfun.create_snow17_input(cat_mod, self.divides_df, mod_input_dir)
             elif m1 == "pet":
-                gfun.create_pet_input(cat_mod, self.attr_file, mod_input_dir, self.pet_method)
+                gfun.create_pet_input(cat_mod, self.divides_df, mod_input_dir, self.pet_method)
             elif m1 == "sac":
                 gfun.create_sac_input(cat_mod, self.divides_df, mod_input_dir)
             elif m1 == 'noah':
@@ -1448,17 +1456,16 @@ class RealizationBuilder:
                 smp_dir = os.path.join(self.input_dir, 'smp_input')
 
                 if is_regionalization:
-
                     # Loop through schemes that could be paired with SMP/SFT
                     for scheme in ['cfes', 'cfex', 'lasam', 'topmodel', 'sac']:
                         scheme_sft_grps = [grp for grp, mods in self.grp_to_form.items() if scheme in mods and 'sft' in mods]
 
-                        if scheme_sft_grps:
-                            # Retrieve catchments and formulations corresponding to scheme
-                            scheme_cat = [cat for grp in scheme_sft_grps for cat in self.grp_to_cat[grp]]
-                            scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
-                            gfun.create_sft_smp_input(scheme_cat, scheme_form, self.divides_df, sft_dir, smp_dir, self.run_type,
-                                                      self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
+                    if scheme_sft_grps:
+                        # Retrieve catchments and formulations corresponding to scheme
+                        scheme_cat = [cat for grp in scheme_sft_grps for cat in self.grp_to_cat[grp]]
+                        scheme_form = [self.cat_to_form[cat] for cat in scheme_cat]
+                        gfun.create_sft_smp_input(scheme_cat, scheme_form, self.divides_df, sft_dir, smp_dir, self.run_type,
+                                                  self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
                 else:
                     gfun.create_sft_smp_input(cat_mod, mod_all, self.divides_df, sft_dir, smp_dir, self.run_type,
                                               self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
@@ -1788,7 +1795,7 @@ class RealizationBuilder:
         self._extract_forcing()
         self._configure_forcing_engine()
         self._set_output_vars()
-        self._create_reg_bmi_configs()
+        self._create_bmi_configs(is_regionalization=True)
         self._write_region_realization()
         self._write_partition()
 
