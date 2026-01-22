@@ -2490,6 +2490,526 @@ def get_model_type_name(
     return settings.modules_all.loc[settings.modules_all['module'] == module, 'name_config'].iloc[0]
 
 
+def create_lib_symlinks(workdir: Union[str, Path], lib_file: dict) -> dict:
+    """Create symlinks for model libraries."""
+    lib_mod = {}
+    for key, value in lib_file.items():
+        lib_mod_link = os.path.join(workdir, 'Input/' + os.path.basename(value))
+        lib_mod[key] = lib_mod_link
+
+        if os.path.exists(lib_mod_link) or os.path.islink(lib_mod_link):
+            try:
+                os.unlink(lib_mod_link)
+            except Exception as e:
+                logger.error(f"Failed to remove existing {lib_mod_link}: {e}")
+                raise
+        try:
+            os.symlink(value, lib_mod_link)
+            logger.info("Created symlink to ngen executable")
+        except OSError as e:
+            logger.critical(f"Failed to create symlink: {value} -> {lib_mod_link}: {e}")
+            raise
+
+    return lib_mod
+
+
+def get_sloth_params(modules: List[str]) -> dict:
+    """Get SLOTH model parameters based on model configuration"""
+    if 'cfes' in modules or 'cfex' in modules:
+        if 'sft' not in modules:
+            return {
+                "sloth_ice_fraction_schaake(1,double,1,node)": 0.0,
+                "sloth_ice_fraction_xinanjiang(1,double,1,node)": 0.0,
+                "sloth_smp(1,double,1,node)": 0.0,
+            }
+        else:
+            return {
+                "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
+                "soil_thickness_layered(1,double,1,node)": 0.0,
+                "soil_depth_wetting_fronts(1,double,m,node)": 0.0,
+                "num_wetting_fronts(1,int,1,node)": 1.0,
+                "Qb_topmodel(1,double,m h^-1,node)": 0.0,
+                "Qv_topmodel(1,double,m h^-1,node)": 0.0,
+                "global_deficit(1,double,m,node)": 0.0,
+            }
+    elif 'topmodel' in modules and 'smp' in modules:
+        return {
+            "sloth_soil_storage(1,double,m,node)": 1.0E-10,
+            "sloth_soil_storage_change(1,double,m,node)": 0.0,
+            "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
+            "soil_depth_wetting_fronts(1,double,1,node)": 0.0,
+            "num_wetting_fronts(1,int,1,node)": 1,
+        }
+    elif 'lasam' in modules:
+        if 'sft' not in modules:
+            return {"soil_temperature_profile(1,double,K,node)": 275.15}
+        else:
+            return {
+                "sloth_soil_storage(1,double,m,node)": 1.0E-10,
+                "sloth_soil_storage_change(1,double,m,node)": 0.0,
+                "Qb_topmodel(1,double,m h^-1,node)": 0.0,
+                "Qv_topmodel(1,double,m h^-1,node)": 0.0,
+                "global_deficit(1,double,m,node)": 0.0,
+                "potential_evapotranspiration_rate(1,double,1,node)": 0.0
+            }
+    return {}
+
+
+def get_smp_var_map(modules: List) -> dict:
+    """Get SMP variable mapping based on coupled modules"""
+    base_map = {
+        "soil_storage": "SOIL_STORAGE",
+        "soil_storage_change": "SOIL_STORAGE_CHANGE",
+    }
+
+    if 'lasam' in modules:
+        return {
+            "soil_storage": "sloth_soil_storage",
+            "soil_storage_change": "sloth_soil_storage_change",
+            "soil_moisture_wetting_fronts": "soil_moisture_wetting_fronts",
+            "soil_depth_wetting_fronts": "soil_depth_wetting_fronts",
+            "num_wetting_fronts": "soil_num_wetting_fronts"
+        }
+    elif 'topmodel' in modules:
+        return {
+            "soil_storage": "sloth_soil_storage",
+            "soil_storage_change": "sloth_soil_storage_change",
+            "Qb_topmodel": "land_surface_water__baseflow_volume_flux",
+            "Qv_topmodel": "soil_water_root-zone_unsat-zone_top__recharge_volume_flux",
+            "global_deficit": "soil_water__domain_volume_deficit"
+        }
+    return base_map
+
+
+def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: str, forcing_provider: str, forcing_vars: dict) -> dict:
+    """Build module configuration templates for realization"""
+    templates = {
+        'noah': {
+            "name": "bmi_fortran",
+            "model_type_name": get_model_type_name('noah'),
+            "main_output_variable": "QINSUR",
+            "library_file": lib_mod['noah'],
+            "init_config": os.path.join(bmi_dir['noah'], '{{id}}_' + run_type_abbr + '.input'),
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+            "variables_names_map": {"PRCPNONC": forcing_vars['prcp'].get(forcing_provider),
+                                    "Q2": forcing_vars['Q2'].get(forcing_provider),
+                                    "SFCTMP": forcing_vars['temp'].get(forcing_provider),
+                                    "UU": forcing_vars['xwind'].get(forcing_provider),
+                                    "VV": forcing_vars['ywind'].get(forcing_provider),
+                                    "LWDN": forcing_vars['lw'].get(forcing_provider),
+                                    "SOLDN": forcing_vars['sw'].get(forcing_provider),
+                                    "SFCPRS": forcing_vars['pressure'].get(forcing_provider),
+                                    },
+        },
+        'cfes': {
+            "name": "bmi_c",
+            "model_type_name": get_model_type_name('cfes'),
+            "main_output_variable": "Q_OUT",
+            "library_file": lib_mod['cfes'],
+            "init_config": os.path.join(bmi_dir['cfes'], '{{id}}_bmi_config_cfe.txt'),
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+            "registration_function": "register_bmi_cfe",
+            "precip_output": "atmosphere_water__liquid_equivalent_precipitation_rate_out",
+        },
+        'cfex': {
+            "name": "bmi_c",
+            "model_type_name": get_model_type_name('cfex'),
+            "main_output_variable": "Q_OUT",
+            "library_file": lib_mod['cfex'],
+            "init_config": os.path.join(bmi_dir['cfex'], '{{id}}_bmi_config_cfe.txt'),
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+            "registration_function": "register_bmi_cfe",
+            "precip_output": "atmosphere_water__liquid_equivalent_precipitation_rate_out",
+        },
+        'topmodel': {
+            "name": "bmi_c",
+            "model_type_name": get_model_type_name('topmodel'),
+            "main_output_variable": "Qout",
+            "library_file": lib_mod['topmodel'],
+            "init_config": os.path.join(bmi_dir['topmodel'], '{{id}}_topmodel.run'),
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+            "registration_function": "register_bmi_topmodel",
+            "precip_output": "atmosphere_water__liquid_equivalent_precipitation_rate_out",
+        },
+        'sac': {
+            "model_type_name": get_model_type_name('sac'),
+            "main_output_variable": "tci_giuh",
+            "library_file": lib_mod['sac'],
+            "init_config": os.path.join(bmi_dir['sac'], 'sac-init-{{id}}.namelist.input'),
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+            "registration_function": "register_bmi_sac",
+            "precip_output": "precip_out",
+        },
+        'snow17': {
+            "model_type_name": get_model_type_name('snow17'),
+            "main_output_variable": "raim",
+            "library_file": lib_mod['snow17'],
+            "init_config": os.path.join(bmi_dir['snow17'], 'snow17-init-{{id}}.namelist.input'),
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+            "variables_names_map": {
+                "precip": forcing_vars['prcp'].get(forcing_provider),
+                "tair": forcing_vars['temp'].get(forcing_provider)
+            },
+        },
+        'ueb': {
+            "name": "bmi_c++",
+            "model_type_name": get_model_type_name('ueb'),
+            "main_output_variable": "SWIT",
+            "library_file": lib_mod['ueb'],
+            "init_config": os.path.join(bmi_dir['ueb'], 'ueb-init-{{id}}_' + run_type_abbr + '.dat'),
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+            "variables_names_map": {
+                "Prec": forcing_vars['prcp'].get(forcing_provider),
+                "Ta": forcing_vars['temp'].get(forcing_provider),
+                "qair": forcing_vars['Q2'].get(forcing_provider),
+                "uebu2d": forcing_vars['xwind'].get(forcing_provider),
+                "uebv2d": forcing_vars['ywind'].get(forcing_provider),
+                "Qli": forcing_vars['lw'].get(forcing_provider),
+                "Qsi": forcing_vars['sw'].get(forcing_provider),
+                "AP": forcing_vars['pressure'].get(forcing_provider)
+            },
+        },
+        'pet': {
+            "model_type_name": get_model_type_name('pet'),
+            "main_output_variable": "water_potential_evaporation_flux",
+            "library_file": lib_mod['pet'],
+            "init_config": os.path.join(bmi_dir['pet'], '{{id}}_bmi_config.ini'),
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+            "registration_function": "register_bmi_pet",
+        },
+        'sloth': {
+            "name": "bmi_c++",
+            "model_type_name": get_model_type_name('sloth'),
+            "main_output_variable": "z",
+            "library_file": lib_mod['sloth'],
+            "init_config": '/dev/null',
+            "allow_exceed_end_time": True,
+            "fixed_time_step": False,
+            "uses_forcing_file": False,
+        },
+        'sft': {
+            "name": "bmi_c++",
+            "model_type_name": get_model_type_name('sft'),
+            "main_output_variable": "num_cells",
+            "library_file": lib_mod['sft'],
+            "init_config": os.path.join(bmi_dir['sft'], '{{id}}_bmi_config_sft.txt'),
+            "allow_exceed_end_time": True,
+            "uses_forcing_file": False,
+            "variables_names_map": {"ground_temperature": "TGS"},
+        },
+        'smp': {
+            "name": "bmi_c++",
+            "model_type_name": get_model_type_name('smp'),
+            "main_output_variable": "soil_water_table",
+            "library_file": lib_mod['smp'],
+            "init_config": os.path.join(bmi_dir['smp'], '{{id}}_bmi_config_smp.txt'),
+            "allow_exceed_end_time": True,
+            "uses_forcing_file": False,
+        },
+        'lasam': {
+            "name": "bmi_c++",
+            "model_type_name": get_model_type_name('lasam'),
+            "main_output_variable": "total_discharge",
+            "library_file": lib_mod['lasam'],
+            "init_config": os.path.join(bmi_dir['lasam'], '{{id}}_bmi_config_lasam.txt'),
+            "allow_exceed_end_time": True,
+            "uses_forcing_file": False,
+            "bmi_multi_output_var": "total_discharge",
+            "precip_output": "precipitation_rate_out",
+        },
+        'lstm': {
+            "name": "bmi_python",
+            "python_type": "lstm.bmi_lstm.bmi_LSTM",
+            "model_type_name": get_model_type_name('lstm'),
+            "main_output_variable": "land_surface_water__runoff_depth",
+            "init_config": os.path.join(bmi_dir['lstm'], '{{id}}.yml'),
+            "allow_exceed_end_time": True,
+            "uses_forcing_file": False,
+            "variables_names_map": {
+                "streamflow_cms": "land_surface_water__runoff_volume_flux",
+                "pytorch_model_path": os.path.join(bmi_dir['lstm'], "sugar_creek_trained.pt"),
+                "normalization_path": os.path.join(bmi_dir['lstm'], "input_scaling.csv"),
+                "initial_state_path": os.path.join(bmi_dir['lstm'], "initial_states.csv"),
+                "useGPU": False,
+            },
+            "precip_output": "precipitation_rate",
+        },
+        'topoflow-glacier': {
+            "name": "bmi_python",
+            "python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
+            "model_type_name": get_model_type_name('topoflow-glacier'),
+            "main_output_variable": "land_surface_water__runoff_depth",
+            "init_config": os.path.join(bmi_dir['topoflow-glacier'], "{{id}}_" + run_type_abbr + ".yaml"),
+            "allow_exceed_end_time": True,
+            "uses_forcing_file": False,
+            "precip_output": "precipitation_rate",
+        },
+    }
+
+    return templates.get(module)
+
+
+def build_module_config(mod: str, base: dict, modules: List[str]) -> dict:
+    """Build module realization configuration section from base templates"""
+    config = {
+        'name': base.get('name'),
+        'params': {
+            'name': base.get('name'),
+            'model_type_name': base.get('model_type_name'),
+            'main_output_variable': base.get('main_output_variable'),
+            'library_file': base.get('library_file'),
+            'init_config': base.get('init_config'),
+        },
+    }
+
+    # Add optional fields only if present in template
+    opt_fields = ['allow_exceed_end_time', 'fixed_time_step', 'uses_forcing_file', 'python_type', 'registration_function', 'variables_names_map']
+    for field in opt_fields:
+        if field in base:
+            config['params'][field] = base[field]
+
+    # Add SLOTH parameters
+    if mod == 'sloth':
+        config['params']['model_params'] = get_sloth_params(modules)
+
+    # Add SMP variable mapping
+    if mod == 'smp':
+        config['params']['variables_names_map'] = get_smp_var_map(modules)
+
+    return config
+
+
+def build_output_vars(var_maps: dict, output_dict: dict, precip_output: str) -> dict:
+    """Build output variables dictionary for config"""
+    output_vars = []
+
+    # Add SWE output if requested
+    if output_dict.get('output_swe') and var_maps['output'].get('swe_out'):
+        output_vars.append({
+            'name': var_maps['output']['swe_out'],
+            'header': var_maps['output'].get('swe_out_header', ''),
+            'units': var_maps['output'].get('swe_out_units', ''),
+            'index': var_maps['output'].get('swe_out_index', ''),
+        })
+
+    # Add precipitation output if requested
+    if output_dict.get('output_sm') and var_maps['output'].get('sm_out'):
+        for i, sm_var in enumerate(var_maps['output']['sm_out']):
+            entry = {
+                'name': sm_var,
+                'header': var_maps['output']['sm_out_header'][i],
+                'units': var_maps['output']['sm_out_units'][i],
+                'index': var_maps['output']['sm_out_index'][i],
+            }
+            output_vars.append(entry)
+
+    # Add precipitation output if requested
+    if output_dict.get('output_precip') and precip_output:
+        output_vars.append({
+            'name': precip_output,
+            'header': 'precip_rate',
+            'units': 'mm/s',
+            'index': '0',
+        })
+
+    # Remove index if its the default 0
+    for entry in output_vars:
+        if entry.get('index') == '0':
+            del entry['index']
+
+    return output_vars
+
+
+def create_realization_file(
+        workdir: Union[str, Path],
+        lib_file: dict,
+        bmi_dir: dict,
+        forcing_provider: str,
+        forcing_dir: Union[str, Path],
+        forcing_config_file: Union[str, Path],
+        realization_file: Union[str, Path],
+        modules: List[str],
+        time_period: dict,
+        rt_dict: dict,
+        output_dict: dict,
+        calib_output_vars: bool,
+        run_type: str
+) -> None:
+    """
+    Create realization file for the specified model and module
+
+    Parameters
+    ----------
+    workdir : basin directory for storing all the files
+    lib_file : library files for different modules
+    bmi_dir : directory for different model or module to store BMI files
+    forcing_provider: forcing provider option (csv or bmi)
+    forcing_dir : directory to store forcing files
+    forcing_config_file: path to forcing engine configuration file
+    realization_file : model realization configuration file
+    model: model and module combination
+    time_period : simulation and evaluation time period
+    rt_dict : routing model source file directory and configuration file
+    output_dict: whether to output certain variables (currently SWE and soil moisture)
+    calib_output_vars: boolean flag for writing calibration output variables
+    run_type: type of run (calib, regionalization, or default)
+
+    Returns
+    ----------
+    output_config: dictionary containing output variable configuration
+    """
+
+    # Create symlinks for libraries
+    lib_mod = create_lib_symlinks(workdir, lib_file)
+
+    # Normalize run_type abbreviation
+    run_type_abbr = {'calibration': 'calib'}.get(run_type, run_type)
+
+    # Retrieve forcing variable names
+    forcing_vars = get_forcing_vars_map()
+
+    # Build module configurations for each module in formulation
+    model_configs = {}
+    base_configs = {}
+    for mod in modules:
+        if mod == 'troute':
+            continue
+
+        # Build realization config section for requested module
+        base_config = build_base_config(mod, lib_mod, bmi_dir, run_type_abbr, forcing_vars)
+        base_configs[mod] = base_config
+        model_configs[mod] = build_module_config(mod, base_config, modules)
+
+    # Determine rainfall-runoff module
+    rr_mods = [m for m in modules if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m, 'process'].values[0]]
+
+    if len(rr_mods) != 1:
+        err_msg = f'Expected 1 rainfall-runoff module, found {len(rr_mods)}: {rr_mods}'
+        logger.critical(err_msg)
+        raise Exception(err_msg)
+    rr_mod = rr_mods[0]
+
+    # Get PET and Precip variable mapping for RR module
+    var_map_config = {
+        'noah': ('water_potential_evaporation_flux', forcing_vars['prcp'].get(forcing_provider)),
+        'sac': ('pet', 'precip'),
+        'lasam': ('potential_evapotranspiration_rate', 'precipitation_rate'),
+    }
+
+    if rr_mod in var_map_config:
+        pet_in, pcp_in = var_map_config[rr_mod]
+    else:
+        pet_in = 'water_potential_evaporation_flux'
+        pcp_in = forcing_vars['prcp'].get(forcing_provider)
+
+    var_maps = var_mapping(modules, pet_in, pcp_in, output_dict)
+
+    # Add extra mappings for specific modules
+    if rr_mod == 'sac':
+        var_maps['input']['tair'] = forcing_vars['temp'].get(forcing_provider)
+
+    if forcing_provider == 'bmi' and rr_mod in ['cfes', 'cfex', 'topmodel', 'lasam']:
+        var_maps['input'][forcing_vars['prcp'].get('csv')] = forcing_vars['prcp'].get('bmi')
+
+    # Apply variable mapping to RR module
+    model_configs[rr_mod]['params']['variables_names_map'] = var_maps['input']
+
+    # Retrieve precip_output from module that supplies it
+    precip_suppliers = ['noah', 'lstm', 'topoflow-glacier']
+    precip_output = None
+    for supplier in precip_suppliers:
+        if supplier in modules:
+            supplier_config = base_configs.get(supplier, {})
+            precip_output = supplier_config.get('precip_output')
+            if precip_output:
+                break
+
+    if not precip_output:
+        err_msg = f'No precipitation output supplier found. Expected one of {precip_suppliers} in formulation.'
+        logger.critical(err_msg)
+        raise Exception(err_msg)
+
+    # Build main bmi_multi config
+    # Set main_output_variable from bmi_multi_output_var if available, otherwise, use main_output_var from rr module
+    rr_base_config = base_configs.get(rr_mod, {})
+    bmi_multi_output = rr_base_config.get('bmi_multi_output_var') or model_configs[rr_mod]['params']['main_output_variable']
+    gbmain = {
+        'name': 'bmi_multi',
+        'params': {
+            'name': 'bmi_multi',
+            'model_type_name': 'bmi_multi',
+            'init_config': '',
+            'allow_exceed_end_time': False,
+            'fixed_time_step': False,
+            'uses_forcing_file': False,
+            'main_output_variable': bmi_multi_output,
+            'modules': [model_configs[m] for m in modules if m != 'troute'],
+        }
+    }
+
+    # Add output variables if requested
+    output_vars = build_output_vars(var_maps, output_dict, precip_output)
+    if calib_output_vars or run_type_abbr != 'calib':
+        gbmain['params']['output_variables'] = output_vars
+    else:
+        gbmain['params']['output_variables'] = []
+
+    # Build output_config dict from output_vars for return (used in calibration)
+    output_config = {
+        'output_variables': [v['name'] for v in output_vars],
+        'output_header_fields': [v['header'] for v in output_vars],
+        'output_units': [v['units'] for v in output_vars],
+        'output_index': [v.get('index', '0') for v in output_vars],
+    }
+
+    # Build global realization configuration
+    g = {
+        'global': {
+            'formulations': [gbmain],
+            'forcing': {},
+        },
+        'time': {
+            'start_time': time_period['run_time_period'][run_type_abbr][0],
+            'end_time': time_period['run_time_period'][run_type_abbr][1],
+            'output_interval': 3600,
+        },
+    }
+
+    # Forcing configuration
+    forcing_map = {
+        "csv": {"file_pattern": ".*{{id}}.*.csv", "path": forcing_dir, "provider": "CsvPerFeature"},
+        "bmi": {"path": forcing_dir, "provider": "ForcingsEngineLumpedDataProvider", "params": {"init_config": str(forcing_config_file)}}
+    }
+
+    g["global"]["forcing"] = forcing_map[forcing_provider]
+
+    # Add routing section
+    g.update(rt_dict)
+
+    # Write realization file
+    with open(realization_file, 'w') as f:
+        json.dump(g, f, indent=4, separators=(", ", ": "), sort_keys=False)
+    logger.info(f'Realization file is created at {realization_file}')
+
+    return output_config
+
+
 def create_reg_realization_file(
         workdir: Union[str, Path],
         lib_file: dict,
@@ -2533,1039 +3053,147 @@ def create_reg_realization_file(
     """
 
     # Create symlinks for libraries
-    lib_mod = {}
-    for key, value in lib_file.items():
-        lib_mod_link = os.path.join(workdir, 'Input/' + os.path.basename(value))
-        lib_mod.update({key: lib_mod_link})
+    lib_mod = create_lib_symlinks(workdir, lib_file)
 
-        if os.path.exists(lib_mod_link) or os.path.islink(lib_mod_link):
-            try:
-                os.unlink(lib_mod_link)
-            except Exception as e:
-                logger.error(f"Failed to remove existing {lib_mod_link}: {e}")
-                raise
-        try:
-            os.symlink(value, lib_mod_link)
-            logger.info("Created symlink to ngen executable")
-        except OSError as e:
-            logger.critical(f"Failed to create symlink: {value} -> {lib_mod_link}: {e}")
-            raise
+    # Normalize run_type abbreviation
+    run_type_abbr = {'calibration': 'calib', 'regionalization': 'region'}.get(run_type, run_type)
 
-    # Abbreviate calibration run_type name for file names/time period
-    if run_type == 'calibration':
-        run_type = 'calib'
-    elif run_type == 'regionalization':
-        run_type = 'region'
+    # Retrieve forcing variable names
+    forcing_vars = get_forcing_vars_map()
 
-    # Set model formulations for each regionalization group
-    grp_main = {}
-    grps = list(grp_to_form.keys())
-
-    # Initialize output_config dict for output variables
+    # Initialize goutput tracking and main realization section
     output_config_grp = {}
+    grp_main = {}
 
-    # Set variable name mapping based on forcing provider
-    name_prcp = {"csv": "atmosphere_water__liquid_equivalent_precipitation_rate",
-                 "bmi": "RAINRATE_ELEMENT"}
-
-    name_Q2 = {"csv": "atmosphere_air_water~vapor__relative_saturation",
-               "bmi": "Q2D_ELEMENT"}
-
-    name_temp = {"csv": "land_surface_air__temperature",
-                 "bmi": "T2D_ELEMENT"}
-
-    name_xwind = {"csv": "land_surface_wind__x_component_of_velocity",
-                  "bmi": "U2D_ELEMENT"}
-
-    name_ywind = {"csv": "land_surface_wind__y_component_of_velocity",
-                  "bmi": "V2D_ELEMENT"}
-
-    name_lw = {"csv": "land_surface_radiation~incoming~longwave__energy_flux",
-               "bmi": "LWDOWN_ELEMENT"}
-
-    name_sw = {"csv": "land_surface_radiation~incoming~shortwave__energy_flux",
-               "bmi": "SWDOWN_ELEMENT"}
-
-    name_pressure = {"csv": "land_surface_air__pressure",
-                     "bmi": "PSFC_ELEMENT"}
-
-    for grp in grps:
+    # Process each regionalization group
+    for grp, grp_mod in grp_to_form.items():
 
         model_configs = {}
+        base_configs = {}
 
-        # Retrieve modules used in given group
-        grp_mod = grp_to_form[grp]
+        # Build realization configurations for each module in group
+        for mod in grp_mod:
+            if mod == 'troute':
+                continue
 
-        # noah
-        if 'noah' in grp_mod:
-            model_configs['noah'] = {"name": "bmi_fortran",
-                                     "params": {"name": "bmi_fortran",
-                                                "model_type_name": get_model_type_name('noah'),
-                                                "main_output_variable": "QINSUR",
-                                                "library_file": lib_mod['noah'],
-                                                "init_config": os.path.join(bmi_dir['noah'], '{{id}}_' + run_type + '.input'),
-                                                "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                                "variables_names_map": {"PRCPNONC": name_prcp.get(forcing_provider),
-                                                                        "Q2": name_Q2.get(forcing_provider),
-                                                                        "SFCTMP": name_temp.get(forcing_provider),
-                                                                        "UU": name_xwind.get(forcing_provider),
-                                                                        "VV": name_ywind.get(forcing_provider),
-                                                                        "LWDN": name_lw.get(forcing_provider),
-                                                                        "SOLDN": name_sw.get(forcing_provider),
-                                                                        "SFCPRS": name_pressure.get(forcing_provider)}}}
-            if grp_params.get('noah', {}).get(grp):
-                model_configs['noah']['params']['model_params'] = grp_params['noah'][grp]
+            # Build realization config section for requested module
+            base_config = build_base_config(mod, lib_mod, bmi_dir, run_type_abbr, forcing_vars)
+            base_configs[mod] = base_config
+            model_configs[mod] = build_module_config(mod, base_config, grp_mod)
 
-        # cfe or cfex
-        if 'cfes' in grp_mod or 'cfex' in grp_mod:
-            m1 = 'cfes' if 'cfes' in grp_mod else 'cfex'
-            model_configs[m1] = {"name": "bmi_c",
-                                 "params": {"name": "bmi_c",
-                                            "model_type_name": get_model_type_name(m1),
-                                            "main_output_variable": "Q_OUT",
-                                            "library_file": lib_mod[m1],
-                                            "init_config": os.path.join(bmi_dir[m1], '{{id}}_bmi_config_cfe.txt'),
-                                            "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                            "registration_function": "register_bmi_cfe"}}
-            if grp_params.get(m1, {}).get(grp):
-                model_configs[m1]['params']['model_params'] = grp_params[m1][grp]
+        # Determine rainfall-runoff module
+        rr_mods = [m for m in grp_mod if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m, 'process'].values[0]]
 
-            # variable name mapping section
-            pet_in = "water_potential_evaporation_flux"
-            pcp_in = name_prcp.get('csv')
-            var_maps = var_mapping(grp_mod, pet_in, pcp_in, name_prcp.get(forcing_provider), output_dict)
+        if len(rr_mods) != 1:
+            err_msg = f'Expected 1 rainfall-runoff module in group {grp}, found {len(rr_mods)}: {rr_mods}'
+            logger.critical(err_msg)
+            raise Exception(err_msg)
+        rr_mod = rr_mods[0]
 
-            # module output variable for input to t-route
-            main_output_variable = "Q_OUT"
+        # Get PET and Precip variable mapping for RR module
+        var_map_config = {
+            'noah': ('water_potential_evaporation_flux', forcing_vars['prcp'].get(forcing_provider)),
+            'sac': ('pet', 'precip'),
+            'lasam': ('potential_evapotranspiration_rate', 'precipitation_rate'),
+        }
 
-            # precipitation output variable
-            precip_output = "atmosphere_water__liquid_equivalent_precipitation_rate_out"
+        if rr_mod in var_map_config:
+            pet_in, pcp_in = var_map_config[rr_mod]
+        else:
+            pet_in = 'water_potential_evaporation_flux'
+            pcp_in = forcing_vars['prcp'].get(forcing_provider)
 
-        # topmodel
-        if 'topmodel' in grp_mod:
-            model_configs['topmodel'] = {"name": "bmi_c",
-                                         "params": {"name": "bmi_c",
-                                                    "model_type_name": get_model_type_name('topmodel'),
-                                                    "main_output_variable": "Qout",
-                                                    "library_file": lib_mod['topmodel'],
-                                                    "init_config": os.path.join(bmi_dir['topmodel'], '{{id}}_topmodel.run'),
-                                                    "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                                    "registration_function": "register_bmi_topmodel"}}
-            if grp_params.get('topmodel', {}).get(grp):
-                model_configs['topmodel']['params']['model_params'] = grp_params['topmodel'][grp]
+        var_maps = var_mapping(grp_mod, pet_in, pcp_in, output_dict)
 
-            # variable name mapping section
-            pet_in = "water_potential_evaporation_flux"
-            pcp_in = name_prcp.get('csv')
-            var_maps = var_mapping(grp_mod, pet_in, pcp_in, name_prcp.get(forcing_provider), output_dict)
+        # Add extra mappings for specific modules
+        if rr_mod == 'sac':
+            var_maps['input']['tair'] = forcing_vars['temp'].get(forcing_provider)
 
-            # module output variable for input to t-route
-            main_output_variable = "Qout"
+        if forcing_provider == 'bmi' and rr_mod in ['cfes', 'cfex', 'topmodel', 'lasam']:
+            var_maps['input'][forcing_vars['prcp'].get('csv')] = forcing_vars['prcp'].get('bmi')
 
-            # precipitation output variable
-            precip_output = "atmosphere_water__liquid_equivalent_precipitation_rate_out"
+        model_configs[rr_mod]['params']['variables_names_map'] = var_maps['input']
 
-        # sac-sma
-        if 'sac' in grp_mod:
-            model_configs['sac'] = {"name": "bmi_fortran",
-                                    "params": {
-                                        "model_type_name": get_model_type_name('sac'),
-                                        "library_file": lib_mod['sac'],
-                                        "init_config": os.path.join(bmi_dir['sac'], 'sac-init-' + '{{id}}.namelist.input'),
-                                        "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                        "main_output_variable": "tci_giuh",
-                                        "registration_function": "register_bmi_sac"}}
-            if grp_params.get('sac', {}).get(grp):
-                model_configs['sac']['params']['model_params'] = grp_params['sac'][grp]
+        # Retrieve precip_output from module that supplies it
+        precip_suppliers = ['cfes', 'cfex', 'sac', 'topmodel', 'lasam', 'lstm', 'topoflow-glacier']
+        precip_output = None
+        for supplier in precip_suppliers:
+            if supplier in grp_mod:
+                supplier_config = base_configs.get(supplier, {})
+                precip_output = supplier_config.get('precip_output')
+                if precip_output:
+                    break
 
-            # variable name mapping section
-            pet_in = "pet"
-            pcp_in = "precip"
-            var_maps = var_mapping(grp_mod, pet_in, pcp_in, name_prcp.get(forcing_provider), output_dict)
-            var_maps['input']['tair'] = name_temp.get(forcing_provider)
+        if not precip_output:
+            err_msg = f'No precipitation output supplier found in group {grp}. Expected one of {precip_suppliers} in formulation.'
+            logger.critical(err_msg)
+            raise Exception(err_msg)
 
-            # module output variable for input to t-route
-            main_output_variable = "tci_giuh"
+        # Build main bmi_multi config
+        # Set main_output_variable from bmi_multi_output_var if available, otherwise, use main_output_var from rr module
+        rr_base_config = base_configs.get(rr_mod, {})
+        bmi_multi_output = rr_base_config.get('bmi_multi_output_var') or model_configs[rr_mod]['params']['main_output_variable']
+        grp_configs = {
+            'name': 'bmi_multi',
+            'params': {
+                'name': 'bmi_multi',
+                'model_type_name': 'bmi_multi',
+                'init_config': '',
+                'allow_exceed_end_time': False,
+                'fixed_time_step': False,
+                'uses_forcing_file': False,
+                'main_output_variable': bmi_multi_output,
+                'modules': [model_configs[m] for m in grp_mod if m != 'troute'],
+            }
+        }
 
-            # precipitation output variable
-            precip_output = "precip_out"
-
-        # snow17
-        if 'snow17' in grp_mod:
-            model_configs['snow17'] = {"name": "bmi_fortran",
-                                       "params": {
-                                           "model_type_name": get_model_type_name('snow17'),
-                                           "library_file": lib_mod['snow17'],
-                                           "init_config": os.path.join(bmi_dir['snow17'], 'snow17-init-' + '{{id}}.namelist.input'),
-                                           "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                           "main_output_variable": "raim",
-                                           "variables_names_map": {
-                                               "precip": name_prcp.get(forcing_provider),
-                                               "tair": name_temp.get(forcing_provider)}}}
-            if grp_params.get('snow17', {}).get(grp):
-                model_configs['snow17']['params']['model_params'] = grp_params['snow17'][grp]
-
-        # ueb
-        if 'ueb' in grp_mod:
-            model_configs['ueb'] = {"name": "bmi_c++",
-                                    "params": {
-                                        "name": "bmi_c++",
-                                        "model_type_name": get_model_type_name('ueb'),
-                                        "library_file": lib_mod['ueb'],
-                                        "init_config": os.path.join(bmi_dir['ueb'], 'ueb-init-{{id}}_' + run_type + '.dat'),
-                                        "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                        "main_output_variable": "SWIT",
-                                        "variables_names_map": {
-                                            "Prec": name_prcp.get(forcing_provider),
-                                            "Ta": name_temp.get(forcing_provider),
-                                            "qair": name_Q2.get(forcing_provider),
-                                            "uebu2d": name_xwind.get(forcing_provider),
-                                            "uebv2d": name_ywind.get(forcing_provider),
-                                            "Qli": name_lw.get(forcing_provider),
-                                            "Qsi": name_sw.get(forcing_provider),
-                                            "AP": name_pressure.get(forcing_provider)}}}
-            if grp_params.get('ueb', {}).get(grp):
-                model_configs['ueb']['params']['model_params'] = grp_params['ueb'][grp]
-
-        # pet
-        if 'pet' in grp_mod:
-            model_configs['pet'] = {"name": "bmi_c",
-                                    "params": {
-                                        "model_type_name": get_model_type_name('pet'),
-                                        "library_file": lib_mod['pet'],
-                                        "init_config": os.path.join(bmi_dir['pet'], '{{id}}_bmi_config.ini'),
-                                        "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                        "main_output_variable": "water_potential_evaporation_flux",
-                                        "registration_function": "register_bmi_pet"
-                                    }}
-
-            # Add additional mapping for bmi forcing
-            if forcing_provider == 'bmi':
-                model_configs['pet']['params']['variables_names_map'] = {
-                    name_lw.get('csv'): name_lw.get(forcing_provider),
-                    name_sw.get('csv'): name_sw.get(forcing_provider),
-                    name_pressure.get('csv'): name_pressure.get(forcing_provider),
-                    name_Q2.get('csv'): name_Q2.get(forcing_provider),
-                    name_temp.get('csv'): name_temp.get(forcing_provider),
-                    name_xwind.get('csv'): name_xwind.get(forcing_provider),
-                    name_ywind.get('csv'): name_ywind.get(forcing_provider),
-                }
-
-        # sloth
-        if 'sloth' in grp_mod:
-            model_configs['sloth'] = {"name": "bmi_c++",
-                                      "params": {"name": "bmi_c++",
-                                                 "model_type_name": get_model_type_name('sloth'),
-                                                 "main_output_variable": "z",
-                                                 "library_file": lib_mod['sloth'],
-                                                 "init_config": '/dev/null',
-                                                 "allow_exceed_end_time": True,
-                                                 "fixed_time_step": False,
-                                                 "uses_forcing_file": False}}
-
-            if 'cfes' in grp_mod or 'cfex' in grp_mod:
-                if 'sft' not in grp_mod:
-                    model_params = {
-                        "sloth_ice_fraction_schaake(1,double,1,node)": 0.0,
-                        "sloth_ice_fraction_xinanjiang(1,double,1,node)": 0.0,
-                        "sloth_smp(1,double,1,node)": 0.0}
-                else:
-                    model_params = {
-                        "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
-                        "soil_thickness_layered(1,double,1,node)": 0.0,
-                        "soil_depth_wetting_fronts(1,double,m,node)": 0.0,
-                        "num_wetting_fronts(1,int,1,node)": 1.0,
-                        "Qb_topmodel(1,double,m h^-1,node)": 0.0,
-                        "Qv_topmodel(1,double,m h^-1,node)": 0.0,
-                        "global_deficit(1,double,m,node)": 0.0}
-            elif 'topmodel' in grp_mod and 'smp' in grp_mod:
-                model_params = {
-                    "sloth_soil_storage(1,double,m,node)": 1.0E-10,
-                    "sloth_soil_storage_change(1,double,m,node)": 0.0,
-                    "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
-                    "soil_depth_wetting_fronts(1,double,1,node)": 0.0,
-                    "num_wetting_fronts(1,int,1,node)": 1}
-            elif 'sac' in grp_mod and 'smp' in grp_mod:
-                model_params = {
-                    "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
-                    "soil_thickness_layered(1,double,1,node)": 0.0,
-                    "soil_depth_wetting_fronts(1,double,m,node)": 0.0,
-                    "num_wetting_fronts(1,int,1,node)": 1.0,
-                    "Qb_topmodel(1,double,m h^-1,node)": 0.0,
-                    "Qv_topmodel(1,double,m h^-1,node)": 0.0,
-                    "global_deficit(1,double,m,node)": 0.0}
-            elif 'lasam' in grp_mod:
-                if 'sft' not in grp_mod:
-                    model_params = {"soil_temperature_profile(1,double,K,node)": 275.15}
-                else:
-                    model_params = {
-                        "sloth_soil_storage(1,double,m,node)": 1.0E-10,
-                        "sloth_soil_storage_change(1,double,m,node)": 0.0,
-                        "Qb_topmodel(1,double,m h^-1,node)": 0.0,
-                        "Qv_topmodel(1,double,m h^-1,node)": 0.0,
-                        "global_deficit(1,double,m,node)": 0.0,
-                        "potential_evapotranspiration_rate(1,double,1,node)": 0.0}
-
-            model_configs['sloth']['params']['model_params'] = model_params
-
-        # sft
-        if 'sft' in grp_mod:
-            model_configs['sft'] = {"name": "bmi_c++",
-                                    "params": {"name": "bmi_c++",
-                                               "model_type_name": get_model_type_name('sft'),
-                                               "main_output_variable": "num_cells",
-                                               "library_file": lib_mod['sft'],
-                                               "init_config": os.path.join(bmi_dir['sft'], '{{id}}_bmi_config_sft.txt'),
-                                               "allow_exceed_end_time": True,
-                                               "uses_forcing_file": False,
-                                               "variables_names_map": {"ground_temperature": "TGS"}}}
-
-        # smp
-        if 'smp' in grp_mod:
-            model_configs['smp'] = {"name": "bmi_c++",
-                                    "params": {"name": "bmi_c++",
-                                               "model_type_name": get_model_type_name('smp'),
-                                               "main_output_variable": "soil_water_table",
-                                               "library_file": lib_mod['smp'],
-                                               "init_config": os.path.join(bmi_dir['smp'], '{{id}}_bmi_config_smp.txt'),
-                                               "allow_exceed_end_time": True,
-                                               "uses_forcing_file": False,
-                                               "variables_names_map": {
-                                                   "soil_storage": "SOIL_STORAGE",
-                                                   "soil_storage_change": "SOIL_STORAGE_CHANGE"}}}
-            if 'lasam' in grp_mod:
-                model_configs['smp']['params']["variables_names_map"] = {
-                    "soil_storage": "sloth_soil_storage",
-                    "soil_storage_change": "sloth_soil_storage_change",
-                    "soil_moisture_wetting_fronts": "soil_moisture_wetting_fronts",
-                    "soil_depth_wetting_fronts": "soil_depth_wetting_fronts",
-                    "num_wetting_fronts": "soil_num_wetting_fronts"}
-            elif 'topmodel' in grp_mod:
-                model_configs['smp']['params']["variables_names_map"] = {
-                    "soil_storage": "sloth_soil_storage",
-                    "soil_storage_change": "sloth_soil_storage_change",
-                    "Qb_topmodel": "land_surface_water__baseflow_volume_flux",
-                    "Qv_topmodel": "soil_water_root-zone_unsat-zone_top__recharge_volume_flux",
-                    "global_deficit": "soil_water__domain_volume_deficit"}
-            elif 'sac' in grp_mod:
-                model_configs['smp']['params']["variables_names_map"] = {
-                    "soil_storage": "uzsmc",
-                    "soil_storage_change": "uzsmc_ch"}
-
-        # lasam
-        if 'lasam' in grp_mod:
-            model_configs['lasam'] = {"name": "bmi_c++",
-                                      "params": {"name": "bmi_c++",
-                                                 "model_type_name": get_model_type_name('lasam'),
-                                                 "main_output_variable": "total_discharge",
-                                                 "library_file": lib_mod['lasam'],
-                                                 "init_config": os.path.join(bmi_dir['lasam'], '{{id}}_bmi_config_lasam.txt'),
-                                                 "allow_exceed_end_time": True,
-                                                 "uses_forcing_file": False}}
-            if grp_params.get('lasam', {}).get(grp):
-                model_configs['lasam']['params']['model_params'] = grp_params['lasam'][grp]
-
-            # variable name mapping section
-            pet_in = "potential_evapotranspiration_rate"
-            pcp_in = "precipitation_rate"
-            var_maps = var_mapping(grp_mod, pet_in, pcp_in, name_prcp.get(forcing_provider), output_dict)
-
-            # module output variable for input to t-route
-            main_output_variable = "total_discharge"
-
-            # precipitation output variable
-            precip_output = "precipitation_rate_out"
-
-        if 'lstm' in grp_mod:
-            model_configs['lstm'] = {"name": "bmi_python",
-                                     "params": {"python_type": "lstm.bmi_lstm.bmi_LSTM",
-                                                "model_type_name": get_model_type_name('lstm'),
-                                                "main_output_variable": "land_surface_water__runoff_depth",
-                                                "init_config": os.path.join(bmi_dir['lstm'], '{{id}}.yml'),
-                                                "allow_exceed_end_time": True,
-                                                "uses_forcing_file": False}}
-
-            # variable name mapping section
-            variables_names_map = dict()
-            variables_names_map["streamflow_cms"] = "land_surface_water__runoff_volume_flux"
-            variables_names_map["pytorch_model_path"] = os.path.join(bmi_dir['lstm'], "sugar_creek_trained.pt")
-            variables_names_map["normalization_path"] = os.path.join(bmi_dir['lstm'], "input_scaling.csv")
-            variables_names_map["initial_state_path"] = os.path.join(bmi_dir['lstm'], "initial_states.csv")
-            variables_names_map["useGPU"] = False
-
-            var_maps = dict()
-            var_maps['input'] = variables_names_map
-            var_maps['output'] = dict()
-            var_maps['output']['swe_out'] = ''
-            var_maps['output']['sm_out'] = ''
-
-            # precipitation output variable
-            precip_output = 'precipitation_rate'
-
-            # Add additional mapping for bmi regionalization
-            if forcing_provider == 'bmi':
-                var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
-                var_maps['input'][name_sw.get('csv')] = name_sw.get(forcing_provider)
-                var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
-                var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
-                var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
-                var_maps['input'][name_temp.get('csv')] = name_temp.get(forcing_provider)
-                var_maps['input'][name_xwind.get('csv')] = name_xwind.get(forcing_provider)
-                var_maps['input'][name_ywind.get('csv')] = name_ywind.get(forcing_provider)
-
-            # module output variable for input to t-route
-            main_output_variable = "land_surface_water__runoff_depth"
-            precip_output = "precipitation_rate"
-
-        if 'topoflow-glacier' in grp_mod:
-            model_configs['topoflow-glacier'] = {"name": "bmi_python",
-                                                 "params": {"python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
-                                                            "model_type_name": get_model_type_name('topoflow-glacier'),
-                                                            "init_config": os.path.join(bmi_dir['topoflow-glacier'], "{{id}}_" + run_type + ".yaml"),
-                                                            "main_output_variable": "land_surface_water__runoff_depth",
-                                                            "uses_forcing_file": "false"}}
-
-            # variable name mapping section
-            variables_names_map = dict()
-            variables_names_map["streamflow_cms"] = "channel_water_x-section__volume_flow_rate"
-
-            var_maps = dict()
-            var_maps['input'] = variables_names_map
-            var_maps['output'] = dict()
-            if output_dict['output_swe']:
-                var_maps['output']['swe_out'] = 'snowpack__liquid-equivalent_depth'
-                var_maps['output']['swe_out_header'] = 'SWE_m'
-                var_maps['output']['swe_out_units'] = 'm'
-            else:
-                var_maps['output']['swe_out'] = ''
-            var_maps['output']['sm_out'] = ''
-
-            # Add additional mapping for bmi regionalization
-            if forcing_provider == 'bmi':
-                var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
-                var_maps['input'][name_sw.get('csv')] = name_sw.get(forcing_provider)
-                var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
-                var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
-                var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
-                var_maps['input'][name_temp.get('csv')] = name_temp.get(forcing_provider)
-                var_maps['input'][name_xwind.get('csv')] = name_xwind.get(forcing_provider)
-                var_maps['input'][name_ywind.get('csv')] = name_ywind.get(forcing_provider)
-
-            # precipitation output variable
-            precip_output = 'precipitation_rate'
-
-            if grp_params.get('topoflow-glacier', {}).get(grp):
-                model_configs['topoflow-glacier']['params']['model_params'] = grp_params['topoflow-glacier'][grp]
-
-            # module output variable for input to t-route
-            main_output_variable = "land_surface_water__runoff_depth"
-
-        # Store catchment model configs
-        model_type_name = "bmi_multi"
-        grp_configs = {"name": "bmi_multi",
-                       "params": {"name": "bmi_multi", "model_type_name": model_type_name, "init_config": "",
-                                  "allow_exceed_end_time": False, "fixed_time_step": False,
-                                  "uses_forcing_file": False,
-                                  "main_output_variable": main_output_variable}}
-
-        # Output section for each catchment
-        output_config = {'output_variables': [], 'output_header_fields': [], 'output_units': [], "output_index": []}
-        for key, value in output_dict.items():
-            if key == 'output_swe' and var_maps['output']['swe_out'] != '':
-                if value:
-                    output_config["output_variables"].append(var_maps["output"]["swe_out"])
-                    output_config["output_header_fields"].append(var_maps["output"]["swe_out_header"])
-                    output_config["output_units"].append(var_maps["output"]["swe_out_units"])
-                    output_config["output_index"].append(var_maps["output"].get("swe_out_index", "0"))
-
-            elif key == 'output_sm' and var_maps['output']['sm_out'] != '':
-                if value:
-                    for i in range(len(var_maps["output"]["sm_out"])):
-                        output_config["output_variables"].append(var_maps["output"]["sm_out"][i])
-                        output_config["output_header_fields"].append(var_maps["output"]["sm_out_header"][i])
-                        output_config["output_units"].append(var_maps["output"]["sm_out_units"][i])
-                        output_config["output_index"].append(var_maps["output"]["sm_out_index"][i])
-
-        # Add precipitation to output_config
-        if output_dict['output_precip']:
-            output_config['output_variables'] = output_config['output_variables'] + [precip_output]
-            output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainmelt"]
-            output_config['output_units'] = output_config['output_units'] + ["mm/hr"]
-            output_config["output_index"] = output_config["output_index"] + ["0"]
-
-        # Write output variables section if requested, otherwise write empty section
-        if calib_output_vars or run_type != 'calib':
-            output_vars = []
-            for var, hdr, unit, idx in zip(
-                output_config["output_variables"],
-                output_config["output_header_fields"],
-                output_config["output_units"],
-                output_config["output_index"],
-            ):
-                entry = {"name": var, "header": hdr, "units": unit}
-                if idx != "0":  # only include index if it's not the default 0
-                    entry["index"] = idx
-                output_vars.append(entry)
-            grp_configs['params']['output_variables'] = output_vars if output_vars else []
+        # Add output variables if requested
+        output_vars = build_output_vars(var_maps, output_dict, precip_output)
+        if calib_output_vars or run_type_abbr != 'calib':
+            grp_configs['params']['output_variables'] = output_vars
         else:
             gbmain['params']['output_variables'] = []
 
-        # Store group's output_config
-        output_config_grp[grp] = output_config
-
-        # Store group's output_config
-        output_config_grp[grp] = output_config
-
-        # determine the RR module in the current formulation
-        rr_mod1 = [m1 for m1 in grp_mod if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m1, 'process'].values[0]]
-        if len(rr_mod1) == 0:
-            try:
-                raise Exception('No rainfall-runoff module is selected')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        elif len(rr_mod1) > 1:
-            try:
-                raise Exception(f'More than one rainfall-runoff module is selected: {rr_mod1}')
-            except Exception as e:
-                logger.critical(e)
-                raise
-        rr_mod1 = rr_mod1[0]
-
-        # modules section
-        model_configs[rr_mod1]["params"]["variables_names_map"] = var_maps['input']
-
-        # Group formulation
-        grp_configs["params"]["modules"] = [model_configs[m1] for m1 in grp_mod if m1 != 'troute']
+        # Add group configs to group main section
         grp_main[grp] = [grp_configs]
 
-    # Initialize global dictionary
-    g = {}
+        # Build output_config dict from output_vars for return (used in calibration)
+        output_config = {
+            'output_variables': [v['name'] for v in output_vars],
+            'output_header_fields': [v['header'] for v in output_vars],
+            'output_units': [v['units'] for v in output_vars],
+            'output_index': [v.get('index', '0') for v in output_vars],
+        }
+        output_config_grp[grp] = output_config
 
-    # time object
-    t = {"time": {"start_time": time_period['run_time_period'][run_type][0],
-                  "end_time": time_period['run_time_period'][run_type][1], "output_interval": 3600}}
-    g.update(t)
-
-    # routing object
+    # Build global realization configuration
+    g = {
+        'time': {
+            'start_time': time_period['run_time_period'][run_type_abbr][0],
+            'end_time': time_period['run_time_period'][run_type_abbr][1],
+            'output_interval': 3600,
+        },
+    }
     g.update(rt_dict)
+    g['formulation_groups'] = grp_main
 
-    # Set grouped formulations
-    g.update({"formulation_groups": grp_main})
-
-    # Set forcing group
+    # Forcing configuration
     forcing_map = {
         "csv": {"file_pattern": ".*{{id}}.*.csv", "path": forcing_dir, "provider": "CsvPerFeature"},
         "bmi": {"path": forcing_dir, "provider": "ForcingsEngineLumpedDataProvider", "params": {"init_config": str(forcing_config_file)}}
     }
-    force_main = {"forcing_grp1": forcing_map[forcing_provider]}
-    g.update({"forcing_groups": force_main})
 
-    # Catchment groups
-    cat_grps = {cat: {"formulations": grp, "forcing": "forcing_grp1"} for cat, grp in cat_to_grp.items()}
-    c = {"catchments": cat_grps}
-    g.update(c)
+    g["forcing_groups"] = {"forcing_grp1": forcing_map[forcing_provider]}
 
-    # save configuration into json file
-    with open(realization_file, 'w') as outfile:
-        json.dump(g, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
+    # Add catchment groups
+    g['catchments'] = {cat: {"formulations": grp, "forcing": "forcing_grp1"} for cat, grp in cat_to_grp.items()}
+
+    # Write realization file
+    with open(realization_file, 'w') as f:
+        json.dump(g, f, indent=4, separators=(", ", ": "), sort_keys=False)
     logger.info(f'Realization file is created at {realization_file}')
 
     return output_config_grp
-
-
-def create_realization_file(
-        workdir: Union[str, Path],
-        lib_file: dict,
-        bmi_dir: dict,
-        forcing_provider: str,
-        forcing_dir: Union[str, Path],
-        forcing_config_file: Union[str, Path],
-        realization_file: Union[str, Path],
-        modules: List[str],
-        time_period: dict,
-        rt_dict: dict,
-        output_dict: dict,
-        calib_output_vars: bool,
-        run_type: str
-) -> None:
-    """
-    Create realization file for the specified model and module
-
-    Parameters
-    ----------
-    workdir : basin directory for storing all the files
-    lib_file : library files for different modules
-    bmi_dir : directory for different model or module to store BMI files
-    forcing_provider: forcing provider option (csv or bmi)
-    forcing_dir : directory to store forcing files
-    forcing_config_file: path to forcing engine configuration file
-    realization_file : model realization configuration file
-    model: model and module combination
-    time_period : simulation and evaluation time period
-    rt_dict : routing model source file directory and configuration file
-    output_dict: whether to output certain variables (currently SWE and soil moisture)
-    calib_output_vars: boolean flag for writing calibration output variables
-    run_type: type of run (calib, regionalization, or default)
-
-    Returns
-    ----------
-    output_config: dictionary containing output variable configuration
-    """
-
-    # Create symlinks for libraries
-    lib_mod = {}
-    for key, value in lib_file.items():
-        lib_mod_link = os.path.join(workdir, 'Input/' + os.path.basename(value))
-        lib_mod.update({key: lib_mod_link})
-        if os.path.exists(lib_mod_link) or os.path.islink(lib_mod_link):
-            try:
-                os.unlink(lib_mod_link)
-            except Exception as e:
-                logger.error(f"Failed to remove existing {lib_mod_link}: {e}")
-                raise
-        try:
-            os.symlink(value, lib_mod_link)
-            logger.info("Created symlink to ngen executable")
-        except OSError as e:
-            logger.critical(f"Failed to create symlink: {value} -> {lib_mod_link}: {e}")
-            raise
-
-    model_configs = {}
-
-    # Abbreviate calibration run_type name for file names/time period
-    if run_type == 'calibration':
-        run_type = 'calib'
-
-    # Set variable name mapping based on forcing provider
-    name_prcp = {"csv": "atmosphere_water__liquid_equivalent_precipitation_rate",
-                 "bmi": "RAINRATE_ELEMENT"}
-
-    name_Q2 = {"csv": "atmosphere_air_water~vapor__relative_saturation",
-               "bmi": "Q2D_ELEMENT"}
-
-    name_temp = {"csv": "land_surface_air__temperature",
-                 "bmi": "T2D_ELEMENT"}
-
-    name_xwind = {"csv": "land_surface_wind__x_component_of_velocity",
-                  "bmi": "U2D_ELEMENT"}
-
-    name_ywind = {"csv": "land_surface_wind__y_component_of_velocity",
-                  "bmi": "V2D_ELEMENT"}
-
-    name_lw = {"csv": "land_surface_radiation~incoming~longwave__energy_flux",
-               "bmi": "LWDOWN_ELEMENT"}
-
-    name_sw = {"csv": "land_surface_radiation~incoming~shortwave__energy_flux",
-               "bmi": "SWDOWN_ELEMENT"}
-
-    name_pressure = {"csv": "land_surface_air__pressure",
-                     "bmi": "PSFC_ELEMENT"}
-
-    # noah
-    if 'noah' in modules:
-        model_configs['noah'] = {"name": "bmi_fortran",
-                                 "params": {"name": "bmi_fortran",
-                                            "model_type_name": get_model_type_name('noah'),
-                                            "main_output_variable": "QINSUR",
-                                            "library_file": lib_mod['noah'],
-                                            "init_config": os.path.join(bmi_dir['noah'], '{{id}}_' + run_type + '.input'),
-                                            "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                            "variables_names_map": {"PRCPNONC": name_prcp.get(forcing_provider),
-                                                                    "Q2": name_Q2.get(forcing_provider),
-                                                                    "SFCTMP": name_temp.get(forcing_provider),
-                                                                    "UU": name_xwind.get(forcing_provider),
-                                                                    "VV": name_ywind.get(forcing_provider),
-                                                                    "LWDN": name_lw.get(forcing_provider),
-                                                                    "SOLDN": name_sw.get(forcing_provider),
-                                                                    "SFCPRS": name_pressure.get(forcing_provider)}}}
-
-    # cfe or cfex
-    if 'cfes' in modules or 'cfex' in modules:
-        m1 = 'cfes' if 'cfes' in modules else 'cfex'
-        model_configs[m1] = {"name": "bmi_c",
-                             "params": {"name": "bmi_c",
-                                        "model_type_name": get_model_type_name(m1),
-                                        "main_output_variable": "Q_OUT",
-                                        "library_file": lib_mod[m1],
-                                        "init_config": os.path.join(bmi_dir[m1], '{{id}}_bmi_config_cfe.txt'),
-                                        "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                        "registration_function": "register_bmi_cfe"}}
-
-        # variable name mapping section
-        pet_in = "water_potential_evaporation_flux"
-        pcp_in = name_prcp.get('csv')
-        var_maps = var_mapping(modules, pet_in, pcp_in, name_prcp.get(forcing_provider), output_dict)
-
-        # module output variable for input to t-route
-        main_output_variable = "Q_OUT"
-
-        # precipitation output variable
-        precip_output = "atmosphere_water__liquid_equivalent_precipitation_rate_out"
-
-    # topmodel
-    if 'topmodel' in modules:
-        model_configs['topmodel'] = {"name": "bmi_c",
-                                     "params": {"name": "bmi_c",
-                                                "model_type_name": get_model_type_name('topmodel'),
-                                                "main_output_variable": "Qout",
-                                                "library_file": lib_mod['topmodel'],
-                                                "init_config": os.path.join(bmi_dir['topmodel'], '{{id}}_topmodel.run'),
-                                                "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                                "registration_function": "register_bmi_topmodel"}}
-
-        # variable name mapping section
-        pet_in = "water_potential_evaporation_flux"
-        pcp_in = name_prcp.get('csv')
-        var_maps = var_mapping(modules, pet_in, pcp_in, name_prcp.get(forcing_provider), output_dict)
-
-        # module output variable for input to t-route
-        main_output_variable = "Qout"
-
-        # precipitation output variable
-        precip_output = "atmosphere_water__liquid_equivalent_precipitation_rate_out"
-
-    # sac-sma
-    if 'sac' in modules:
-        model_configs['sac'] = {"name": "bmi_fortran",
-                                "params": {
-                                    "model_type_name": get_model_type_name('sac'),
-                                    "library_file": lib_mod['sac'],
-                                    "init_config": os.path.join(bmi_dir['sac'], 'sac-init-{{id}}.namelist.input'),
-                                    "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                    "main_output_variable": "tci_giuh",
-                                    "registration_function": "register_bmi_sac"
-                                }}
-
-        # variable name mapping section
-        pet_in = "pet"
-        pcp_in = "precip"
-        var_maps = var_mapping(modules, pet_in, pcp_in, name_prcp.get(forcing_provider), output_dict)
-        var_maps['input']['tair'] = name_temp.get(forcing_provider)
-
-        # module output variable for input to t-route
-        main_output_variable = "tci_giuh"
-
-        # precipitation output variable
-        precip_output = "precip_out"
-
-    # snow17
-    if 'snow17' in modules:
-        model_configs['snow17'] = {"name": "bmi_fortran",
-                                   "params": {
-                                       "model_type_name": get_model_type_name('snow17'),
-                                       "library_file": lib_mod['snow17'],
-                                       "init_config": os.path.join(bmi_dir['snow17'], 'snow17-init-{{id}}.namelist.input'),
-                                       "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                       "main_output_variable": "raim",
-                                       "variables_names_map": {
-                                           "precip": name_prcp.get(forcing_provider),
-                                           "tair": name_temp.get(forcing_provider)
-                                       }}}
-
-    # ueb
-    if 'ueb' in modules:
-        model_configs['ueb'] = {"name": "bmi_c++",
-                                "params": {
-                                    "name": "bmi_c++",
-                                    "model_type_name": get_model_type_name('ueb'),
-                                    "library_file": lib_mod['ueb'],
-                                    "init_config": os.path.join(bmi_dir['ueb'], 'ueb-init-{{id}}_' + run_type + '.dat'),
-                                    "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                    "main_output_variable": "SWIT",
-                                    "variables_names_map": {
-                                        "Prec": name_prcp.get(forcing_provider),
-                                        "Ta": name_temp.get(forcing_provider),
-                                        "qair": name_Q2.get(forcing_provider),
-                                        "uebu2d": name_xwind.get(forcing_provider),
-                                        "uebv2d": name_ywind.get(forcing_provider),
-                                        "Qli": name_lw.get(forcing_provider),
-                                        "Qsi": name_sw.get(forcing_provider),
-                                        "AP": name_pressure.get(forcing_provider)}}}
-
-    # pet
-    if 'pet' in modules:
-        model_configs['pet'] = {"name": "bmi_c",
-                                "params": {
-                                    "model_type_name": get_model_type_name('pet'),
-                                    "library_file": lib_mod['pet'],
-                                    "init_config": os.path.join(bmi_dir['pet'], '{{id}}_bmi_config.ini'),
-                                    "allow_exceed_end_time": True, "fixed_time_step": False, "uses_forcing_file": False,
-                                    "main_output_variable": "water_potential_evaporation_flux",
-                                    "registration_function": "register_bmi_pet"
-                                }}
-
-        if forcing_provider == 'bmi':
-            model_configs['pet']['params']['variables_names_map'] = {
-                name_lw.get('csv'): name_lw.get(forcing_provider),
-                name_sw.get('csv'): name_sw.get(forcing_provider),
-                name_pressure.get('csv'): name_pressure.get(forcing_provider),
-                name_Q2.get('csv'): name_Q2.get(forcing_provider),
-                name_temp.get('csv'): name_temp.get(forcing_provider),
-                name_xwind.get('csv'): name_xwind.get(forcing_provider),
-                name_ywind.get('csv'): name_ywind.get(forcing_provider),
-            }
-
-    # sloth
-    if 'sloth' in modules:
-        model_configs['sloth'] = {"name": "bmi_c++",
-                                  "params": {"name": "bmi_c++",
-                                             "model_type_name": get_model_type_name('sloth'),
-                                             "main_output_variable": "z",
-                                             "library_file": lib_mod['sloth'],
-                                             "init_config": '/dev/null',
-                                             "allow_exceed_end_time": True,
-                                             "fixed_time_step": False,
-                                             "uses_forcing_file": False}}
-
-        if 'cfes' in modules or 'cfex' in modules:
-            if 'sft' not in modules:
-                model_params = {
-                    "sloth_ice_fraction_schaake(1,double,1,node)": 0.0,
-                    "sloth_ice_fraction_xinanjiang(1,double,1,node)": 0.0,
-                    "sloth_smp(1,double,1,node)": 0.0}
-            else:
-                model_params = {
-                    "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
-                    "soil_thickness_layered(1,double,1,node)": 0.0,
-                    "soil_depth_wetting_fronts(1,double,m,node)": 0.0,
-                    "num_wetting_fronts(1,int,1,node)": 1.0,
-                    "Qb_topmodel(1,double,m h^-1,node)": 0.0,
-                    "Qv_topmodel(1,double,m h^-1,node)": 0.0,
-                    "global_deficit(1,double,m,node)": 0.0}
-        elif 'topmodel' in modules and 'smp' in modules:
-            model_params = {
-                "sloth_soil_storage(1,double,m,node)": 1.0E-10,
-                "sloth_soil_storage_change(1,double,m,node)": 0.0,
-                "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
-                "soil_depth_wetting_fronts(1,double,1,node)": 0.0,
-                "num_wetting_fronts(1,int,1,node)": 1}
-        elif 'sac' in modules and 'smp' in modules:
-            model_params = {
-                "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
-                "soil_thickness_layered(1,double,1,node)": 0.0,
-                "soil_depth_wetting_fronts(1,double,m,node)": 0.0,
-                "num_wetting_fronts(1,int,1,node)": 1.0,
-                "Qb_topmodel(1,double,m h^-1,node)": 0.0,
-                "Qv_topmodel(1,double,m h^-1,node)": 0.0,
-                "global_deficit(1,double,m,node)": 0.0}
-        elif 'lasam' in modules:
-            if 'sft' not in modules:
-                model_params = {"soil_temperature_profile(1,double,K,node)": 275.15}
-            else:
-                model_params = {
-                    "sloth_soil_storage(1,double,m,node)": 1.0E-10,
-                    "sloth_soil_storage_change(1,double,m,node)": 0.0,
-                    "Qb_topmodel(1,double,m h^-1,node)": 0.0,
-                    "Qv_topmodel(1,double,m h^-1,node)": 0.0,
-                    "global_deficit(1,double,m,node)": 0.0,
-                    "potential_evapotranspiration_rate(1,double,1,node)": 0.0}
-
-        model_configs['sloth']['params']['model_params'] = model_params
-
-    # sft
-    if 'sft' in modules:
-        model_configs['sft'] = {"name": "bmi_c++",
-                                "params": {"name": "bmi_c++",
-                                           "model_type_name": get_model_type_name('sft'),
-                                           "main_output_variable": "num_cells",
-                                           "library_file": lib_mod['sft'],
-                                           "init_config": os.path.join(bmi_dir['sft'], '{{id}}_bmi_config_sft.txt'),
-                                           "allow_exceed_end_time": True,
-                                           "uses_forcing_file": False,
-                                           "variables_names_map": {"ground_temperature": "TGS"}}}
-
-    # smp
-    if 'smp' in modules:
-        model_configs['smp'] = {"name": "bmi_c++",
-                                "params": {"name": "bmi_c++",
-                                           "model_type_name": get_model_type_name('smp'),
-                                           "main_output_variable": "soil_water_table",
-                                           "library_file": lib_mod['smp'],
-                                           "init_config": os.path.join(bmi_dir['smp'], '{{id}}_bmi_config_smp.txt'),
-                                           "allow_exceed_end_time": True,
-                                           "uses_forcing_file": False,
-                                           "variables_names_map": {
-                                               "soil_storage": "SOIL_STORAGE",
-                                               "soil_storage_change": "SOIL_STORAGE_CHANGE"}}}
-        if 'lasam' in modules:
-            model_configs['smp']['params']["variables_names_map"] = {
-                "soil_storage": "sloth_soil_storage",
-                "soil_storage_change": "sloth_soil_storage_change",
-                "soil_moisture_wetting_fronts": "soil_moisture_wetting_fronts",
-                "soil_depth_wetting_fronts": "soil_depth_wetting_fronts",
-                "num_wetting_fronts": "soil_num_wetting_fronts"}
-        elif 'topmodel' in modules:
-            model_configs['smp']['params']["variables_names_map"] = {
-                "soil_storage": "sloth_soil_storage",
-                "soil_storage_change": "sloth_soil_storage_change",
-                "Qb_topmodel": "land_surface_water__baseflow_volume_flux",
-                "Qv_topmodel": "soil_water_root-zone_unsat-zone_top__recharge_volume_flux",
-                "global_deficit": "soil_water__domain_volume_deficit"}
-        elif 'sac' in modules:
-            model_configs['smp']['params']["variables_names_map"] = {
-                "soil_storage": "uzsmc",
-                "soil_storage_change": "uzsmc_ch"}
-
-    # lasam
-    if 'lasam' in modules:
-        model_configs['lasam'] = {"name": "bmi_c++",
-                                  "params": {"name": "bmi_c++",
-                                             "model_type_name": get_model_type_name('lasam'),
-                                             "main_output_variable": "total_discharge",
-                                             "library_file": lib_mod['lasam'],
-                                             "init_config": os.path.join(bmi_dir['lasam'], '{{id}}_bmi_config_lasam.txt'),
-                                             "allow_exceed_end_time": True,
-                                             "uses_forcing_file": False}}
-
-        # variable name mapping section
-        pet_in = "potential_evapotranspiration_rate"
-        pcp_in = "precipitation_rate"
-        var_maps = var_mapping(modules, pet_in, pcp_in, name_prcp.get(forcing_provider), output_dict)
-
-        # module output variable for input to t-route
-        main_output_variable = "total_discharge"
-
-        # precipitation output variable
-        precip_output = "precipitation_rate_out"
-
-    if 'lstm' in modules:
-        model_configs['lstm'] = {"name": "bmi_python",
-                                 "params": {"python_type": "lstm.bmi_lstm.bmi_LSTM",
-                                            "model_type_name": get_model_type_name('lstm'),
-                                            "main_output_variable": "land_surface_water__runoff_depth",
-                                            "init_config": os.path.join(bmi_dir['lstm'], '{{id}}.yml'),
-                                            "allow_exceed_end_time": True,
-                                            "uses_forcing_file": False}}
-
-        # variable name mapping section
-        variables_names_map = dict()
-        variables_names_map["streamflow_cms"] = "land_surface_water__runoff_volume_flux"
-        variables_names_map["pytorch_model_path"] = os.path.join(bmi_dir['lstm'], "sugar_creek_trained.pt")
-        variables_names_map["normalization_path"] = os.path.join(bmi_dir['lstm'], "input_scaling.csv")
-        variables_names_map["initial_state_path"] = os.path.join(bmi_dir['lstm'], "initial_states.csv")
-        variables_names_map["useGPU"] = False
-
-        var_maps = dict()
-        var_maps['input'] = variables_names_map
-        var_maps['output'] = dict()
-        var_maps['output']['swe_out'] = ''
-        var_maps['output']['sm_out'] = ''
-
-        # Add additional mapping for bmi forcing
-        if forcing_provider == 'bmi':
-            var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
-            var_maps['input'][name_sw.get('csv')] = name_sw.get(forcing_provider)
-            var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
-            var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
-            var_maps['input'][name_prcp.get('csv')] = name_prcp.get(forcing_provider)
-            var_maps['input'][name_temp.get('csv')] = name_temp.get(forcing_provider)
-            var_maps['input'][name_xwind.get('csv')] = name_xwind.get(forcing_provider)
-            var_maps['input'][name_ywind.get('csv')] = name_ywind.get(forcing_provider)
-
-        # module output variable for input to t-route
-        main_output_variable = "land_surface_water__runoff_depth"
-
-        # precipitation output variable
-        precip_output = "precipitation_rate"
-
-    # Combine configurations
-    model_type_name = "bmi_multi"
-    gbmain = {"name": "bmi_multi",
-              "params": {"name": "bmi_multi", "model_type_name": model_type_name, "init_config": "",
-                         "allow_exceed_end_time": False, "fixed_time_step": False,
-                         "uses_forcing_file": False,
-                         "main_output_variable": main_output_variable}}
-
-    # Output section
-    output_config = {"output_variables": [], "output_header_fields": [], "output_units": [], "output_index": []}
-    for key, value in output_dict.items():
-        if key == "output_swe" and var_maps["output"]["swe_out"] != "":
-            if value:
-                output_config["output_variables"].append(var_maps["output"]["swe_out"])
-                output_config["output_header_fields"].append(var_maps["output"]["swe_out_header"])
-                output_config["output_units"].append(var_maps["output"]["swe_out_units"])
-                output_config["output_index"].append(var_maps["output"].get("swe_out_index", "0"))
-
-        elif key == "output_sm" and var_maps["output"]["sm_out"] != "":
-            if value:
-                for i in range(len(var_maps["output"]["sm_out"])):
-                    output_config["output_variables"].append(var_maps["output"]["sm_out"][i])
-                    output_config["output_header_fields"].append(var_maps["output"]["sm_out_header"][i])
-                    output_config["output_units"].append(var_maps["output"]["sm_out_units"][i])
-                    output_config["output_index"].append(var_maps["output"]["sm_out_index"][i])
-
-    # Add precipitation to output_config
-    if output_dict['output_precip']:
-        output_config['output_variables'] = output_config['output_variables'] + [precip_output]
-        output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainmelt"]
-        output_config['output_units'] = output_config['output_units'] + ["mm/hr"]
-        output_config["output_index"] = output_config["output_index"] + ["0"]
-
-    # Write output variables section if requested, otherwise write empty section
-    if calib_output_vars or run_type != 'calib':
-        output_vars = []
-        for var, hdr, unit, idx in zip(
-            output_config["output_variables"],
-            output_config["output_header_fields"],
-            output_config["output_units"],
-            output_config["output_index"],
-        ):
-            entry = {"name": var, "header": hdr, "units": unit}
-            if idx != "0":  # only include index if it's not the default 0
-                entry["index"] = idx
-            output_vars.append(entry)
-
-        gbmain["params"]["output_variables"] = output_vars if output_vars else []
-    else:
-        gbmain['params']['output_variables'] = []
-
-    # determine the RR module in the current formulation
-    rr_mod1 = [m1 for m1 in modules if 'Rainfall_runoff' in settings.modules_all.loc[settings.modules_all['module'] == m1, 'process'].values[0]]
-    if len(rr_mod1) == 0:
-        try:
-            raise Exception('No rainfall-runoff module is selected')
-        except Exception as e:
-            logger.critical(e)
-            raise
-    elif len(rr_mod1) > 1:
-        try:
-            raise Exception(f'More than one rainfall-runoff module is selected: {rr_mod1}')
-        except Exception as e:
-            logger.critical(e)
-            raise
-    rr_mod1 = rr_mod1[0]
-
-    # modules section
-    model_configs[rr_mod1]["params"]["variables_names_map"] = var_maps['input']
-    gbmain["params"]["modules"] = [model_configs[m1] for m1 in modules if m1 != 'troute']
-
-    # global configuration
-    g = {"global": {"formulations": [gbmain],
-                    "forcing": {}}}
-
-    # Set forcing configuration
-    forcing_map = {
-        "csv": {"file_pattern": ".*{{id}}.*.csv", "path": forcing_dir, "provider": "CsvPerFeature"},
-        "bmi": {"path": forcing_dir, "provider": "ForcingsEngineLumpedDataProvider", "params": {"init_config": str(forcing_config_file)}}
-    }
-
-    g["global"]["forcing"] = forcing_map[forcing_provider]
-
-    # time object
-    t = {"time": {"start_time": time_period['run_time_period'][run_type][0],
-                  "end_time": time_period['run_time_period'][run_type][1], "output_interval": 3600}}
-    g.update(t)
-
-    # routing object
-    g.update(rt_dict)
-
-    # save configuration into json file
-    with open(realization_file, 'w') as outfile:
-        json.dump(g, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
-    logger.info(f'Realization file is created at {realization_file}')
-
-    return output_config
 
 
 def create_calib_config_file(
