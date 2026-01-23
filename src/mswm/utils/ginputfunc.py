@@ -1774,7 +1774,7 @@ def update_troute(
         logger.critical(f"YAML serialization error: {new_file}\n{e}")
         raise
     except TypeError as e:
-        logger.critical(f"Non-serializable object pased to yaml.dump: {new_file}\n{e}")
+        logger.critical(f"Non-serializable object passed to yaml.dump: {new_file}\n{e}")
         raise
     except OSError as e:
         logger.critical(f"Unexpected error while writing YAML file: {new_file}\n{e}")
@@ -1816,58 +1816,36 @@ def create_troute_config(
     }
     run_names = run_type_map.get(run_type)
 
-    # Set base bmi parameters
-    bmi_param = {"flowpath_columns": ["id", "toid", "lengthkm"],
-                 "attributes_columns": ['attributes_id', 'gage', 'WaterbodyID', 'MusK', 'MusX', 'n',
-                                        'So', 'ChSlp', 'BtmWdth', 'nCC', 'TopWdthCC', 'TopWdth'],
-                 "waterbody_columns": ['hl_link', 'ifd', 'LkArea', 'LkMxE', 'OrificeA', 'OrificeC',
-                                       'OrificeE', 'WeirC', 'WeirE', 'WeirL'],
-                 "network_columns": ['network_id', 'hydroseq', 'hl_uri'],
-                 }
-
     # Set base log parameters
-    log_param = {"showtiming": True, "log_level": 'DEBUG'}
-
-    # Network topology column mapping
-    columns = {"key": "id", "downstream": "toid", "dx": "lengthkm", "n": "n", "ncc": "nCC", "s0": "So",
-               "bw": "BtmWdth", "waterbody": "WaterbodyID", "gages": "gage", "tw": "TopWdth",
-               "twcc": "TopWdthCC", "musk": "MusK", "musx": "MusX", "cs": "ChSlp", "alt": "alt",
-               }
-
-    # Set duplicate waterbody segments  #TODO: How do we handle duplicate segments for NHF?
-    dupseg = ["717696", "1311881", "3133581", "1010832", "1023120", "1813525",
-              "1531545", "1304859", "1320604", "1233435", "11816", "1312051",
-              "2723765", "2613174", "846266", "1304891", "1233595", "1996602",
-              "2822462", "2384576", "1021504", "2360642", "1326659", "1826754",
-              "572364", "1336910", "1332558", "1023054", "3133527", "3053788",
-              "3101661", "2043487", "3056866", "1296744", "1233515", "2045165",
-              "1230577", "1010164", "1031669", "1291638", "1637751",
-              ]
+    log_param = {
+        "showtiming": True,
+        "log_level": 'DEBUG'
+    }
 
     # Set network topology parameters
-    nwtopo_param = {"supernetwork_parameters": {"network_type": "HYFeaturesNetwork",
-                                                "geo_file_path": gpkg_file,
-                                                "columns": columns,
-                                                "duplicate_wb_segments": dupseg},
-                    "waterbody_parameters": {"break_network_at_waterbodies": True,
-                                             "level_pool": {"level_pool_waterbody_parameter_file_path": gpkg_file}},
-                    }
+    nwtopo_param = {
+        "supernetwork_parameters": {
+            "geo_file_path": str(gpkg_file),
+        },
+        "waterbody_parameters": {
+            "break_network_at_waterbodies": True
+        },
+    }
 
     # Set base data assimilation parameters
-    res_da = {"reservoir_persistence_da": {"reservoir_persistence_usgs": False,
-                                           "reservoir_persistence_usace": False},
-              "reservoir_rfc_da": {"reservoir_rfc_forecasts": False,
-                                   "reservoir_rfc_forecasts_time_series_path": None,
-                                   "reservoir_rfc_forecasts_lookback_hours": 28,
-                                   "reservoir_rfc_forecasts_offset_hours": 28,
-                                   "reservoir_rfc_forecast_persist_days": 11},
-              "reservoir_parameter_file": None,
-              }
+    stream_da = {
+        "streamflow_nudging": False,
+        "diffusive_streamflow_nudging": False,
+    }
 
-    stream_da = {"streamflow_nudging": False,
-                 "diffusive_streamflow_nudging": False,
-                 "gage_segID_crosswalk_file": None,
-                 }
+    res_da = {
+        "reservoir_persistence_da": {
+            "reservoir_persistence_usgs": False,
+        },
+        "reservoir_rfc_da": {
+            "reservoir_rfc_forecasts": False,
+        },
+    }
 
     for file_name, run_name in zip(run_configs, run_names):
         if not len(time_period['run_time_period'][run_name][0]) != 0 & len(time_period['run_time_period'][run_name][0]):
@@ -1876,44 +1854,49 @@ def create_troute_config(
         # Parse time and compute time steps
         run_range = pd.to_datetime(time_period['run_time_period'][run_name])
         nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
-        loop_size = divmod(nts * 300, 3600)[0] + 1
+        max_loop_size = divmod(nts * 300, 3600)[0] + 1
 
         # Set compute parameters
-        comp_param = {"parallel_compute_method": "by-subnetwork-jit-clustered",
-                      "subnetwork_target_size": 10000,
-                      "cpu_pool": 16,
-                      "compute_kernel": "V02-structured",
-                      "assume_short_ts": True,
-                      "restart_parameters": {"start_datetime": time_period['run_time_period'][run_name][0]},
-                      "forcing_parameters": {"qts_subdivisions": 12,
-                                             "dt": 300,
-                                             "qlat_input_folder": ".",
-                                             "qlat_file_pattern_filter": "nex-*",
-                                             "nts": nts,
-                                             "max_loop_size": loop_size},
-                      "data_assimilation_parameters": {"usgs_timeslices_folder": None,
-                                                       "usace_timeslices_folder": None,
-                                                       "timeslice_lookback_hours": 48,
-                                                       "qc_threshold": 1,
-                                                       "streamflow_da": stream_da,
-                                                       "reservoir_da": res_da},
-                      }
+        comp_param = {
+            "parallel_compute_method": "by-subnetwork-jit-clustered",
+            "compute_kernel": "V02-structured",
+            "assume_short_ts": True,
+            "subnetwork_target_size": 10000,
+            "cpu_pool": 16,
+            "restart_parameters": {
+                "start_datetime": time_period['run_time_period'][run_name][0]
+            },
+            "forcing_parameters": {
+                "qts_subdivisions": 12,
+                "dt": 300,  # Timestep in seconds
+                "qlat_input_folder": ".",
+                "qlat_file_pattern_filter": "nex-*",  # TODO: Possibly update based on NHF ngen output names
+                "nts": nts,
+                "max_loop_size": max_loop_size
+            },
+            "data_assimilation_parameters": {
+                "streamflow_da": stream_da,
+                "reservoir_da": res_da
+            },
+        }
 
         # Set output_parameters
-        output_param = {'stream_output': {'stream_output_directory': ".",
-                                          'stream_output_time': loop_size,
-                                          'stream_output_type': '.nc',
-                                          'stream_output_internal_frequency': 60,
-                                          },
-                        }
+        output_param = {
+            'stream_output': {
+                'stream_output_directory': ".",
+                'stream_output_time': max_loop_size,
+                'stream_output_type': '.nc',
+                'stream_output_internal_frequency': 60,
+            },
+        }
 
         # Combine all parameters
-        config = {"bmi_parameters": bmi_param,
-                  "log_parameters": log_param,
-                  "network_topology_parameters": nwtopo_param,
-                  "compute_parameters": comp_param,
-                  "output_parameters": output_param,
-                  }
+        config = {
+            "log_parameters": log_param,
+            "network_topology_parameters": nwtopo_param,
+            "compute_parameters": comp_param,
+            "output_parameters": output_param,
+        }
 
         # Save configuration into yaml file
         routing_config_file = f'{rt_cfg_file}{file_name}'
