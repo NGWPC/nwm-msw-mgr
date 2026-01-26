@@ -1160,8 +1160,8 @@ class RealizationBuilder:
         # Extract streamflow observation
         if 'obs_dir' in self.conf3.keys() and self.conf3['obs_dir'] is not None:
             try:
-                obs = pd.read_csv(os.path.join(self.conf3['obs_dir'], self.basin + '_hourly_discharge.csv'))[['dateTime', 'q_cms']]
-                obs = obs.rename(columns={'dateTime': 'value_date', 'q_cms': 'obs_flow'})
+                obs = pd.read_csv(os.path.join(self.conf3['obs_dir'], self.basin + '_hourly_discharge.csv'))[['time', 'q_cms']]
+                obs = obs.rename(columns={'time': 'value_date', 'q_cms': 'obs_flow'})
             except Exception as e:
                 logger.critical(f"Failed to read streamflow observations: {e}")
                 raise
