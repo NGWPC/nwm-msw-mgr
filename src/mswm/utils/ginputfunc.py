@@ -2924,6 +2924,8 @@ def create_reg_realization_file(
         time_period: dict,
         rt_dict: dict,
         output_dict: dict,
+        calib_output_vars: dict,
+        run_type: str,
         cat_to_grp: dict,
         grp_to_form: dict,
         grp_params: dict
@@ -2942,6 +2944,8 @@ def create_reg_realization_file(
     time_period : simulation and evaluation time period
     rt_dict : routing model source file directory and configuration file
     output_dict: whether to output certain variables (currently SWE and soil moisture)
+    calib_output_vars: boolean flag for writing calibration output variables
+    run_type: type of run (calib, regionalization, or default)
     cat_to_grp: dictionary mapping catchments to regionalization groups
     grp_to_form: dictionary mapping regionalization groups to formulations
     grp_params: dictionary mapping regionalization groups to modules and their corresponding parameters
@@ -3026,6 +3030,8 @@ def create_reg_realization_file(
                                                 "model_params": grp_params['noah'][grp]}}
             if grp_params.get('noah', {}).get(grp):
                 model_configs['noah']['params']['model_params'] = grp_params['noah'][grp]
+
+            precip_output = 'QRAIN'
 
         # cfe or cfex
         if 'cfes' in grp_mod or 'cfex' in grp_mod:
@@ -3297,6 +3303,7 @@ def create_reg_realization_file(
 
             # module output variable for input to t-route
             main_output_variable = "land_surface_water__runoff_depth"
+            precip_output = "precipitation_rate"
 
         # Store catchment model configs
         model_type_name = "bmi_multi"
@@ -3307,24 +3314,44 @@ def create_reg_realization_file(
                                   "main_output_variable": main_output_variable}}
 
         # Output section for each catchment
-        output_config = {'output_variables': [], 'output_header_fields': []}
+        output_config = {'output_variables': [], 'output_header_fields': [], 'output_units': [], "output_index": []}
         for key, value in output_dict.items():
             if key == 'output_swe' and var_maps['output']['swe_out'] != '':
                 if value:
-                    output_config['output_variables'] = output_config['output_variables'] + [var_maps['output']['swe_out']]
-                    output_config['output_header_fields'] = output_config['output_header_fields'] + [var_maps['output']['swe_out_header']]
+                    output_config["output_variables"].append(var_maps["output"]["swe_out"])
+                    output_config["output_header_fields"].append(var_maps["output"]["swe_out_header"])
+                    output_config["output_units"].append(var_maps["output"]["swe_out_units"])
+                    output_config["output_index"].append(var_maps["output"].get("swe_out_index", "0"))
 
             elif key == 'output_sm' and var_maps['output']['sm_out'] != '':
                 if value:
-                    output_config['output_variables'] = output_config['output_variables'] + var_maps['output']['sm_out']
-                    output_config['output_header_fields'] = output_config['output_header_fields'] + var_maps['output']['sm_out_header']
+                    for i in range(len(var_maps["output"]["sm_out"])):
+                        output_config["output_variables"].append(var_maps["output"]["sm_out"][i])
+                        output_config["output_header_fields"].append(var_maps["output"]["sm_out_header"][i])
+                        output_config["output_units"].append(var_maps["output"]["sm_out_units"][i])
+                        output_config["output_index"].append(var_maps["output"]["sm_out_index"][i])
 
-        output_vars = [
-            {"name": var, "header": hdr}
-            for var, hdr in zip(output_config['output_variables'], output_config['output_header_fields'])
-        ]
-        if output_vars != []:
-            grp_configs['params']['output_variables'] = output_vars
+        # Add precipitation to output_config
+        if output_dict['output_precip']:
+            output_config['output_variables'] = output_config['output_variables'] + [precip_output]
+            output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainrate"]
+            output_config['output_units'] = output_config['output_units'] + ["mm/s"]
+            output_config["output_index"] = output_config["output_index"] + ["0"]
+
+        # Write output variables section if requested, otherwise write empty section
+        if calib_output_vars or run_type != 'calib':
+            output_vars = []
+            for var, hdr, unit, idx in zip(
+                output_config["output_variables"],
+                output_config["output_header_fields"],
+                output_config["output_units"],
+                output_config["output_index"],
+            ):
+                entry = {"name": var, "header": hdr, "units": unit}
+                if idx != "0":  # only include index if it's not the default 0
+                    entry["index"] = idx
+                output_vars.append(entry)
+            grp_configs['params']['output_variables'] = output_vars if output_vars else []
         else:
             grp_configs['params']['output_variables'] = []
 
@@ -3489,6 +3516,8 @@ def create_realization_file(
                                                                     "LWDN": name_lw.get(forcing_provider),
                                                                     "SOLDN": name_sw.get(forcing_provider),
                                                                     "SFCPRS": name_pressure.get(forcing_provider)}}}
+
+        precip_output = 'QRAIN'
 
     # cfe or cfex
     if 'cfes' in modules or 'cfex' in modules:
@@ -3738,6 +3767,7 @@ def create_realization_file(
 
         # module output variable for input to t-route
         main_output_variable = "land_surface_water__runoff_depth"
+        precip_output = "precipitation_rate"
 
     # Combine configurations
     model_type_name = "bmi_multi"
@@ -3767,7 +3797,7 @@ def create_realization_file(
 
     # Add precipitation to output_config
     if output_dict['output_precip']:
-        output_config['output_variables'] = output_config['output_variables'] + ["QRAIN"]
+        output_config['output_variables'] = output_config['output_variables'] + [precip_output]
         output_config['output_header_fields'] = output_config['output_header_fields'] + ["rainrate"]
         output_config['output_units'] = output_config['output_units'] + ["mm/s"]
         output_config["output_index"] = output_config["output_index"] + ["0"]
