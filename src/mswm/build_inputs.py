@@ -735,8 +735,6 @@ class RealizationBuilder:
         try:
             self.attr_file = gpd.read_file(self.gpkg_file, layer=attr_lyrname)
             self.attr_file.set_index("divide_id", inplace=True)
-            # Update hydrofabic attribute names based on region and minor parameter value fixes
-            self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
         except Exception as e:
             logger.critical(f"Error while reading geopackage file: {e}")
             raise
@@ -748,6 +746,9 @@ class RealizationBuilder:
         except Exception as e:
             logger.critical(f"Error while reading geopackage file: {e}")
             raise
+
+        # Update hydrofabic attribute names based on region and minor parameter value fixes
+        self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
 
     def _parse_modules(self):
         """
