@@ -1274,14 +1274,6 @@ class RealizationBuilder:
             if m1 in ['sloth']:
                 continue
 
-            # Create input file directory
-            if m1 != 'troute':
-                try:
-                    os.makedirs(mod_input_dir, exist_ok=True)
-                except Exception as e:
-                    logger.critical(f"Failed to create input directory for {m1}: {mod_input_dir} - {e}")
-                    raise
-
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
                 gfun.create_cfe_input(cat_mod, mod_all, self.attr_file, mod_input_dir, self.run_type, self.is_aet_rootzone)
@@ -1363,14 +1355,6 @@ class RealizationBuilder:
             # Skip config generation for sloth
             if m1 in ['sloth']:
                 pass
-
-            # Create input file directory
-            if m1 != 'troute':
-                try:
-                    os.makedirs(mod_input_dir, exist_ok=True)
-                except Exception as e:
-                    logger.critical(f"Failed to create input directory for {m1}: {mod_input_dir} - {e}")
-                    raise
 
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
