@@ -786,7 +786,7 @@ class RealizationBuilder:
     @staticmethod
     def file_crs_epsg(file_name: str) -> int:
         logger.debug(f"Getting EPSG code of: {file_name}")
-        gdf = gpd.read_file(file_name, layer="divides")
+        gdf = gpd.read_file(file_name, layer='divides')
         return gdf.crs.to_epsg()
 
     def _extract_hydrofabric(self):
@@ -853,27 +853,6 @@ class RealizationBuilder:
         if self.run_type == 'calibration':
             gfun.create_walk_file(self.basin, self.divides_df, self.gages_df, self.walk_file)
             logger.info(f"Crosswalk file created at: {self.walk_file}")
-
-        # Read catchment parameter values from geopackage divide-attributes
-        attr_lyrname = "divide-attributes"
-        logger.info(f"Reading layer {repr(attr_lyrname)} from file: {repr(self.gpkg_file)}")
-        try:
-            self.attr_file = gpd.read_file(self.gpkg_file, layer=attr_lyrname)
-            self.attr_file.set_index("divide_id", inplace=True)
-        except Exception as e:
-            logger.critical(f"Error while reading geopackage file: {e}")
-            raise
-
-        # Read catchment divide layer from hydrofabric
-        try:
-            self.divides_layer = gpd.read_file(self.gpkg_file, layer='divides')
-            self.catids = self.divides_layer['divide_id'].tolist()
-        except Exception as e:
-            logger.critical(f"Error while reading geopackage file: {e}")
-            raise
-
-        # Update hydrofabic attribute names based on region and minor parameter value fixes
-        self.attr_file = gfun.change_hydrofab_attr(self.attr_file, self.divides_layer)
 
     def _parse_modules(self):
         """
