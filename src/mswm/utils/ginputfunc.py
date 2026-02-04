@@ -69,7 +69,6 @@ __all__ = [
     'init_ginput_logger',
     'call_icefabric_gpkg',
     'change_hydrofab_attr',
-    'create_fcst_times',
     'create_walk_file',
     'create_cfe_input',
     'create_noah_input',
