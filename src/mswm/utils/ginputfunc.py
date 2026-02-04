@@ -2114,6 +2114,7 @@ def create_fcst_times(
         use_warm_start: bool,
         hind_cycle: int = None,
         prev_hind_cycle: int = None,
+        forcing_lag: int = None,
         cold_start_datetime: str = None,
         fcst_lookback: int = None
 ) -> Tuple[str, str]:
@@ -2128,6 +2129,7 @@ def create_fcst_times(
     use_warm_start: boolean flag for using warm start run
     hind_cycle: cycle (in hours) between first hindcast iteration (00) and current hindcast iteration
     prev_hind_cycle: cycle (in hours) from previous hindcast iteration, used to orchestrate warm start runs
+    forcing_lag: number of hours forcing valid time is lagged from ngen start time in lagged ensemble run
     cold_start_datetime : datetime str of beginning of cold start period
     fcst_lookback : lookback time in hours of forecast configuration following cold start
 
@@ -2174,7 +2176,7 @@ def create_fcst_times(
         start_delta = 1
 
         fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) + datetime.timedelta(hours=start_delta), "%Y-%m-%d %H:%M:%S")
-        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) + datetime.timedelta(hours=forcing_horizon), "%Y-%m-%d %H:%M:%S")
+        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=forcing_horizon) + datetime.timedelta(hours=hind_cycle) - datetime.timedelta(hours=forcing_lag), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on analysis cycle
     elif ana_flag == 1:
@@ -2227,6 +2229,7 @@ def update_fcst_forcing_config(
         use_warm_start: bool,
         hind_cycle: int,
         prev_hind_cycle: int,
+        forcing_lag: int,
         cold_start_datetime: str = None,
         fcst_lookback: int = None,
 ) -> None:
@@ -2245,6 +2248,7 @@ def update_fcst_forcing_config(
     use_warm_start: boolean flag for using warm start period
     hind_cycle: cycle (in hours) between first hindcast iteration (00) and current hindcast iteration
     prev_hind_cycle: cycle (in hours) from previous hindcast iteration, used to orchestrate warm start runs
+    forcing_lag: number of hours forcing valid time is lagged from ngen start time in lagged ensemble run
     cold_start_datetime : datetime str of beginning of cold start period
     fcst_lookback : lookback time in hours of forecast configuration following cold start
 
@@ -2260,7 +2264,7 @@ def update_fcst_forcing_config(
 
     # Format cycle_date and hour for config file
     initial_cycle_dt = datetime.datetime.strptime(cycle_date, "%Y-%m-%d").replace(hour=int(cycle_hour.replace("z", "")))
-    cycle_dt = initial_cycle_dt + datetime.timedelta(hours=hind_cycle)
+    cycle_dt = initial_cycle_dt + datetime.timedelta(hours=hind_cycle) - datetime.timedelta(hours=forcing_lag)
     cycle_str = cycle_dt.strftime('%Y%m%d%H%M')
 
     # Set lookback minutes for cold start period

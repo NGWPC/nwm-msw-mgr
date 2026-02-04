@@ -59,8 +59,8 @@ class RealizationBuilder:
     """
 
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
-                 use_hindcast: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
-                 load_state_from: str | None = None, save_state: bool = False,
+                 use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
+                 load_state_from: str | None = None, save_state: bool = False, forcing_lag: int | None = None,
                  config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
@@ -88,17 +88,19 @@ class RealizationBuilder:
         self.use_cold_start = use_cold_start
         self.use_warm_start = use_warm_start
         self.use_hindcast = use_hindcast
+        self.use_lagged_ens = use_lagged_ens
         self.forcing_path = Path(forcing_path) if forcing_path else None
         self.fcst_run_name = fcst_run_name if fcst_run_name else None
         self.hind_cycle = hind_cycle if hind_cycle else 0
         self.prev_hind_cycle = prev_hind_cycle if prev_hind_cycle else 0
         self.load_state_from = Path(load_state_from) if load_state_from else None
         self.save_state = save_state
+        self.forcing_lag = forcing_lag if forcing_lag else 0
 
         # Validate optional forecast flags
-        fcst_modes = sum([self.use_cold_start, self.use_warm_start, self.use_hindcast])
+        fcst_modes = sum([self.use_cold_start, self.use_warm_start, self.use_hindcast, self.use_lagged_ens])
         if fcst_modes > 1:
-            err = ("Invalid configuration: only one of 'use_cold_start', 'use_warm_start', or 'use_hindcast' may be True.")
+            err = ("Invalid configuration: only one of 'use_cold_start', 'use_warm_start', 'use_hindcast', use_lagged_ens may be True.")
             logger.critical(err)
             raise ValueError(err)
 
@@ -283,7 +285,8 @@ class RealizationBuilder:
             'Model_State_Run/Cold_Start_Run' if self.use_cold_start
             else ('Model_State_Run/Warm_Start_Run' if self.use_warm_start
                   else ('Hindcast_Run' if self.use_hindcast
-                        else 'Forecast_Run'))
+                        else ('Lagged_Ensemble_Run' if self.use_lagged_ens
+                              else 'Forecast_Run')))
         )
         self.work_dir = Path(fcst_dir0, fcst_dir_name, self.fcst_run_name)
         self.input_dir = self.work_dir / 'Input'
@@ -293,7 +296,8 @@ class RealizationBuilder:
             'cold_start' if self.use_cold_start
             else ('warm_start' if self.use_warm_start
                   else ('hind' if self.use_hindcast
-                        else 'fcst'))
+                        else ('lagged_ens' if self.use_lagged_ens
+                              else 'fcst')))
         )
 
         # Set run_type to forecast for log generation
@@ -301,7 +305,8 @@ class RealizationBuilder:
             'cold_start' if self.use_cold_start
             else ('warm_start' if self.use_warm_start
                   else ('hindcast' if self.use_hindcast
-                        else 'forecast'))
+                        else ('lagged_ens' if self.use_lagged_ens
+                              else 'forecast')))
         )
 
         try:
@@ -612,6 +617,7 @@ class RealizationBuilder:
                 elif self.use_warm_start:
                     forcing_region = next((f"_{reg}" for reg in ["alaska", "hawaii", "puertorico"] if reg in self.forcing_configuration), "")
                     self.forcing_configuration_str = f"standard_ana{forcing_region}_config.yml"
+                # TODO: Add elif self.use_lagged_ens: use medium range members
                 else:
                     self.forcing_configuration_str = f"{self.forcing_configuration}_config.yml"
 
@@ -666,8 +672,7 @@ class RealizationBuilder:
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Retrieve ngen start and end time based on forecast cycle date, hour and configuration
                 self.fcst_start, self.fcst_end = gfun.create_fcst_times(self.forcing_template, self.cycle_date, self.cycle_hour, self.use_cold_start,
-                                                                        self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.cold_start_datetime,
-                                                                        self.fcst_lookback)
+                                                                        self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.forcing_lag, self.cold_start_datetime, self.fcst_lookback)
             else:
                 # Set default fcst_start/fcst_end values
                 self.fcst_start = None
@@ -1232,7 +1237,7 @@ class RealizationBuilder:
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Update dynamic parameters in forcing engine configuration file
                 gfun.update_fcst_forcing_config(self.cycle_date, self.cycle_hour, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir,
-                                                self.forcing_config_file, self.use_cold_start, self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.cold_start_datetime, self.fcst_lookback)
+                                                self.forcing_config_file, self.use_cold_start, self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.forcing_lag, self.cold_start_datetime, self.fcst_lookback)
             else:
                 # Update historical dynamic parameters in forcing engine configuration file
                 gfun.update_hist_forcing_config(self.time_period, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir, self.forcing_config_file, self.run_type, self.global_domain, self.forcing_static_dir)
