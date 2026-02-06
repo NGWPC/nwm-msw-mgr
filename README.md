@@ -87,7 +87,7 @@ build_calib(input_path="/path/to/input.config")
 
 ---
 
-### Forecast & Hindcast Workflow
+### Forecast, Hindcast, & Lagged Ensemble Workflow
 
 Modify the realization and configuration files from an existing calibration run for a forecast run of ngen. If running a forecast or Hindcast through the nwm-fcst-mgr, the fcst-mgr will orchestrate these calls to the mswm.
 
@@ -112,11 +112,14 @@ build_fcst(
     input_path="/path/to/input_forecast.config",
     valid_yaml="/path/to/valid_best.yaml",
     fcst_run_name="my_forecast_run",
-    use_cold_start=True,
+    use_cold_start=False,
     use_warm_start=False,
     use_hindcast=False,
+    use_lagged_ens=False,
     hind_cycle=None,
     prev_hind_cycle=None
+    lagged_ens_mem=None,
+    forcing_lag=None,
     save_state=True,
     load_state_from="/path/to/saved_state/"
 )
@@ -129,8 +132,11 @@ build_fcst(
 - `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
 - `--use_warm_start` - (optional) Generate files for hindcasting warm start run
 - `--use_hindcast` - (optional) Generate files for hindcast run
+- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
 - `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
 - `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
+- `--lagged_ens_member` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
 
@@ -463,7 +469,7 @@ When generating run files for a forecast (using the nwm-fcst-mgr), input files a
 ```
 
 ### Hindcast Directory Structure
-When generating run files for a hindcast (using the nwm-fcst-mgr), multiple sets of input files for each warm start and hindcast iterationare created in the `/Output/` folder of a completed calibration run.
+When generating run files for a hindcast (using the nwm-fcst-mgr), multiple sets of input files for each warm start and hindcast iteration are created in the `/Output/` folder of a completed calibration run.
 
 ```bash
 ├── /[Output]/                                         # Top level forecast file structure, within calibration run /Output/
@@ -497,4 +503,30 @@ When generating run files for a hindcast (using the nwm-fcst-mgr), multiple sets
 │           ├── Input/
 │           ├── logs/
 │           └── Output/                         
+```
+
+### Lagged Ensemble Directory Structure
+When generating run files for a medium range lagged ensemble (using the nwm-fcst-mgr), multiple sets of input files for lagged ensemble member are created in the `/Output/` folder of a completed calibration run.
+
+```bash
+├── /[Output]/                                         # Top level forecast file structure, within calibration run /Output/
+│   ├── Calibration_Run/                               # Output run folder from previous calibration run
+│   ├── Validation_Run/                                # Output run folder from previous validation run
+│   └── Lagged_Ensemble_Run
+│       ├── [lagged_ens_run_name]_mem1/                # Lagged Ensemble member 1 run, using saved states from Closed Loop AnA
+│       │   ├── Input/
+│       │   ├── logs/
+│       │   └── Output/   
+│       ├── [lagged_ens_run_name]_no_da/               # Lagged Ensemble no data assimilation run, using saved states from Open Loop AnA
+│       │   ├── Input/
+│       │   ├── logs/
+│       │   └── Output/   
+│       ├── [lagged_ens_run_name]_mem2/                # Lagged Ensemble member 2 run, using saved states from Closed Loop AnA
+│       │   ├── Input/
+│       │   ├── logs/
+│       │   └── Output/
+│       ├── [lagged_ens_run_name]_mem3/                # Lagged Ensemble member 3 run, using saved states from Closed Loop AnA
+│       ├── [lagged_ens_run_name]_mem4/                # Lagged Ensemble member 4 run, using saved states from Closed Loop AnA
+│       ├── [lagged_ens_run_name]_mem5/                # Lagged Ensemble member 5 run, using saved states from Closed Loop AnA
+│       └── [lagged_ens_run_name]_mem6/                # Lagged Ensemble member 6 run, using saved states from Closed Loop AnA                    
 ```
