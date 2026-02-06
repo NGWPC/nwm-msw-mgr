@@ -60,7 +60,7 @@ class RealizationBuilder:
 
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
-                 load_state_from: str | None = None, save_state: bool = False, forcing_lag: int | None = None,
+                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False,
                  config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
@@ -95,6 +95,7 @@ class RealizationBuilder:
         self.prev_hind_cycle = prev_hind_cycle if prev_hind_cycle else 0
         self.load_state_from = Path(load_state_from) if load_state_from else None
         self.save_state = save_state
+        self.lagged_ens_mem = lagged_ens_mem if lagged_ens_mem else None
         self.forcing_lag = forcing_lag if forcing_lag else 0
 
         # Validate optional forecast flags
@@ -602,7 +603,6 @@ class RealizationBuilder:
 
                 # Retrieve forcing engine variables
                 cycle_datetime = self.forcingSec.get('cycle_datetime')
-                self.cycle_hour = self.forcingSec.get('cycle_hour')
 
                 # Construct cycle date and cycle hour
                 cycle_dt = datetime.strptime(cycle_datetime, settings.DEFAULT_DATETIME_FORMAT)
@@ -617,7 +617,12 @@ class RealizationBuilder:
                 elif self.use_warm_start:
                     forcing_region = next((f"_{reg}" for reg in ["alaska", "hawaii", "puertorico"] if reg in self.forcing_configuration), "")
                     self.forcing_configuration_str = f"standard_ana{forcing_region}_config.yml"
-                # TODO: Add elif self.use_lagged_ens: use medium range members
+                elif self.use_lagged_ens:
+                    # Check that use_lagged_ens is only used with medium_range configuration
+                    if self.forcing_configuration != "medium_range":
+                        logger.critical(f"Lagged ensemble run must use medium range forcing configuration. {self.forcing_configuration} configuration cannot be used for a lagged ensemble.")
+                        raise
+                    self.forcing_configuration_str = f"{self.forcing_configuration}_{self.lagged_ens_mem}_config.yml"
                 else:
                     self.forcing_configuration_str = f"{self.forcing_configuration}_config.yml"
 
@@ -1237,7 +1242,8 @@ class RealizationBuilder:
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Update dynamic parameters in forcing engine configuration file
                 gfun.update_fcst_forcing_config(self.cycle_date, self.cycle_hour, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir,
-                                                self.forcing_config_file, self.use_cold_start, self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.forcing_lag, self.cold_start_datetime, self.fcst_lookback)
+                                                self.forcing_config_file, self.use_cold_start, self.use_warm_start, self.hind_cycle, self.prev_hind_cycle,
+                                                self.forcing_lag, self.cold_start_datetime, self.fcst_lookback)
             else:
                 # Update historical dynamic parameters in forcing engine configuration file
                 gfun.update_hist_forcing_config(self.time_period, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir, self.forcing_config_file, self.run_type, self.global_domain, self.forcing_static_dir)
