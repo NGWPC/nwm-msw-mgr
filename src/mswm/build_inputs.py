@@ -569,6 +569,13 @@ class RealizationBuilder:
 
             # Set forcing engine variables for historical forcing
             else:
+                if (
+                    self.forcing_configuration.lower() == "aorc"
+                    and self.global_domain.lower() != "conus"
+                ):
+                    raise NotImplementedError(
+                        f"AORC historical forcing not yet implemented for oCONUS global domains. Provided global domain: {self.global_domain}"
+                    )
                 self.forcing_configuration_str = f"{self.forcing_configuration}_config.yml"
 
             # Ensure forcing template file exists
