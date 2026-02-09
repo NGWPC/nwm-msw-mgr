@@ -1785,7 +1785,6 @@ class RealizationBuilder:
         self._parse_config()
         self._load_realization()
         self._parse_forcing_engine()
-        self._extract_forcing()
         self._configure_forcing_engine()
         self._update_fcst_realization()
         self._update_fcst_noah_ueb_topo()
