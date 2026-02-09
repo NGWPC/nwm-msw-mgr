@@ -273,7 +273,7 @@ class RealizationBuilder:
         self.basename_opt = 'fcst' if not self.use_cold_start else 'cold_start'
 
         # Set run_type to forecast for log generation
-        self.run_type = 'forecast' if not self.use_cold_start else 'cold start'
+        self.run_type = 'forecast' if not self.use_cold_start else 'cold_start'
 
         try:
             self.input_dir.mkdir(parents=True, exist_ok=True)
@@ -520,7 +520,7 @@ class RealizationBuilder:
         Initialize logging depending on run type
         """
         # Set location for msw-mgr log
-        if self.run_type in ('forecast', 'cold start'):
+        if self.run_type in ('forecast', 'cold_start'):
             log_path = os.path.join(self.input_dir, 'logs')
         else:
             log_path = os.path.join(self.work_dir, 'logs')
@@ -544,7 +544,7 @@ class RealizationBuilder:
         self.global_domain = self.forcingSec.get('global_domain', "CONUS")
 
         # Raise error if forecast or cold start is run with CSV provider
-        if self.forcing_provider == 'csv' and self.run_type in ('forecast', 'cold start'):
+        if self.forcing_provider == 'csv' and self.run_type in ('forecast', 'cold_start'):
             try:
                 raise ValueError(f"Run type {self.run_type} requires bmi forcing provider")
             except ValueError as e:
@@ -1806,10 +1806,10 @@ class RealizationBuilder:
         """
         self.load_config_apply_overrides()
         self._load_yaml()
+        self._parse_config()
         self._create_fcst_dir()
         self._init_log()
         self._parse_yaml()
-        self._parse_config()
         self._load_realization()
         self._parse_forcing_engine()
         self._configure_forcing_engine()
