@@ -579,6 +579,14 @@ class RealizationBuilder:
         self.global_domain = self.forcingSec.get('global_domain', "CONUS")
         self.forcing_static_dir = self.forcingSec.get('forcing_static_dir', None)
 
+        # Raise error if forecast or cold start is run with CSV provider
+        if self.forcing_provider == 'csv' and self.run_type in ('forecast', 'cold start'):
+            try:
+                raise ValueError(f"Run type {self.run_type} requires bmi forcing provider")
+            except ValueError as e:
+                logger.critical(e)
+                raise
+
         # Retrieve cold_start_time
         self.cold_start_datetime = self.forcingSec.get('cold_start_datetime', None)
 
