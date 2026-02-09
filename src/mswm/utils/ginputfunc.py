@@ -1359,16 +1359,22 @@ def create_lstm_input(
 
 def create_pet_input(
         catids: List[str],
+        time_period: dict,
         dfa: gpd.GeoDataFrame,
-        pet_input_dir: str
+        pet_input_dir: str,
+        run_type: str,
+        forcing_provider: str,
 ) -> None:
     """ Create BMI configuration file for pet
 
     Parameters
     ----------
     catids : catchment IDs in the basin
+    time_period : simulation and evaluation time period
     dfa: dataframe containing model parameter attributes
     pet_input_dir : directory for the pet input files
+    run_type: type of run (calib, regionalization, or default)
+    forcing_provider: forcing provider option (csv or bmi)
 
     Returns
     ----------
@@ -1377,36 +1383,47 @@ def create_pet_input(
     """
     os.makedirs(pet_input_dir, exist_ok=True)
 
-    for catID in catids:
+    # Files for either the calibration and validation run or the regionalization run
+    if run_type == 'calibration':
+        run_list = ['calib', 'valid']
+    elif run_type == 'regionalization':
+        run_list = ['region']
+    elif run_type == 'default':
+        run_list = ['default']
 
-        # Set PET parameters for catchment
-        ini_list = ['verbose=0',
-                    'pet_method=5',  # Where would this value be supplied in the inputs?
-                    'forcing_file=BMI',
-                    'run_unit_tests=0',
-                    'yes_aorc=1',
-                    'yes_wrf=0',
-                    'wind_speed_measurement_height_m=10.0',
-                    'humidity_measurement_height_m=10.0',
-                    'vegetation_height_m=0.12',
-                    'zero_plane_displacement_height_m=0.0003',
-                    'momentum_transfer_roughness_length=0.0',
-                    'heat_transfer_roughness_length_m=0.1',
-                    'surface_longwave_emissivity=1.0',
-                    'surface_shortwave_albedo=0.22',
-                    'cloud_base_height_known=FALSE',
-                    'latitude_degrees=' + str(dfa.loc[catID]['centroid_y']),
-                    'longitude_degrees=' + str(dfa.loc[catID]['centroid_x']),
-                    'site_elevation_m=' + str(dfa.loc[catID]['mean.elevation']),
-                    'time_step_size_s=3600',
-                    'num_timesteps=720',  # This needs to be set from the input files, possibly for calib and valid
-                    'shortwave_radiation_provided=0']
+    # Set PET parameters for catchment
+    base_config = ['verbose=0',
+                   'pet_method=5',  # TODO: Where would this value be supplied in the inputs?
+                   'run_unit_tests=0',
+                   'yes_aorc=1',  # TODO: How should we handle yes_aorc?
+                   'yes_wrf=0',  # TODO: Is this being used by the BMI?
+                   'wind_speed_measurement_height_m=10.0',
+                   'humidity_measurement_height_m=10.0',
+                   'vegetation_height_m=0.12',
+                   'zero_plane_displacement_height_m=0.0003',
+                   'momentum_transfer_roughness_length=0.0',
+                   'heat_transfer_roughness_length_m=0.1',
+                   'surface_longwave_emissivity=1.0',
+                   'surface_shortwave_albedo=0.22',
+                   'time_step_size_s=3600',
+                   'shortwave_radiation_provided=0']
 
-        # Write PET bmi config files
-        ini_file = os.path.join(pet_input_dir, catID + '_bmi_config.ini')
+    for run_name in run_list:
+        for catID in catids:
+            # Fill template with catchment-specific values
+            config = base_config.copy()
+            config.extend([
+                f'latitude_degrees={dfa.loc[catID]["centroid_y"]}',
+                f'longitude_degrees={dfa.loc[catID]["centroid_x"]}',
+                f'site_elevation_m={dfa.loc[catID["mean.elevation"]]}',
+                f'forcing_file={forcing_file}',
+                f'num_timesteps={num_timesteps}',
+            ])
 
-        with open(ini_file, "w") as f:
-            f.writelines('\n'.join(ini_list))
+            # Write PET bmi config files
+            ini_file = os.path.join(pet_input_dir, f"{catID}_bmi_config_{run_name}.ini")
+            with open(ini_file, "w") as f:
+                f.writelines('\n'.join(config))
 
 
 def create_lasam_input(

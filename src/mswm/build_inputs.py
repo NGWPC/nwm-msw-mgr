@@ -798,10 +798,10 @@ class RealizationBuilder:
             logger.info("T-Route must be included in the formulation. T-Route added to module list")
             self.modules = self.modules + ['troute']
 
-        # make sure SMP, SFT, SAC-SMA, and LASAM are not paired with PET, as PET does not provide the required inputs
-        if any(m in self.modules for m in ('smp', 'sft', 'sac-sma', 'lasam')) and 'pet' in self.modules:
+        # make sure SMP, SFT, SAC-SMA, and LASAM are paired with Noah-OWP-Modular
+        if any(m in self.modules for m in ('smp', 'sft', 'sac', 'lasam')) and 'noah' not in self.modules:
             try:
-                raise ValueError("PET does not supply the required inputs for SMP, SFT, SAC-SMA, and LASAM. Add NOAH-OWP-Modular to formulation.")
+                raise ValueError("NOAH-OWP-Modular required to supply inputs for SMP, SFT, SAC-SMA, and LASAM. Add NOAH-OWP-Modular to formulation.")
             except ValueError as e:
                 logger.critical(e)
                 raise
@@ -903,10 +903,10 @@ class RealizationBuilder:
                 logger.info(f"T-Route must be included in the formulation. T-Route added to module list: {row['gage_id']}")
                 modules = modules + ['troute']
 
-            # make sure SMP, SFT, SAC-SMA, and LASAM are not paired with PET, as PET does not provide the required inputs
-            if any(m in modules for m in ('smp', 'sft', 'sac', 'lasam')) and 'pet' in modules:
+            # make sure SMP, SFT, SAC-SMA, and LASAM are paired with Noah-OWP-Modular
+            if any(m in self.modules for m in ('smp', 'sft', 'sac', 'lasam')) and 'noah' not in self.modules:
                 try:
-                    raise ValueError("PET does not supply the required inputs for SMP, SFT, SAC-SMA, and LASAM. Add NOAH-OWP-Modular to formulation.")
+                    raise ValueError("NOAH-OWP-Modular required to supply inputs for SMP, SFT, SAC-SMA, and LASAM. Add NOAH-OWP-Modular to formulation.")
                 except ValueError as e:
                     logger.critical(e)
                     raise
@@ -1285,8 +1285,7 @@ class RealizationBuilder:
             elif m1 == 'snow17':
                 gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
             elif m1 == "pet":
-                pass
-                # gfun.create_pet_input(cat_mod, self.attr_file, mod_input_dir)
+                gfun.create_pet_input(cat_mod, self.time_period, self.attr_file, mod_input_dir, self.run_type, self.forcing_provider)
             elif m1 == "sac":
                 gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
             elif m1 == 'noah':
@@ -1367,8 +1366,7 @@ class RealizationBuilder:
             elif m1 == 'snow17':
                 gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
             elif m1 == "pet":
-                pass
-                # gfun.create_pet_input_reg(cat_mod, self.attr_file, mod_input_dir)
+                gfun.create_pet_input(cat_mod, self.time_period, self.attr_file, mod_input_dir)
             elif m1 == "sac":
                 gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
             elif m1 == 'noah':
