@@ -1359,22 +1359,16 @@ def create_lstm_input(
 
 def create_pet_input(
         catids: List[str],
-        time_period: dict,
         dfa: gpd.GeoDataFrame,
         pet_input_dir: str,
-        run_type: str,
-        forcing_provider: str,
 ) -> None:
     """ Create BMI configuration file for pet
 
     Parameters
     ----------
     catids : catchment IDs in the basin
-    time_period : simulation and evaluation time period
     dfa: dataframe containing model parameter attributes
     pet_input_dir : directory for the pet input files
-    run_type: type of run (calib, regionalization, or default)
-    forcing_provider: forcing provider option (csv or bmi)
 
     Returns
     ----------
@@ -1383,17 +1377,10 @@ def create_pet_input(
     """
     os.makedirs(pet_input_dir, exist_ok=True)
 
-    # Files for either the calibration and validation run or the regionalization run
-    if run_type == 'calibration':
-        run_list = ['calib', 'valid']
-    elif run_type == 'regionalization':
-        run_list = ['region']
-    elif run_type == 'default':
-        run_list = ['default']
-
     # Set PET parameters for catchment
     base_config = ['verbose=0',
                    'pet_method=5',  # TODO: Where would this value be supplied in the inputs?
+                   'forcing_file=BMI',
                    'run_unit_tests=0',
                    'yes_aorc=1',  # TODO: How should we handle yes_aorc?
                    'yes_wrf=0',  # TODO: Is this being used by the BMI?
@@ -1408,22 +1395,20 @@ def create_pet_input(
                    'time_step_size_s=3600',
                    'shortwave_radiation_provided=0']
 
-    for run_name in run_list:
-        for catID in catids:
-            # Fill template with catchment-specific values
-            config = base_config.copy()
-            config.extend([
-                f'latitude_degrees={dfa.loc[catID]["centroid_y"]}',
-                f'longitude_degrees={dfa.loc[catID]["centroid_x"]}',
-                f'site_elevation_m={dfa.loc[catID["mean.elevation"]]}',
-                f'forcing_file={forcing_file}',
-                f'num_timesteps={num_timesteps}',
-            ])
+    for catID in catids:
 
-            # Write PET bmi config files
-            ini_file = os.path.join(pet_input_dir, f"{catID}_bmi_config_{run_name}.ini")
-            with open(ini_file, "w") as f:
-                f.writelines('\n'.join(config))
+        # Fill template with catchment-specific values
+        config = base_config.copy()
+        config.extend([
+            f'latitude_degrees={dfa.loc[catID]["centroid_y"]}',
+            f'longitude_degrees={dfa.loc[catID]["centroid_x"]}',
+            f'site_elevation_m={dfa.loc[catID]["mean.elevation"]}',
+        ])
+
+        # Write PET bmi config files
+        ini_file = os.path.join(pet_input_dir, f"{catID}_bmi_config.ini")
+        with open(ini_file, "w") as f:
+            f.writelines('\n'.join(config))
 
 
 def create_lasam_input(

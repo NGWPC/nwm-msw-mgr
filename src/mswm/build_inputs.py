@@ -948,16 +948,16 @@ class RealizationBuilder:
             for p1 in procs:
                 mods = [m1 for m1 in modules if p1 in settings.modules_all.loc[settings.modules_all['module'] == m1, 'process'].values[0]]
 
-                # make sure only one module is selected for each process (except for Soil_moisture and Glacier_snow)
-                if len(mods) > 1 and p1 not in ['Soil_moisture', 'Glacier_snow']:
+                # make sure only one module is selected for each process (except for Soil_moisture, Glacier_snow, and Evapotranspiration)
+                if len(mods) > 1 and p1 not in ['Soil_moisture', 'Glacier_snow', 'Evapotranspiration']:
                     try:
                         raise Exception(f'Only one module can be selected for {p1} process')
                     except Exception as e:
                         logger.critical(e)
                         raise
 
-                # one and only one module must be selected for rainfall-runoff and PET
-                if (p1 in ['Evapotranspiration', 'Rainfall_runoff']) and (len(mods) == 0):
+                # one and only one module must be selected for rainfall-runoff
+                if (p1 in ['Rainfall_runoff']) and (len(mods) == 0):
                     try:
                         raise Exception(f'At least one module must be selected for {p1} process')
                     except Exception as e:
@@ -1285,7 +1285,7 @@ class RealizationBuilder:
             elif m1 == 'snow17':
                 gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
             elif m1 == "pet":
-                gfun.create_pet_input(cat_mod, self.time_period, self.attr_file, mod_input_dir, self.run_type, self.forcing_provider)
+                gfun.create_pet_input(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == "sac":
                 gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
             elif m1 == 'noah':
@@ -1366,7 +1366,7 @@ class RealizationBuilder:
             elif m1 == 'snow17':
                 gfun.create_snow17_input(cat_mod, self.attr_file, self.conf3[m2.replace("-", "_") + '_parameter_dir'], mod_input_dir)
             elif m1 == "pet":
-                gfun.create_pet_input(cat_mod, self.time_period, self.attr_file, mod_input_dir)
+                gfun.create_pet_input(cat_mod, self.attr_file, mod_input_dir)
             elif m1 == "sac":
                 gfun.create_sac_input(cat_mod, self.attr_file, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
             elif m1 == 'noah':
