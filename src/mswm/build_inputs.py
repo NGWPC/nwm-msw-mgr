@@ -580,7 +580,7 @@ class RealizationBuilder:
         self.forcing_static_dir = self.forcingSec.get('forcing_static_dir', None)
 
         # Raise error if forecast or cold start is run with CSV provider
-        if self.forcing_provider == 'csv' and self.run_type in ('forecast', 'cold start'):
+        if self.forcing_provider == 'csv' and self.run_type in ('forecast', 'cold_start'):
             try:
                 raise ValueError(f"Run type {self.run_type} requires bmi forcing provider")
             except ValueError as e:
@@ -1787,10 +1787,10 @@ class RealizationBuilder:
         """
         self.load_config_apply_overrides()
         self._load_yaml()
+        self._parse_config()
         self._create_fcst_dir()
         self._init_log()
         self._parse_yaml()
-        self._parse_config()
         self._load_realization()
         self._parse_forcing_engine()
         self._configure_forcing_engine()
