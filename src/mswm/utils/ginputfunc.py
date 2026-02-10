@@ -2742,6 +2742,8 @@ def create_reg_realization_file(
             var_maps = dict()
             var_maps['input'] = variables_names_map
             var_maps['output'] = dict()
+            var_maps['output']['swe_out'] = ''
+            var_maps['output']['sm_out'] = ''
 
             if forcing_provider == 'bmi':
                 var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
@@ -3278,6 +3280,8 @@ def create_realization_file(
         var_maps = dict()
         var_maps['input'] = variables_names_map
         var_maps['output'] = dict()
+        var_maps['output']['swe_out'] = ''
+        var_maps['output']['sm_out'] = ''
 
         if forcing_provider == 'bmi':
             var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
