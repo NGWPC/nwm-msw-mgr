@@ -2738,21 +2738,16 @@ def create_reg_realization_file(
                                     }}
 
             # Add additional mapping for bmi forcing
-            variables_names_map = dict()
-            var_maps = dict()
-            var_maps['input'] = variables_names_map
-            var_maps['output'] = dict()
-            var_maps['output']['swe_out'] = ''
-            var_maps['output']['sm_out'] = ''
-
             if forcing_provider == 'bmi':
-                var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
-                var_maps['input'][name_sw.get('csv')] = name_sw.get(forcing_provider)
-                var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
-                var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
-                var_maps['input'][name_temp.get('csv')] = name_temp.get(forcing_provider)
-                var_maps['input'][name_xwind.get('csv')] = name_xwind.get(forcing_provider)
-                var_maps['input'][name_ywind.get('csv')] = name_ywind.get(forcing_provider)
+                model_configs['pet']['params']['variables_names_map'] = {
+                    name_lw.get('csv'): name_lw.get(forcing_provider),
+                    name_sw.get('csv'): name_sw.get(forcing_provider),
+                    name_pressure.get('csv'): name_pressure.get(forcing_provider),
+                    name_Q2.get('csv'): name_Q2.get(forcing_provider),
+                    name_temp.get('csv'): name_temp.get(forcing_provider),
+                    name_xwind.get('csv'): name_xwind.get(forcing_provider),
+                    name_ywind.get('csv'): name_ywind.get(forcing_provider),
+                }
 
         # sloth
         if 'sloth' in grp_mod:
@@ -3275,22 +3270,16 @@ def create_realization_file(
                                     "registration_function": "register_bmi_pet"
                                 }}
 
-        # Add additional mapping for bmi forcing
-        variables_names_map = dict()
-        var_maps = dict()
-        var_maps['input'] = variables_names_map
-        var_maps['output'] = dict()
-        var_maps['output']['swe_out'] = ''
-        var_maps['output']['sm_out'] = ''
-
         if forcing_provider == 'bmi':
-            var_maps['input'][name_lw.get('csv')] = name_lw.get(forcing_provider)
-            var_maps['input'][name_sw.get('csv')] = name_sw.get(forcing_provider)
-            var_maps['input'][name_pressure.get('csv')] = name_pressure.get(forcing_provider)
-            var_maps['input'][name_Q2.get('csv')] = name_Q2.get(forcing_provider)
-            var_maps['input'][name_temp.get('csv')] = name_temp.get(forcing_provider)
-            var_maps['input'][name_xwind.get('csv')] = name_xwind.get(forcing_provider)
-            var_maps['input'][name_ywind.get('csv')] = name_ywind.get(forcing_provider)
+            model_configs['pet']['params']['variables_names_map'] = {
+                name_lw.get('csv'): name_lw.get(forcing_provider),
+                name_sw.get('csv'): name_sw.get(forcing_provider),
+                name_pressure.get('csv'): name_pressure.get(forcing_provider),
+                name_Q2.get('csv'): name_Q2.get(forcing_provider),
+                name_temp.get('csv'): name_temp.get(forcing_provider),
+                name_xwind.get('csv'): name_xwind.get(forcing_provider),
+                name_ywind.get('csv'): name_ywind.get(forcing_provider),
+            }
 
     # sloth
     if 'sloth' in modules:
