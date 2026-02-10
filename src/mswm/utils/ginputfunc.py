@@ -2698,6 +2698,7 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "fixed_time_step": False,
             "uses_forcing_file": False,
             "registration_function": "register_bmi_pet",
+            "requires_all_bmi_forcing": True,
         }
     elif module == 'sloth':
         return {
@@ -2809,17 +2810,24 @@ def build_module_config(mod: str, base: dict, modules: List[str], forcing_provid
 
     # Add CSV to BMI forcing variables if module requires them lstm/topoflow-glacier
     if base.get('requires_all_bmi_forcing') and forcing_provider == 'bmi' and forcing_vars:
+        # Initialize variables_names_map if it doesn't exist
+        if 'variables_names_map' not in config['params']:
+            config['params']['variables_names_map'] = {}
+
         # Add all forcing variable mappings
         config['params']['variables_names_map'].update({
             forcing_vars['lw'].get('csv'): forcing_vars['lw'].get('bmi'),
             forcing_vars['sw'].get('csv'): forcing_vars['sw'].get('bmi'),
             forcing_vars['pressure'].get('csv'): forcing_vars['pressure'].get('bmi'),
             forcing_vars['Q2'].get('csv'): forcing_vars['Q2'].get('bmi'),
-            forcing_vars['prcp'].get('csv'): forcing_vars['prcp'].get('bmi'),
             forcing_vars['temp'].get('csv'): forcing_vars['temp'].get('bmi'),
             forcing_vars['xwind'].get('csv'): forcing_vars['xwind'].get('bmi'),
             forcing_vars['ywind'].get('csv'): forcing_vars['ywind'].get('bmi'),
         })
+
+        # Add BMI precipitation mapping only for non-PET modules
+        if mod != 'pet':
+            config['params']['variables_names_map'][forcing_vars['prcp'].get('csv')] = forcing_vars['prcp'].get('bmi')
 
     return config
 
