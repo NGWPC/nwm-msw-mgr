@@ -27,13 +27,14 @@ def build_calib(input_path: str):
 
 
 def build_fcst(input_path: str, valid_yaml: str, fcst_run_name: str, use_cold_start: bool = False, use_warm_start: bool = False,
-               use_hindcast: bool = False, hind_cycle: int | None = None, prev_hind_cycle: int | None = None):
+               use_hindcast: bool = False, hind_cycle: int | None = None, prev_hind_cycle: int | None = None, load_state_from: str = None, save_state: bool = False):
     """
     Call RealizationBuilder class to generate forecast realization and config files
     """
     rb = RealizationBuilder(input_path=input_path, valid_yaml=valid_yaml, fcst_run_name=fcst_run_name,
                             use_cold_start=use_cold_start, use_warm_start=use_warm_start,
-                            use_hindcast=use_hindcast, hind_cycle=hind_cycle, prev_hind_cycle=prev_hind_cycle)
+                            use_hindcast=use_hindcast, hind_cycle=hind_cycle, prev_hind_cycle=prev_hind_cycle,
+                            load_state_from=load_state_from, save_state=save_state)
     real_path = rb.build_fcst_realization()
     return real_path
 
@@ -84,6 +85,8 @@ def main():
     build_fcst_sub.add_argument("--use_hindcast", action="store_true", help="Enable hindcast flag when passed")
     build_fcst_sub.add_argument("--hind_cycle", type=int, default=None, help="Cycle interval (in hours) between hindcast start and current hindcast run")
     build_fcst_sub.add_argument("--prev_hind_cycle", type=int, default=None, help="Previous hindcast cycle interval (in hours) used to coordinate warm start runs")
+    build_fcst_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
+    build_fcst_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
 
     # subcomman: validate_topoflow
     validate_topo_sub = subparser.add_parser("validate_topoflow_glacier", help="Validate Topoflow-Glacier applicability for a basin")
@@ -99,13 +102,9 @@ def main():
     elif args.command == "build_region":
         build_region(args.input_path)
     elif args.command == "build_fcst":
-<<<<<<< HEAD
         build_fcst(args.input_path, args.valid_yaml, args.fcst_run_name, args.use_cold_start, args.use_warm_start, args.use_hindcast, args.hind_cycle, args.prev_hind_cycle, args.load_state_from, args.save_state)
     elif args.command == "validate_topoflow_glacier":
         validate_topo(args.gpkg_file)
-=======
-        build_fcst(args.input_path, args.valid_yaml, args.fcst_run_name, args.use_cold_start, args.use_warm_start, args.use_hindcast, args.hind_cycle, args.prev_hind_cycle)
->>>>>>> 166f03f (Implement refactored hindcasting)
     else:
         raise ValueError(f"Unexpected mswm command: {args.command}")
 

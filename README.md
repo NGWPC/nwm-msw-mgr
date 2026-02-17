@@ -98,7 +98,9 @@ python -m mswm.manager build_fcst \
     /path/to/input_forecast.config \
     /path/to/valid_best.yaml \
     my_forecast_run \
-    --use_cold_start
+    --use_cold_start \
+    --save_state \
+    --load_state_from /path/to/saved_state/
 ```
 
 #### Python
@@ -115,6 +117,8 @@ build_fcst(
     use_hindcast=False,
     hind_cycle=None,
     prev_hind_cycle=None
+    save_state=True,
+    load_state_from="/path/to/saved_state/"
 )
 ```
 
@@ -127,16 +131,18 @@ build_fcst(
 - `--use_hindcast` - (optional) Generate files for hindcast run
 - `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
 - `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
+- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
 
 #### Example
 **Cold start:**
 ```bash
-python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --use_cold_start
+python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --use_cold_start --save_state
 ```
 
 **Forecast:**
 ```bash
-python -m mswm.manager build_fcst input.config valid.yaml fcst_run1
+python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --load_state_from /path/to/saved_state/
 ```
 
 **Warm start:**
@@ -445,6 +451,7 @@ When generating run files for a forecast (using the nwm-fcst-mgr), input files a
 │   │           │    ├── [module]_input/               # Module parameter files if modifications required from calibration
 │   │           │    └── forcing_config/               # BMI forcing engine provider config file (if bmi forcing provider used)
 │   │           ├── logs/
+│   │           ├── state_save/                            # Folder containing state saving files from cold start run
 │   │           └── Output/                            # Output run folder from nwm-fcst-mgr execution
 │   └── Forecast_Run/
 │       └── [fcst_run_name]/
