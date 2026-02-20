@@ -285,8 +285,8 @@ class RealizationBuilder:
                   else ('Hindcast_Run' if self.use_hindcast
                         else 'Forecast_Run'))
         )
-        self.run_dir = Path(fcst_dir0, fcst_dir_name, self.fcst_run_name)
-        self.input_dir = self.run_dir / 'Input'
+        self.work_dir = Path(fcst_dir0, fcst_dir_name, self.fcst_run_name)
+        self.input_dir = self.work_dir / 'Input'
 
         # Set file basename based on forecast run type
         self.basename_opt = (
@@ -558,10 +558,7 @@ class RealizationBuilder:
         Initialize logging depending on run type
         """
         # Set location for msw-mgr log
-        if self.run_type in ('forecast', 'cold_start', 'warm_start', 'hindcast'):
-            log_path = os.path.join(self.run_dir, 'logs')
-        else:
-            log_path = os.path.join(self.work_dir, 'logs')
+        log_path = os.path.join(self.work_dir, 'logs')
 
         # Initialize logging
         log_level_set(log_path)
@@ -1191,6 +1188,9 @@ class RealizationBuilder:
         """
         if self.forcing_provider == 'bmi':
 
+            # Set dummy forcing path
+            self.forcing_path = ''
+
             # Set target directory for forcing config file
             self.forcing_config_dir = Path(self.input_dir) / 'forcing_config'
             self.forcing_config_file = self.forcing_config_dir / self.forcing_configuration_str
@@ -1474,9 +1474,9 @@ class RealizationBuilder:
 
         # Ensure model state directories exist
         if self.save_state:
-            save_state_to = Path(self.input_dir) / "state_save"
-            save_state_to.mkdir(parents=True, exist_ok=True)
-            logger.info(f"State save directory: {save_state_to}")
+            self.save_state_to = Path(self.work_dir) / "state_save"
+            self.save_state_to.mkdir(parents=True, exist_ok=True)
+            logger.info(f"State save directory: {self.save_state_to}")
 
         if self.load_state_from:
             if not self.load_state_from.exists():
@@ -1504,7 +1504,7 @@ class RealizationBuilder:
             save_config = {
                 "direction": "save",
                 "label": "Save at end of run",
-                "path": str(save_state_to),
+                "path": str(self.save_state_to),
                 "type": "FilePerUnit",
                 "when": "EndOfRun"
             }
@@ -1570,7 +1570,7 @@ class RealizationBuilder:
         new_basename = os.path.basename(self.real_input_file).replace("valid_best", self.basename_opt)
 
         # save the new realization file
-        self.realization_file = Path(self.run_dir, new_basename)
+        self.realization_file = Path(self.work_dir, new_basename)
         try:
             with open(self.realization_file, 'w') as outfile:
                 json.dump(self.real_config, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
@@ -1802,7 +1802,10 @@ class RealizationBuilder:
         else:
             logger.info("Forecast run set up successfully")
 
-        return self.realization_file
+        if self.save_state:
+            return self.realization_file, self.save_state_to
+        else:
+            return self.realization_file
 
     def build_default_realization(self):
         """
