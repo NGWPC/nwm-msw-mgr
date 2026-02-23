@@ -147,17 +147,17 @@ python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --load_state
 
 **Warm start:**
 ```bash
-python -m mswm.manager build_fcst input.config valid_yaml hind_run1 --use_warm_start
+python -m mswm.manager build_fcst input.config valid_yaml hind_run1 --use_warm_start --save_state
 ```
 
 **Hindcast (cycle 0):**
 ```bash
-python -m mswm.manager build_fcst input.config valid.yaml hind_run1 --use_hindcast --hind_cycle 0
+python -m mswm.manager build_fcst input.config valid.yaml hind_run1 --use_hindcast --hind_cycle 0 --load_state_from /path/to/saved_state/
 ```
 
 **Hindcast (cycle 1, 3 hour interval):**
 ```bash
-python -m mswm.manager build_fcst input.config valid.yaml hind_run1 --use hindcast --hind_cycle 3 --hind_cycle 0
+python -m mswm.manager build_fcst input.config valid.yaml hind_run1 --use hindcast --hind_cycle 3 --hind_cycle 0 --load_state_from /path/to/saved_state/
 ```
 
 ---
