@@ -89,7 +89,7 @@ build_calib(input_path="/path/to/input.config")
 
 ### Forecast, Hindcast, & Lagged Ensemble Workflow
 
-Modify the realization and configuration files from an existing calibration run for a forecast run of ngen. If running a forecast or Hindcast through the nwm-fcst-mgr, the fcst-mgr will orchestrate these calls to the mswm.
+Modify the realization and configuration files from an existing calibration run for a forecast run of ngen. If executing a Hindcast or Lagged Ensemble run through the nwm-fcst-mgr, the fcst-mgr will orchestrate these calls to the mswm.
 
 #### CLI
 
@@ -164,6 +164,16 @@ python -m mswm.manager build_fcst input.config valid.yaml hind_run1 --use_hindca
 **Hindcast (cycle 1, 3 hour interval):**
 ```bash
 python -m mswm.manager build_fcst input.config valid.yaml hind_run1 --use hindcast --hind_cycle 3 --hind_cycle 0 --load_state_from /path/to/saved_state/
+```
+
+**Lagged Ensemble (no da member):**
+```bash
+python -m mswm.manager build_fcst input.config valid.yaml lagged_ens_no_da--use_lagged_ens --lagged_ens_mem no_da --load_state_from /path/to/open_loop_saved_state/
+```
+
+**Lagged Ensemble (member 1):**
+```bash
+python -m mswm.manager build_fcst input.config valid.yaml lagged_ens_mem1--use_lagged_ens --lagged_ens_mem mem1 --load_state_from /path/to/closed_loop_saved_state/
 ```
 
 ---
