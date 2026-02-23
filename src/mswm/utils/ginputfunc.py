@@ -2162,8 +2162,8 @@ def create_fcst_times(
         forcing_horizon = int(forcing_template['ForecastInputHorizons'][0] / 60)
         start_delta = 1
 
-        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=start_delta), "%Y-%m-%d %H:%M:%S")
-        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=forcing_horizon), "%Y-%m-%d %H:%M:%S")
+        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) + datetime.timedelta(hours=start_delta), "%Y-%m-%d %H:%M:%S")
+        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) + datetime.timedelta(hours=forcing_horizon), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on analysis cycle
     elif ana_flag == 1:
