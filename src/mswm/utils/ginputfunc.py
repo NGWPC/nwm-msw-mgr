@@ -137,7 +137,20 @@ def call_icefabric_gpkg(
     dictionary of initial parameter estimates
     """
 
-    # TODO: Domain string in endpoint not yet implemented for NHF
+    # Transform domain names to API format
+    domain_mappings = {
+        'conus': 'CONUS',
+        'alaska': 'Alaska',
+        'ak': 'Alaska',
+        'hawaii': 'Hawaii',
+        'hi': 'Hawaii',
+        'puerto_rico': 'Puerto_Rico',
+        'prvi': 'Puerto_Rico',
+        'gl': 'Great_Lakes'}
+    try:
+        domain = domain_mappings.get(domain.lower())
+    except KeyError:
+        raise ValueError(f"Invalid domain: '{domain}. Valid options are {list(domain_mappings.keys())}")
 
     # Check for VPU or gage basin input string
     if basin.lower().startswith('vpu'):
@@ -164,9 +177,9 @@ def call_icefabric_gpkg(
 
     # Build query parameters
     params = {"id_type": id_type,
-              "domain": "nhf",
-              "layers": ["divides", "flowpaths", "network", "nexus", "virtual_nexus", "virtual_flowpaths", "waterbodies", "gages", "reference_flowpaths", "hydrolocations"],
               "source": source,
+              "domain": domain,
+              "layers": ["divides", "flowpaths", "network", "nexus", "virtual_nexus", "virtual_flowpaths", "waterbodies", "gages", "reference_flowpaths", "hydrolocations"],
               }
 
     # Set output file path
