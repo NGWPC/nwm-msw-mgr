@@ -2825,10 +2825,6 @@ def build_module_config(mod: str, base: dict, modules: List[str], forcing_provid
             forcing_vars['ywind'].get('csv'): forcing_vars['ywind'].get('bmi'),
         })
 
-        # Add BMI precipitation mapping only for non-PET modules
-        if mod != 'pet':
-            config['params']['variables_names_map'][forcing_vars['prcp'].get('csv')] = forcing_vars['prcp'].get('bmi')
-
     return config
 
 
@@ -2944,7 +2940,6 @@ def create_realization_file(
 
     # Get PET and Precip variable mapping for RR module
     var_map_config = {
-        'noah': ('water_potential_evaporation_flux', forcing_vars['prcp'].get(forcing_provider)),
         'sac': ('pet', 'precip'),
         'lasam': ('potential_evapotranspiration_rate', 'precipitation_rate'),
     }
@@ -2952,17 +2947,15 @@ def create_realization_file(
     if rr_mod in var_map_config:
         pet_in, pcp_in = var_map_config[rr_mod]
     else:
+        # Used for CFE-S, CFE-X, Topmodel
         pet_in = 'water_potential_evaporation_flux'
-        pcp_in = forcing_vars['prcp'].get(forcing_provider)
+        pcp_in = forcing_vars['prcp'].get('csv')
 
     var_maps = var_mapping(modules, pet_in, pcp_in, output_dict)
 
     # Add extra mappings for specific modules
     if rr_mod == 'sac':
         var_maps['input']['tair'] = forcing_vars['temp'].get(forcing_provider)
-
-    if forcing_provider == 'bmi' and rr_mod in ['cfes', 'cfex', 'topmodel', 'lasam']:
-        var_maps['input'][forcing_vars['prcp'].get('csv')] = forcing_vars['prcp'].get('bmi')
 
     # Apply variable mapping to RR module
     if 'variables_names_map' not in model_configs[rr_mod]['params']:
@@ -3132,7 +3125,6 @@ def create_reg_realization_file(
 
         # Get PET and Precip variable mapping for RR module
         var_map_config = {
-            'noah': ('water_potential_evaporation_flux', forcing_vars['prcp'].get(forcing_provider)),
             'sac': ('pet', 'precip'),
             'lasam': ('potential_evapotranspiration_rate', 'precipitation_rate'),
         }
@@ -3141,16 +3133,13 @@ def create_reg_realization_file(
             pet_in, pcp_in = var_map_config[rr_mod]
         else:
             pet_in = 'water_potential_evaporation_flux'
-            pcp_in = forcing_vars['prcp'].get(forcing_provider)
+            pcp_in = forcing_vars['prcp'].get('csv')
 
         var_maps = var_mapping(grp_mod, pet_in, pcp_in, output_dict)
 
         # Add extra mappings for specific modules
         if rr_mod == 'sac':
             var_maps['input']['tair'] = forcing_vars['temp'].get(forcing_provider)
-
-        if forcing_provider == 'bmi' and rr_mod in ['cfes', 'cfex', 'topmodel', 'lasam']:
-            var_maps['input'][forcing_vars['prcp'].get('csv')] = forcing_vars['prcp'].get('bmi')
 
         # Apply variable mapping to RR module
         if 'variables_names_map' not in model_configs[rr_mod]['params']:
