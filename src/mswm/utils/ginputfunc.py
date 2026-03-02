@@ -493,7 +493,7 @@ def create_noah_input(
         for catID in catids:
             # Get catchment attributes
             cat_attrs = divides_df.loc[catID]
-            tslp = cat_attrs['slope1km_mean']
+            tslp = cat_attrs['slope250m_mean']
             azimuth = cat_attrs['aspect_circmean']
             lat = cat_attrs['lat']
             lon = cat_attrs['lon']
@@ -837,7 +837,7 @@ def create_ueb_input(
     for catID in catids:
         # Get catchment attributes
         cat_attrs = divides_df.loc[catID]
-        tslp = cat_attrs['slope1km_mean']
+        tslp = cat_attrs['slope250m_mean']
         azimuth = cat_attrs['aspect_circmean']
         lat = cat_attrs['lat']
         lon = cat_attrs['lon']
@@ -1223,7 +1223,7 @@ def create_lstm_input(
             'elev_mean': float(cat_attrs['elevation_mean']),
             'lat': float(cat_attrs['lat']),
             'lon': float(cat_attrs['lon']),
-            'slope_mean': float(cat_attrs['slope1km_mean']),
+            'slope_mean': float(cat_attrs['slope250m_mean']),
         })
 
         # Write config to file
@@ -1474,7 +1474,7 @@ def create_topoflow_glacier_input(
                 'start_time': start_time,
                 'end_time': end_time,
                 'da': float(cat_attrs["area_sqkm"]),
-                'slope': float(cat_attrs["slope1km_mean"]),
+                'slope': float(cat_attrs["slope250m_mean"]),
                 'aspect': float(cat_attrs["aspect_circmean"]),
                 'lat': float(cat_attrs["lat"]),
                 'lon': float(cat_attrs["lon"]),
