@@ -3036,7 +3036,7 @@ def create_realization_file(
     # Forcing configuration
     forcing_map = {
         "csv": {"file_pattern": ".*{{id}}.*.csv", "path": forcing_dir, "provider": "CsvPerFeature"},
-        "bmi": {"path": forcing_dir, "provider": "ForcingsEngineLumpedDataProvider", "params": {"init_config": str(forcing_config_file)}}
+        "bmi": {"path": "", "provider": "ForcingsEngineLumpedDataProvider", "params": {"init_config": str(forcing_config_file)}}
     }
 
     g["global"]["forcing"] = forcing_map[forcing_provider]
