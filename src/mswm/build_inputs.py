@@ -911,9 +911,6 @@ class RealizationBuilder:
                 self.modules.remove("smp")
                 self.modules.insert(sft_index, "smp")
 
-        # Retrieve is_aet_rootzone flag for cfe
-        self.is_aet_rootzone = self.conf1.get('is_aet_rootzone') or 0
-
         # If Topoflow-glacier in modules,validate glacier coverage and create grouped realizations
         if 'topoflow-glacier' in self.modules:
 
@@ -1407,7 +1404,7 @@ class RealizationBuilder:
                 if is_regionalization:
                     gfun.create_cfe_input(cat_mod, form_cat, self.divides_df, mod_input_dir, self.run_type, self.cat_to_aet_rootzone)
                 else:
-                    gfun.create_cfe_input(cat_mod, mod_all, self.divides_df, mod_input_dir, self.run_type, self.is_aet_rootzone)
+                    gfun.create_cfe_input(cat_mod, mod_all, self.divides_df, mod_input_dir, self.run_type, self.aet_rootzone)
             elif m1 == 'topmodel':
                 gfun.create_topmodel_input(cat_mod, self.divides_df, self.flowpaths_df, mod_input_dir)
             elif m1 == 'ueb':
