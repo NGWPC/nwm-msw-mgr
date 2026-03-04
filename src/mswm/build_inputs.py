@@ -1402,9 +1402,9 @@ class RealizationBuilder:
             # Create BMI config files from scratch if paths not provided
             if m1 in ['cfes', 'cfex']:
                 if is_regionalization:
-                    gfun.create_cfe_input(cat_mod, form_cat, self.divides_df, mod_input_dir, self.run_type, self.cat_to_aet_rootzone)
+                    gfun.create_cfe_input(cat_mod, form_cat, self.divides_df, mod_input_dir, self.run_type, self.cat_to_aet_rootzone, self.output_dict['sm_profile_depth'])
                 else:
-                    gfun.create_cfe_input(cat_mod, mod_all, self.divides_df, mod_input_dir, self.run_type, self.aet_rootzone)
+                    gfun.create_cfe_input(cat_mod, mod_all, self.divides_df, mod_input_dir, self.run_type, self.aet_rootzone, self.output_dict['sm_profile_depth'])
             elif m1 == 'topmodel':
                 gfun.create_topmodel_input(cat_mod, self.divides_df, self.flowpaths_df, mod_input_dir)
             elif m1 == 'ueb':
