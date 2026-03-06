@@ -2160,9 +2160,8 @@ def create_fcst_times(
 
         # Retrieve forecast input horizon from config file
         forcing_horizon = int(forcing_template['ForecastInputHorizons'][0] / 60)
-        start_delta = 1
 
-        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) + datetime.timedelta(hours=start_delta), "%Y-%m-%d %H:%M:%S")
+        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle), "%Y-%m-%d %H:%M:%S")
         fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) + datetime.timedelta(hours=forcing_horizon), "%Y-%m-%d %H:%M:%S")
 
     # Construct start and end times based on analysis cycle
@@ -2251,12 +2250,12 @@ def update_fcst_forcing_config(
     # Set lookback minutes for cold start period
     if use_cold_start:
         cold_start_dt = datetime.datetime.strptime(cold_start_datetime, "%Y-%m-%d %H:%M:%S")
-        lookback = int((cycle_dt - cold_start_dt).total_seconds() / 60) - 60
+        lookback = int((cycle_dt - cold_start_dt).total_seconds() / 60)
         forcing_template['LookBack'] = lookback
 
     # Set lookback minutes for warm start period
     elif use_warm_start:
-        lookback = int((hind_cycle - prev_hind_cycle) * 60) - 60
+        lookback = int((hind_cycle - prev_hind_cycle) * 60)
         forcing_template['LookBack'] = lookback
 
     # Set geogrid file name
@@ -2268,7 +2267,10 @@ def update_fcst_forcing_config(
     forcing_template = replace_forcing_placeholders(forcing_template, vars)
 
     # Update forcing_template with dynamic variables
-    forcing_template['RefcstBDateProc'] = cycle_str
+    if ana_flag:
+        forcing_template['RefcstBDateProc'] = (cycle_dt - datetime.timedelta(hours=1)).strftime('%Y%m%d%H%M')
+    else:
+        forcing_template['RefcstBDateProc'] = cycle_str
     forcing_template['Geopackage'] = gpkg_file
 
     # Write forcing config yaml file

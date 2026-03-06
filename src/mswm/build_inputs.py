@@ -1276,11 +1276,7 @@ class RealizationBuilder:
         For UEB, TopoFlow-Glacier, and Noah-OWP-Modular, create new BMI config files with new time info, and
         update path to BMI configs in realization file accordingly
         """
-<<<<<<< HEAD
-        self.real_config = gfun.update_noah_ueb_topo_times(self.real_config, self.input_dir)
-=======
-        self.real_config = gfun.update_noah_ueb_times(self.real_config, self.input_dir, self.basename_opt)
->>>>>>> f222cf3 (Minor changes to forecast file structure)
+        self.real_config = gfun.update_noah_ueb_topo_times(self.real_config, self.input_dir, self.basename_opt)
         logger.info("Updated noah and ueb config files for forecast if used")
 
     def _update_fcst_troute(self):
