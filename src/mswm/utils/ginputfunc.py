@@ -2242,6 +2242,8 @@ def update_fcst_forcing_config(
     # Create directory for storing config file
     os.makedirs(forcing_config_dir, exist_ok=True)
 
+    ana_flag = forcing_template['AnAFlag']
+
     # Format cycle_date and hour for config file
     initial_cycle_dt = datetime.datetime.strptime(cycle_date, "%Y-%m-%d").replace(hour=int(cycle_hour.replace("z", "")))
     cycle_dt = initial_cycle_dt + datetime.timedelta(hours=hind_cycle)
