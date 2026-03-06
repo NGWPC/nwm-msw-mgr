@@ -32,7 +32,8 @@ def build_fcst(input_path: str, valid_yaml: str, fcst_run_name: str, use_cold_st
     """
     Call RealizationBuilder class to generate forecast realization and config files
     """
-    rb = RealizationBuilder(use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
+    rb = RealizationBuilder(input_path=input_path, valid_yaml=valid_yaml, fcst_run_name=fcst_run_name,
+                            use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
                             use_hindcast=use_hindcast, hind_cycle=hind_cycle, prev_hind_cycle=prev_hind_cycle,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
                             load_state_from=load_state_from, save_state=save_state)
