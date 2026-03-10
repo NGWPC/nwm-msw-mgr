@@ -192,3 +192,18 @@ def _make_fcst_input_config(tmp_work_dir):
     return InputConfig(
         Forcing=forcing,
     )
+
+
+def _make_lagged_ens_input_config(tmp_work_dir):
+    """Build an InputConfig pydantic object for a lagged ensemble run"""
+    forcing = ForcingConfig(
+        forcing_provider="bmi",
+        forcing_template_dir=str(test_forcing_configs),
+        root_dir=tmp_work_dir,
+        forcing_configuration="medium_range",
+        cycle_datetime="2025-09-01 00:00:00",
+        cold_start_datetime="2025-08-01 00:00:00",
+    )
+    return InputConfig(
+        Forcing=forcing,
+    )

@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from mswm.build_inputs import RealizationBuilder
-from conftest import _make_calib_input_config, _make_fcst_input_config
+from conftest import _make_calib_input_config, _make_fcst_input_config, _make_lagged_ens_input_config
 
 
 def _run_calib_build(tmp_work_dir):
@@ -433,3 +433,81 @@ class TestHindcastBuild:
     def test_hindcast_variables(self):
         assert self.rb.hind_cycle == 3
         assert self.rb.prev_hind_cycle == 0
+
+
+class TestLaggedEnsBuild:
+    """End-to-end tests for lagged ensemble realization build workflow"""
+
+    @pytest.fixture(autouse=True)
+    def _build(self, tmp_work_dir, dummy_files, calib_build, valid_yaml_from_calib):
+        """Minimal test: confirm lagged ensemble pipeline runs to completion"""
+
+        # Create input config
+        config = _make_lagged_ens_input_config(tmp_work_dir)
+
+        # Initialize builder
+        rb = RealizationBuilder(
+            config_overrides=config,
+            valid_yaml=valid_yaml_from_calib,
+            fcst_run_name="test_lagged_ens",
+            use_lagged_ens=True,
+            lagged_ens_mem="mem2",
+            forcing_lag=6,
+            load_state_from="/path/to/state"
+        )
+
+        # Mock file operations that require external dependencies
+        with (
+            patch("mswm.build_inputs.gfun.create_partition_file", return_value=None),
+            patch("pathlib.Path.exists", return_value=True)
+        ):
+            # Run calibration workflow
+            rb.build_fcst_realization()
+
+        self.rb = rb
+
+    # Workflow states
+    def test_lagged_ens_basename(self):
+        assert self.rb.basename_opt == "lagged_ens"
+
+    # def test_lagged_ens_run_type(self):
+    #     assert self.rb.run_type == "lagged_ens"
+
+    def test_lagged_ens_dir_name(self):
+        assert "Lagged_Ensemble_Run" in str(self.rb.input_dir)
+
+    def test_load_state_path(self):
+        assert "/path/to/state" in str(self.rb.load_state_from)
+
+    # LAgged Ensemble realization
+    def test_lagged_ens_realization_written(self):
+        assert os.path.isfile(self.rb.realization_file)
+        filename = os.path.basename(str(self.rb.realization_file))
+        assert "lagged_ens" in filename
+
+    def test_lagged_ens_realization_is_valid_json(self):
+        with open(self.rb.realization_file) as f:
+            data = json.load(f)
+        assert isinstance(data, dict)
+        assert "time" in data
+        assert "global" in data
+
+    def test_lagged_ens_troute_config_created(self):
+        fcst_dir = str(self.rb.input_dir)
+        troute_files = [f for f in os.listdir(fcst_dir) if "troute" in f and f.endswith(".yaml")]
+        assert len(troute_files) == 1
+        assert "lagged_ens" in troute_files[0]
+
+    def test_realization_statesave(self):
+        with open(self.rb.realization_file) as f:
+            data = json.load(f)
+        assert "state_saving" in data
+        assert data["state_saving"][0]["label"] == "State load"
+        assert data["state_saving"][0]["direction"] == "load"
+        assert data["state_saving"][0]["path"] == "/path/to/state"
+        assert data["state_saving"][0]["type"] == "FilePerUnit"
+        assert data["state_saving"][0]["when"] == "StartOfRun"
+
+    def test_lagged_ens_variables(self):
+        assert self.rb.lagged_ens_mem == "mem2"
+        assert self.rb.forcing_lag == 6
