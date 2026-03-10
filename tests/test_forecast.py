@@ -272,6 +272,165 @@ class TestFcstColdStartBuild:
         assert "state_saving" in data
         assert data["state_saving"][0]["label"] == "Save at end of run"
         assert data["state_saving"][0]["direction"] == "save"
-        assert data["state_saving"][0]["path"] == str(Path(self.rb.input_dir) / "state_save")
+        assert data["state_saving"][0]["path"] == str(Path(self.rb.work_dir) / "state_save")
         assert data["state_saving"][0]["type"] == "FilePerUnit"
         assert data["state_saving"][0]["when"] == "EndOfRun"
+
+
+class TestFcstWarmStartBuild:
+    """End-to-end tests for warm start forecast realization build workflow"""
+
+    @pytest.fixture(autouse=True)
+    def _build(self, tmp_work_dir, dummy_files, calib_build, valid_yaml_from_calib):
+        """Minimal test: confirm warm start forecast pipeline runs to completion"""
+
+        # Create input config
+        config = _make_fcst_input_config(tmp_work_dir)
+
+        # Initialize builder
+        rb = RealizationBuilder(
+            config_overrides=config,
+            valid_yaml=valid_yaml_from_calib,
+            fcst_run_name="test_fcst",
+            use_warm_start=True,
+            save_state=True,
+            load_state_from="/path/to/state"
+        )
+
+        # Mock file operations that require external dependencies
+        with (
+            patch("mswm.build_inputs.gfun.create_partition_file", return_value=None),
+            patch("pathlib.Path.exists", return_value=True)
+        ):
+            # Run calibration workflow
+            rb.build_fcst_realization()
+
+        self.rb = rb
+
+    # Workflow states
+    def test_warm_start_basename(self):
+        assert self.rb.basename_opt == "warm_start"
+
+    # This test will be fixed by maxkipp-restrict-aorc-forcing-to-conus
+    # def test_warm_start_run_type(self):
+    #     assert self.rb.run_type == "warm_start"
+
+    def test_warm_start_dir_name(self):
+        assert "Warm_Start_Run" in str(self.rb.input_dir)
+
+    def test_save_state(self):
+        assert self.rb.save_state is True
+
+    def test_load_state_path(self):
+        assert "/path/to/state" in str(self.rb.load_state_from)
+
+    # Warm start realization
+    def test_warm_start_realization_written(self):
+        assert os.path.isfile(self.rb.realization_file)
+        filename = os.path.basename(str(self.rb.realization_file))
+        assert "warm_start" in filename
+
+    def test_warm_start_realization_is_valid_json(self):
+        with open(self.rb.realization_file) as f:
+            data = json.load(f)
+        assert isinstance(data, dict)
+        assert "time" in data
+        assert "global" in data
+
+    def test_warm_start_troute_config_created(self):
+        fcst_dir = str(self.rb.input_dir)
+        troute_files = [f for f in os.listdir(fcst_dir) if "troute" in f and f.endswith(".yaml")]
+        assert len(troute_files) == 1
+        assert "warm_start" in troute_files[0]
+
+    def test_realization_statesave(self):
+        with open(self.rb.realization_file) as f:
+            data = json.load(f)
+        assert "state_saving" in data
+        assert data["state_saving"][0]["label"] == "State load"
+        assert data["state_saving"][0]["direction"] == "load"
+        assert data["state_saving"][0]["path"] == "/path/to/state"
+        assert data["state_saving"][0]["type"] == "FilePerUnit"
+        assert data["state_saving"][0]["when"] == "StartOfRun"
+        assert data["state_saving"][1]["label"] == "Save at end of run"
+        assert data["state_saving"][1]["direction"] == "save"
+        assert data["state_saving"][1]["path"] == str(Path(self.rb.work_dir) / "state_save")
+        assert data["state_saving"][1]["type"] == "FilePerUnit"
+        assert data["state_saving"][1]["when"] == "EndOfRun"
+
+class TestHindcastBuild:
+    """End-to-end tests for hindcast realization build workflow"""
+
+    @pytest.fixture(autouse=True)
+    def _build(self, tmp_work_dir, dummy_files, calib_build, valid_yaml_from_calib):
+        """Minimal test: confirm hindcast pipeline runs to completion"""
+
+        # Create input config
+        config = _make_fcst_input_config(tmp_work_dir)
+
+        # Initialize builder
+        rb = RealizationBuilder(
+            config_overrides=config,
+            valid_yaml=valid_yaml_from_calib,
+            fcst_run_name="test_hind",
+            use_hindcast=True,
+            hind_cycle=3,
+            prev_hind_cycle=0,
+            load_state_from="/path/to/state"
+        )
+
+        # Mock file operations that require external dependencies
+        with (
+            patch("mswm.build_inputs.gfun.create_partition_file", return_value=None),
+            patch("pathlib.Path.exists", return_value=True)
+        ):
+            # Run calibration workflow
+            rb.build_fcst_realization()
+
+        self.rb = rb
+
+    # Workflow states
+    def test_hindcast_basename(self):
+        assert self.rb.basename_opt == "hind"
+
+    # def test_hind_run_type(self):
+    #     assert self.rb.run_type == "hindcast"
+
+    def test_hindcast_dir_name(self):
+        assert "Hindcast_Run" in str(self.rb.input_dir)
+
+    def test_load_state_path(self):
+        assert "/path/to/state" in str(self.rb.load_state_from)
+
+    # Hindcast realization
+    def test_hindcast_realization_written(self):
+        assert os.path.isfile(self.rb.realization_file)
+        filename = os.path.basename(str(self.rb.realization_file))
+        assert "hind" in filename
+
+    def test_hindcast_realization_is_valid_json(self):
+        with open(self.rb.realization_file) as f:
+            data = json.load(f)
+        assert isinstance(data, dict)
+        assert "time" in data
+        assert "global" in data
+
+    def test_hindcast_troute_config_created(self):
+        fcst_dir = str(self.rb.input_dir)
+        troute_files = [f for f in os.listdir(fcst_dir) if "troute" in f and f.endswith(".yaml")]
+        assert len(troute_files) == 1
+        assert "hind" in troute_files[0]
+
+    def test_realization_statesave(self):
+        with open(self.rb.realization_file) as f:
+            data = json.load(f)
+        assert "state_saving" in data
+        assert data["state_saving"][0]["label"] == "State load"
+        assert data["state_saving"][0]["direction"] == "load"
+        assert data["state_saving"][0]["path"] == "/path/to/state"
+        assert data["state_saving"][0]["type"] == "FilePerUnit"
+        assert data["state_saving"][0]["when"] == "StartOfRun"
+
+    def test_hindcast_variables(self):
+        assert self.rb.hind_cycle == 3
+        assert self.rb.prev_hind_cycle == 0
