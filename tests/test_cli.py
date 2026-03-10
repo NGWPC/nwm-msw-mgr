@@ -38,18 +38,18 @@ class TestCLI:
         mock_build.assert_called_once_with("/path/to/config.conf")
 
     @patch("mswm.manager.build_fcst")
-    def test_build_fcst(self, mock_build):
-        """build_fcst command dispatches to build_fcst()"""
-        with patch("sys.argv", ["mswm", "build_fcst", "/path/to/config.conf", "/path/valid_yaml", "run_1"]):
+    def test_build_fcst_with_cold_start(self, mock_build):
+        """build_fcst --use_cold_start sets cold start flag, --save_state sets state saving flag"""
+        with patch("sys.argv", ["mswm", "build_fcst", "/path/to/config.conf", "/path/valid_yaml", "run_1", "--use_cold_start", "--save_state"]):
             main()
-        mock_build.assert_called_once_with("/path/to/config.conf", "/path/valid_yaml", "run_1", False)
+        mock_build.assert_called_once_with("/path/to/config.conf", "/path/valid_yaml", "run_1", True, None, True)
 
     @patch("mswm.manager.build_fcst")
-    def test_build_fcst_with_cold_start(self, mock_build):
-        """build_fcst --use_cold_start sets cold start flag"""
-        with patch("sys.argv", ["mswm", "build_fcst", "/path/to/config.conf", "/path/valid_yaml", "run_1", "--use_cold_start"]):
+    def test_build_fcst(self, mock_build):
+        """build_fcst command dispatches to build_fcst(), with mock state load"""
+        with patch("sys.argv", ["mswm", "build_fcst", "/path/to/config.conf", "/path/valid_yaml", "run_1", "--load_state_from", "/path/to/state/"]):
             main()
-        mock_build.assert_called_once_with("/path/to/config.conf", "/path/valid_yaml", "run_1", True)
+        mock_build.assert_called_once_with("/path/to/config.conf", "/path/valid_yaml", "run_1", False, "/path/to/state/", False)
 
     def test_no_subcommand(self):
         """Missing subcommand should cause system exit"""

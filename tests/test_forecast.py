@@ -85,11 +85,13 @@ class TestFcstBuild:
             config_overrides=config,
             valid_yaml=valid_yaml_from_calib,
             fcst_run_name="test_fcst",
+            load_state_from="/path/to/state"
         )
 
         # Mock file operations that require external dependencies
         with (
-            patch("mswm.build_inputs.gfun.create_partition_file", return_value=None)
+            patch("mswm.build_inputs.gfun.create_partition_file", return_value=None),
+            patch("pathlib.Path.exists", return_value=True)
         ):
             # Run calibration workflow
             rb.build_fcst_realization()
@@ -114,6 +116,9 @@ class TestFcstBuild:
 
     def test_forecast_run_dir(self):
         assert "Forecast_Run" in str(self.rb.input_dir)
+
+    def test_load_state_path(self):
+        assert "/path/to/state" in str(self.rb.load_state_from)
 
     # Yaml loading
     def test_valid_conf_has_general(self):
@@ -164,6 +169,16 @@ class TestFcstBuild:
         assert data["time"]["end_time"] is not None
         assert data["time"]["output_interval"] == 3600
 
+    def test_realization_state_load(self):
+        with open(self.rb.realization_file) as f:
+            data = json.load(f)
+        assert "state_saving" in data
+        assert data["state_saving"][0]["label"] == "State load"
+        assert data["state_saving"][0]["direction"] == "load"
+        assert data["state_saving"][0]["path"] == "/path/to/state"
+        assert data["state_saving"][0]["type"] == "FilePerUnit"
+        assert data["state_saving"][0]["when"] == "StartOfRun"
+
     def test_realization_filename_uses_fcst(self):
         filename = os.path.basename(str(self.rb.realization_file))
         assert "fcst" in filename
@@ -205,7 +220,8 @@ class TestFcstColdStartBuild:
             config_overrides=config,
             valid_yaml=valid_yaml_from_calib,
             fcst_run_name="test_fcst",
-            use_cold_start=True
+            use_cold_start=True,
+            save_state=True
         )
 
         # Mock file operations that require external dependencies
@@ -228,6 +244,9 @@ class TestFcstColdStartBuild:
     def test_cold_start_dir_name(self):
         assert "Cold_Start_Run" in str(self.rb.input_dir)
 
+    def test_save_state(self):
+        assert self.rb.save_state is True
+
     # Cold start realization
     def test_cold_start_realization_written(self):
         assert os.path.isfile(self.rb.realization_file)
@@ -247,5 +266,12 @@ class TestFcstColdStartBuild:
         assert len(troute_files) == 1
         assert "cold_start" in troute_files[0]
 
-    
-
+    def test_realization_statesave(self):
+        with open(self.rb.realization_file) as f:
+            data = json.load(f)
+        assert "state_saving" in data
+        assert data["state_saving"][0]["label"] == "Save at end of run"
+        assert data["state_saving"][0]["direction"] == "save"
+        assert data["state_saving"][0]["path"] == str(Path(self.rb.input_dir) / "state_save")
+        assert data["state_saving"][0]["type"] == "FilePerUnit"
+        assert data["state_saving"][0]["when"] == "EndOfRun"
