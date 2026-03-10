@@ -237,9 +237,8 @@ class TestFcstColdStartBuild:
     def test_cold_start_basename(self):
         assert self.rb.basename_opt == "cold_start"
 
-    # This test will be fixed by maxkipp-restrict-aorc-forcing-to-conus
-    # def test_cold_start_run_type(self):
-    #     assert self.rb.run_type == "cold start"
+    def test_cold_start_run_type(self):
+        assert self.rb.run_type == "cold_start"
 
     def test_cold_start_dir_name(self):
         assert "Cold_Start_Run" in str(self.rb.input_dir)
@@ -311,9 +310,8 @@ class TestFcstWarmStartBuild:
     def test_warm_start_basename(self):
         assert self.rb.basename_opt == "warm_start"
 
-    # This test will be fixed by maxkipp-restrict-aorc-forcing-to-conus
-    # def test_warm_start_run_type(self):
-    #     assert self.rb.run_type == "warm_start"
+    def test_warm_start_run_type(self):
+        assert self.rb.run_type == "warm_start"
 
     def test_warm_start_dir_name(self):
         assert "Warm_Start_Run" in str(self.rb.input_dir)
@@ -358,6 +356,7 @@ class TestFcstWarmStartBuild:
         assert data["state_saving"][1]["type"] == "FilePerUnit"
         assert data["state_saving"][1]["when"] == "EndOfRun"
 
+
 class TestHindcastBuild:
     """End-to-end tests for hindcast realization build workflow"""
 
@@ -393,8 +392,8 @@ class TestHindcastBuild:
     def test_hindcast_basename(self):
         assert self.rb.basename_opt == "hind"
 
-    # def test_hind_run_type(self):
-    #     assert self.rb.run_type == "hindcast"
+    def test_hind_run_type(self):
+        assert self.rb.run_type == "hindcast"
 
     def test_hindcast_dir_name(self):
         assert "Hindcast_Run" in str(self.rb.input_dir)
