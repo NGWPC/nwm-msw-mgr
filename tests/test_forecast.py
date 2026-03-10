@@ -470,8 +470,8 @@ class TestLaggedEnsBuild:
     def test_lagged_ens_basename(self):
         assert self.rb.basename_opt == "lagged_ens"
 
-    # def test_lagged_ens_run_type(self):
-    #     assert self.rb.run_type == "lagged_ens"
+    def test_lagged_ens_run_type(self):
+        assert self.rb.run_type == "lagged_ens"
 
     def test_lagged_ens_dir_name(self):
         assert "Lagged_Ensemble_Run" in str(self.rb.input_dir)
