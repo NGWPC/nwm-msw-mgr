@@ -20,7 +20,7 @@ from mswm.utils.input_configuration import (
 
 # Set paths to test data
 test_data_dir = Path(__file__).parent / "data"
-test_gpkg = test_data_dir / "hydrofabric" / "hydrofabric.gpkg"
+test_gpkg = test_data_dir / "hydrofabric" / "hydrofabric_nhf.gpkg"
 test_calib_params = test_data_dir / "calib_params"
 test_region_dir = test_data_dir / "regionalization"
 test_forcing_configs = test_data_dir / "forcing_configs"
