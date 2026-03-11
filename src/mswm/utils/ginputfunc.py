@@ -1644,7 +1644,7 @@ def update_noah_ueb_topo_times(
         mod_params = form.get('params')
         model_name = mod_params.get('model_type_name')
 
-        if model_name not in dict:
+        if model_name not in mod_dict:
             continue
 
         # Get source files and create destination directory

@@ -105,7 +105,7 @@ class TestRegionBuild:
         assert "catchments" in data
         assert "formulation_groups" in data
         for cat in self.rb.catids:
-            assert cat in data["catchments"], f"Missing catchment {cat} in realization"
+            assert str(cat) in data["catchments"], f"Missing catchment {cat} in realization"
 
     def test_realization_has_routing(self):
         with open(self.rb.realization_file) as f:
@@ -135,7 +135,7 @@ class TestRegionBuild:
         cfex_dir = os.path.join(self.rb.input_dir, "cfe-x_input")
         assert os.path.isdir(cfex_dir)
         files = os.listdir(cfex_dir)
-        assert len(files) == 3
+        assert len(files) == 4
 
     def test_noah_configs_exist(self):
         noah_dir = os.path.join(self.rb.input_dir, "noah-owp-modular_input")
