@@ -608,11 +608,33 @@ class RealizationBuilder:
                 if self.use_cold_start:
                     forcing_region = next((f"_{reg}" for reg in ["alaska", "hawaii", "puertorico"] if reg in self.forcing_configuration), "")
                     self.forcing_configuration_str = f"cold_start{forcing_region}_config.yml"
+
                 elif self.use_warm_start:
                     forcing_region = next((f"_{reg}" for reg in ["alaska", "hawaii", "puertorico"] if reg in self.forcing_configuration), "")
                     self.forcing_configuration_str = f"standard_ana{forcing_region}_config.yml"
                 else:
                     self.forcing_configuration_str = f"{self.forcing_configuration}_config.yml"
+
+                # Initialize fcst_lookback
+                self.fcst_lookback = 0
+
+                # Read fcst_template to retrieve lookback used to set cold start/warm start end time
+                if self.use_cold_start or self.use_warm_start:
+                    fcst_template_file = (Path(self.forcing_template_dir) / f"{self.forcing_configuration}_config.yml").absolute()
+                    if fcst_template_file.exists():
+                        try:
+                            with open(fcst_template_file) as f:
+                                fcst_template = yaml.safe_load(f)
+                        except FileNotFoundError as e:
+                            logger.critical(f'Config file does not exist: {self.forcing_template_file}\n{e}')
+                            raise
+                        except yaml.YAMLError as e:
+                            logger.critical(f"YAML parsing error in config file: {self.forcing_template_file}\n{e}")
+                            raise
+                        except Exception as e:
+                            logger.critical(f"Unexpected error loading config at: {self.forcing_template_file}\n{e}")
+                            raise
+                        self.fcst_lookback = 0 if fcst_template['LookBack'] == -9999 else int(fcst_template['LookBack'] / 60)
 
             # Set forcing engine variables for historical forcing
             else:
@@ -644,7 +666,8 @@ class RealizationBuilder:
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Retrieve ngen start and end time based on forecast cycle date, hour and configuration
                 self.fcst_start, self.fcst_end = gfun.create_fcst_times(self.forcing_template, self.cycle_date, self.cycle_hour, self.use_cold_start,
-                                                                        self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.cold_start_datetime)
+                                                                        self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.cold_start_datetime,
+                                                                        self.fcst_lookback)
             else:
                 # Set default fcst_start/fcst_end values
                 self.fcst_start = None
@@ -1209,7 +1232,7 @@ class RealizationBuilder:
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Update dynamic parameters in forcing engine configuration file
                 gfun.update_fcst_forcing_config(self.cycle_date, self.cycle_hour, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir,
-                                                self.forcing_config_file, self.use_cold_start, self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.cold_start_datetime)
+                                                self.forcing_config_file, self.use_cold_start, self.use_warm_start, self.hind_cycle, self.prev_hind_cycle, self.cold_start_datetime, self.fcst_lookback)
             else:
                 # Update historical dynamic parameters in forcing engine configuration file
                 gfun.update_hist_forcing_config(self.time_period, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir, self.forcing_config_file, self.run_type, self.global_domain, self.forcing_static_dir)
