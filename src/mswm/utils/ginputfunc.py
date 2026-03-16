@@ -3035,7 +3035,7 @@ def create_realization_file(
 
     # Forcing configuration
     forcing_map = {
-        "csv": {"file_pattern": ".*{{id}}.*.csv", "path": forcing_dir, "provider": "CsvPerFeature"},
+        "csv": {"file_pattern": "{{id}}.csv", "path": forcing_dir, "provider": "CsvPerFeature"},
         "bmi": {"path": "", "provider": "ForcingsEngineLumpedDataProvider", "params": {"init_config": str(forcing_config_file)}}
     }
 
@@ -3221,7 +3221,7 @@ def create_reg_realization_file(
 
     # Forcing configuration
     forcing_map = {
-        "csv": {"file_pattern": ".*{{id}}.*.csv", "path": forcing_dir, "provider": "CsvPerFeature"},
+        "csv": {"file_pattern": "{{id}}.csv", "path": forcing_dir, "provider": "CsvPerFeature"},
         "bmi": {"path": "", "provider": "ForcingsEngineLumpedDataProvider", "params": {"init_config": str(forcing_config_file)}}
     }
 
