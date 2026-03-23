@@ -2544,6 +2544,16 @@ def get_sloth_params(modules: List[str]) -> dict:
             "soil_depth_wetting_fronts(1,double,1,node)": 0.0,
             "num_wetting_fronts(1,int,1,node)": 1,
         }
+    elif 'sac' in modules and 'smp' in modules:
+        return {
+            "soil_moisture_wetting_fronts(1,double,1,node)": 0.0,
+            "soil_thickness_layered(1,double,1,node)": 0.0,
+            "soil_depth_wetting_fronts(1,double,m,node)": 0.0,
+            "num_wetting_fronts(1,int,1,node)": 1.0,
+            "Qb_topmodel(1,double,m h^-1,node)": 0.0,
+            "Qv_topmodel(1,double,m h^-1,node)": 0.0,
+            "global_deficit(1,double,m,node)": 0.0
+        }
     elif 'lasam' in modules:
         if 'sft' not in modules:
             return {"soil_temperature_profile(1,double,K,node)": 275.15}
@@ -2581,6 +2591,11 @@ def get_smp_var_map(modules: List) -> dict:
             "Qb_topmodel": "land_surface_water__baseflow_volume_flux",
             "Qv_topmodel": "soil_water_root-zone_unsat-zone_top__recharge_volume_flux",
             "global_deficit": "soil_water__domain_volume_deficit"
+        }
+    elif 'sac' in modules:
+        return {
+            "soil_storage": "uzsmc",
+            "soil_storage_change": "uzsmc_ch"
         }
     return base_map
 
