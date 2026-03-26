@@ -1839,6 +1839,7 @@ def create_troute_config(
     nwtopo_param = {
         "supernetwork_parameters": {
             "geo_file_path": str(gpkg_file),
+            "network_type": "NHF",
         },
         "waterbody_parameters": {
             "break_network_at_waterbodies": True
@@ -1875,7 +1876,7 @@ def create_troute_config(
             "compute_kernel": "V02-structured",
             "assume_short_ts": True,
             "subnetwork_target_size": 10000,
-            "cpu_pool": 16,
+            "cpu_pool": 1,  # TODO: Should this be set from info in the Parallel section?
             "restart_parameters": {
                 "start_datetime": time_period['run_time_period'][run_name][0]
             },
@@ -2862,12 +2863,14 @@ def build_output_vars(var_maps: dict, output_dict: dict, precip_output: str) -> 
 
     # Add SWE output if requested
     if output_dict.get('output_swe') and var_maps['output'].get('swe_out'):
-        output_vars.append({
+        entry = {
             'name': var_maps['output']['swe_out'],
             'header': var_maps['output'].get('swe_out_header', ''),
             'units': var_maps['output'].get('swe_out_units', ''),
-            'index': var_maps['output'].get('swe_out_index', ''),
-        })
+        }
+        if var_maps['output'].get('swe_out_index', ''):
+            entry['index'] = var_maps['output']['swe_out_index']
+        output_vars.append(entry)
 
     # Add precipitation output if requested
     if output_dict.get('output_sm') and var_maps['output'].get('sm_out'):
@@ -2878,6 +2881,8 @@ def build_output_vars(var_maps: dict, output_dict: dict, precip_output: str) -> 
                 'units': var_maps['output']['sm_out_units'][i],
                 'index': var_maps['output']['sm_out_index'][i],
             }
+            if var_maps['output']['sm_out_index'][i] != '0':
+                entry['index'] = var_maps['output']['sm_out_index'][i]
             output_vars.append(entry)
 
     # Add precipitation output if requested
@@ -2885,14 +2890,8 @@ def build_output_vars(var_maps: dict, output_dict: dict, precip_output: str) -> 
         output_vars.append({
             'name': precip_output,
             'header': 'precip_rate',
-            'units': 'mm/s',
-            'index': '0',
+            'units': 'mm/s'
         })
-
-    # Remove index if its the default 0
-    for entry in output_vars:
-        if entry.get('index') == '0':
-            del entry['index']
 
     return output_vars
 
