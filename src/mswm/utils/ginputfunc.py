@@ -2469,6 +2469,9 @@ def var_mapping(
                 var_maps['output']['swe_out'] = ''
             break
     else:
+        # Assign precipitation forcing mapping if needed
+        if pcp_in != pcp_forcing:
+            var_maps['input'][pcp_in] = pcp_forcing
         # Default swe_out if module is not in swe_precip_map
         var_maps['output']['swe_out'] = ''
 
@@ -2978,7 +2981,7 @@ def create_realization_file(
         pet_in = 'water_potential_evaporation_flux'
         pcp_in = forcing_vars['prcp'].get('csv')
 
-    var_maps = var_mapping(modules, pet_in, pcp_in, output_dict)
+    var_maps = var_mapping(modules, pet_in, pcp_in, forcing_vars['prcp'].get(forcing_provider), output_dict)
 
     # Add extra mappings for specific modules
     if rr_mod == 'sac':
@@ -2990,7 +2993,7 @@ def create_realization_file(
     model_configs[rr_mod]['params']['variables_names_map'].update(var_maps['input'])
 
     # Retrieve precip_output from module that supplies it
-    precip_suppliers = ['noah', 'lstm', 'topoflow-glacier']
+    precip_suppliers = ['cfes', 'cfex', 'sac', 'topmodel', 'lasam', 'lstm', 'topoflow-glacier']
     precip_output = None
     for supplier in precip_suppliers:
         if supplier in modules:
@@ -3162,7 +3165,7 @@ def create_reg_realization_file(
             pet_in = 'water_potential_evaporation_flux'
             pcp_in = forcing_vars['prcp'].get('csv')
 
-        var_maps = var_mapping(grp_mod, pet_in, pcp_in, output_dict)
+        var_maps = var_mapping(grp_mod, pet_in, pcp_in, forcing_vars['prcp'].get(forcing_provider), output_dict)
 
         # Add extra mappings for specific modules
         if rr_mod == 'sac':
