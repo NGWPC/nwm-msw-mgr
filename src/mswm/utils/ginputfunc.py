@@ -1866,7 +1866,7 @@ def create_troute_config(
             "compute_kernel": "V02-structured",
             "assume_short_ts": True,
             "subnetwork_target_size": 10000,
-            "cpu_pool": 1,  # TODO: Should this be set from info in the Parallel section?
+            "cpu_pool": 16,  # TODO: Should this be set from info in the Parallel section?
             "restart_parameters": {
                 "start_datetime": time_period['run_time_period'][run_name][0]
             },
@@ -2882,7 +2882,7 @@ def build_output_vars(var_maps: dict, output_dict: dict, precip_output: str) -> 
     if output_dict.get('output_precip') and precip_output:
         output_vars.append({
             'name': precip_output,
-            'header': 'precip_rate',
+            'header': 'rainmelt',
             'units': 'mm/s'
         })
 
