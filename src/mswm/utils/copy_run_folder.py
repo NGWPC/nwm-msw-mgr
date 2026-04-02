@@ -75,7 +75,6 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
                 updated_content = content.replace(src_str, dst_str)
                 filepath.write_text(updated_content, encoding='utf-8')
 
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Copy a run folder to a new path, updating all internal path references"
@@ -98,7 +97,6 @@ def parse_args():
     )
     return parser.parse_args()
 
-
 def main():
     args = parse_args()
     copy_run_folder(
@@ -106,7 +104,6 @@ def main():
         dst_path=args.dst_path,
         ignore_forcing_config=args.ignore_forcing_config
     )
-
 
 if __name__ == "__main__":
     main()
