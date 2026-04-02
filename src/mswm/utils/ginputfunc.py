@@ -231,11 +231,6 @@ def create_walk_file(
 
     """
 
-    # TODO: Make sure no NHF gpkgs have more than 1 gage
-    if len(gages_df) > 1:
-        logger.critical("More than 1 gage present in hydrofabric gpkg gages layer")
-        raise
-
     # Filter for specified gage
     gage_match = gages_df[gages_df['site_no'] == gageID]
     if gage_match.empty:
@@ -245,7 +240,7 @@ def create_walk_file(
             logger.critical(e)
             raise
 
-    # Retireve catchment ID (fp_id) for specified gage
+    # Retrieve catchment ID (fp_id) for specified gage
     outlet_cat_id = gage_match['fp_id'].iloc[0]
 
     # Build crosswalk dictionary
