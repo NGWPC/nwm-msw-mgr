@@ -587,8 +587,8 @@ def create_sft_smp_input(
 
     # SMP model-specific configurations
     smp_model_configs = {
-        'cfe': ['soil_moisture_model=conceptual', 'soil_storage_depth=2.0'],
-        'sac': ['soil_moisture_model=conceptual', 'soil_storage_depth=2.0'],
+        'cfe': ['soil_storage_model=conceptual', 'soil_storage_depth=2.0'],
+        'sac': ['soil_storage_model=conceptual', 'soil_storage_depth=2.0'],
         'topmodel': ['soil_storage_model=TopModel', 'water_table_based_method=flux_based'],
         'lasam': ['soil_storage_model=layered', 'soil_moisture_profile_option=constant', 'soil_depth_layers=2.0', 'water_table_depth=10[m]'],
     }
