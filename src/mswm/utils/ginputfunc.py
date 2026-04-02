@@ -1465,7 +1465,7 @@ def create_topoflow_glacier_input(
             # Build catchment-specific dictionary
             param_dict = param_base.copy()
             param_dict.update({
-                'site_prefix': catID,
+                'site_prefix': str(catID),
                 'start_time': start_time,
                 'end_time': end_time,
                 'da': float(cat_attrs["area_sqkm"]),
