@@ -63,7 +63,12 @@ class RealizationBuilder:
 
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
+<<<<<<< HEAD
                  lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, checkpoint_interval: int | None = None,
+=======
+                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, use_checkpoint: bool = False, checkpoint_interval: int | None = None,
+                 src_run_path: str | None = None, dst_run_path: str | None = None,
+>>>>>>> d74fe49 (Implement prototype update_fcst_run function)
                  config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
@@ -2256,7 +2261,6 @@ class RealizationBuilder:
         Path to the updated realization file
         """
         from mswm.utils.copy_run_folder import copy_run_folder
-        self._building_fcst_realization = True
 
         # Validate src and dst paths provided
         if not self.src_run_path:
@@ -2270,36 +2274,37 @@ class RealizationBuilder:
             raise ValueError(err)
 
         # Copy existing run folder to new path
-        copy_run_folder(str(self.src_run_path), str(self.dst_run_path), ignore_forcing_config=True)
+        copy_run_folder(str(self.src_run_path), str(self.dst_run_path))
 
         # Set work_dir and input_dir from dst_run_path
         self.work_dir = self.dst_run_path
         self.input_dir = self.work_dir / 'Input'
-        self.basename_opt = ''
 
         # Initialize logging
         self._init_log()
 
-        # Load and parse config, and locate gpkg file
+        # Load and parse config
         self.load_config_apply_overrides()
         self._parse_config()
-        self._parse_gpkg_from_input()
 
         # Load existing realization file from dst
-        self._find_realization_file()
+        realization_files = list(self.work_dir.rglob("*realization*.json"))
+        if not realization_files:
+            err = f"No realization file found in destination folder: {self.work_dir}"
+            logger.critical(err)
+            raise FileNotFoundError(err)
+        self.real_input_file = realization_files[0]
         self._load_realization()
 
         # Update config files and realization for new forcing configuration
-        # TODO: This assumes we are copying the partition generator from the previous run
         self._parse_forcing_engine()
         self._configure_forcing_engine()
         self._update_fcst_realization()
-        self._configure_model_states()
-        self._configure_checkpointing()
-        self._write_realization()
+        self._update_fcst_troute()
+        self._write_partition()
+        self._write_fcst_realization()
 
-        logger.info(f"Run successfully updated to: {self.dst_run_path}")
-        self._building_fcst_realization = False
+        logger.info("Forecast run successfully updated")
         return self.realization_file
 
 
