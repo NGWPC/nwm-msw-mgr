@@ -42,15 +42,13 @@ def copy_run_folder(src_path: str, dst_path: str) -> None:
         logger.warning(f"Destination path already exists and will be overwritten: {dst}")
         shutil.rmtree(dst)
 
-    # Copy full directory tree
+    # Copy full directory tree, ignoring existing log files, Output folder, and state_save folder
     logger.info(f"Copying run folder from {src} to {dst}")
-    shutil.copytree(src, dst)
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns('*.log', 'Output', 'state_save'))
 
     # File extensions to serach for path references
-    # TODO: Reduce this list once we know which files contain file paths
     file_extensions = {
-        '.json', '.yaml', '.yml', '.txt', '.config', '.csv',
-        '.inp', '.input', '.namelist', '.run', '.dat', 'ini'
+        '.json', '.yaml', '.yml', '.input', '.run', '.dat'
     }
 
     # Iterate through files in destination and replace path reference
@@ -100,6 +98,7 @@ def parse_args():
         type=str,
         help="Path to destination run folder"
     )
+    return parser.parse_args()
 
 
 def main():
