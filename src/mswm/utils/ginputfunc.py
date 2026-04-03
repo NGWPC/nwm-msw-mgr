@@ -110,11 +110,8 @@ __all__ = [
     'build_output_vars',
     'create_realization_file',
     'create_reg_realization_file',
-<<<<<<< HEAD
     'find_module_index',
     'update_realization_nwm_output',
-=======
->>>>>>> 6b3a63d (Refactor realization handling for default/region state saving and checkpointing)
     'write_realization_to_file',
     'create_calib_config_file',
     'create_partition_file',
@@ -3396,7 +3393,6 @@ def create_reg_realization_file(
     g['catchments'] = {cat: {"formulations": grp, "forcing": "forcing_grp1"} for cat, grp in cat_to_grp.items()}
 
     return g, output_config_grp
-<<<<<<< HEAD
 
 
 def find_module_index(real_modules: List[dict], module: str) -> int | None:
@@ -3525,34 +3521,6 @@ def update_realization_nwm_output(
         real_modules.insert(cfes_index, cfes_config)
 
     return real_config
-
-
-def write_realization_to_file(
-        real_config: dict,
-        realization_file: Union[str, Path],
-) -> None:
-    """ Create configuration YAML file for calibration run
-
-    Parameters
-    ----------
-    real_config : dictionary containing realization file schema
-    realization_file: path to write realization file
-
-    Returns
-    ----------
-    None
-    """
-    try:
-        with open(realization_file, 'w') as outfile:
-            json.dump(real_config, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
-    except TypeError as e:
-        logger.critical(f"Failed to dump realization data to JSON: {realization_file}\n{e}")
-        raise
-    except OSError as e:
-        logger.critical(f"Unexpected error while writing realization data to JSON: {realization_file}\n{e}")
-        raise
-=======
->>>>>>> 6b3a63d (Refactor realization handling for default/region state saving and checkpointing)
 
 
 def write_realization_to_file(
