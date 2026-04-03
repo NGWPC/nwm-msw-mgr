@@ -100,7 +100,6 @@ class TestCheckpointSaving:
         ]
         assert save_configs[0]["frequency"] == 2
 
-
 class TestCopyRunFolder:
     """Tests for copy_run_folder utility"""
 
