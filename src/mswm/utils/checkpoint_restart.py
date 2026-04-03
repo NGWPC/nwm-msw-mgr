@@ -10,7 +10,6 @@ from mswm.utils.copy_run_folder import copy_run_folder
 
 logger = None
 
-
 def checkpoint_restart(
         src_path: str,
         dst_path: str,
@@ -137,7 +136,6 @@ def parse_args():
 def main():
     args = parse_args()
     checkpoint_restart(args.src_path, args.dst_path)
-
 
 if __name__ == "__main__":
     main()
