@@ -86,7 +86,7 @@ def checkpoint_restart(
     # Write updated realization file
     try:
         with open(realization_file, 'w') as f:
-            json.dump(real_config, f, index=4, separators=(", ", ": "), sort_keys=False)
+            json.dump(real_config, f, indent=4, separators=(", ", ": "), sort_keys=False)
     except OSError as e:
         logger.critical(f"Error writing realization file: {realization_file}\n{e}")
         raise
