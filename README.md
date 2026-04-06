@@ -320,6 +320,35 @@ python -m mswm.utils.checkpoint_restart \
 
 ---
 
+### Update Forecast Run Workflow
+Copy an existing default or regionalization forecast run to a new run folder and update the forcing engine configuration, realization, and t-route config files based on a new forecast input.config file.
+This workflow is intended for operational forecast uses where an existing forecast is re-used with updated forcing inputs. This workflow is not intended to update forecast runs based off of an existing validation run.
+
+#### CLI
+```bash
+python -m mswm.manager update_fcst \
+    /path/to/input.config \
+    /path/to/existing/run/ \
+    /path/to/new/run/
+```
+
+#### Python
+```python
+from mswm.manager import update_fcst_run
+
+update_fcst_run(
+    input_path="/path/to/input.config",
+    src_run_path="/path/to/existing/run/",
+    dst_run_path="/path/to/new/run/"
+)
+
+#### Arguments
+- `input_path` - Path to input configuration file containing an updated `[Forcing]` section
+- `src_run_path` - Path to the existing default or regionalization run folder (e.g., `/run_ngen/regionalization/reg_fcst/01123000/`)
+- `src_run_path` - Path to the destination run folder (e.g., `/run_ngen/regionalization/new_reg_fcst/01123000/`)
+
+---
+
 ### Topoflow-Glacier Validation
 To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called.
 The validate_topoflow function will return a JSON with a status of True if there are catchments in the basin where Topoflow-Glacier can be applied (>=50% glacier coverage).
