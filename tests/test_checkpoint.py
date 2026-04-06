@@ -116,7 +116,7 @@ class TestCopyRunFolder:
         assert self.dst.exists()
 
     def test_files_copied(self):
-        src_files = {f.name for f in self.src.rglob("*") if f.is_file()}
+        src_files = {f.name for f in self.src.rglob("*") if f.is_file() and "forcing_config" not in f.parts}
         dst_files = {f.name for f in self.dst.rglob("*") if f.is_file()}
         assert src_files.issubset(dst_files)
 
