@@ -2394,7 +2394,6 @@ def update_forcing_in_realization(
         forcing_config_file: Path,
         fcst_start: str,
         fcst_end: str,
-        basename_opt: str
 ) -> dict:
     """
     Adjust the realization configuration with forecast or cold start information accordingly:
@@ -2408,7 +2407,6 @@ def update_forcing_in_realization(
     forcing_config_file: path to forcing engine configuration yaml file
     fcst_start: cold_start or fcst ngen start time
     fcst_end: cold_start or fcst ngen end time
-    basename_opt: new file basename for forecast or cold start
 
     Returns
     -------
