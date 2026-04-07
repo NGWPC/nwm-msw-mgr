@@ -8,7 +8,6 @@ import argparse
 from mswm.build_inputs import RealizationBuilder, validate_topoflow_glacier
 from mswm.utils.input_configuration import InputConfig
 
-
 def build_default(input_path: str, use_cold_start: bool = False, use_lagged_ens: bool = False,
                   lagged_ens_mem: str | None = None, forcing_lag: int | None = None,
                   load_state_from: str | None = None, save_state: bool = False,
