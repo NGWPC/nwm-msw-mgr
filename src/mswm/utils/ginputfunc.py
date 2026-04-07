@@ -3244,7 +3244,6 @@ def create_reg_realization_file(
     forcing_provider: forcing provider option (csv or bmi)
     forcing_dir : directory to store forcing files
     forcing_config_file: path to forcing engine configuration file
-    realization_file : model realization configuration file
     time_period : simulation and evaluation time period
     rt_dict : routing model source file directory and configuration file
     output_dict: whether to output certain variables (currently SWE and soil moisture)
@@ -3256,7 +3255,8 @@ def create_reg_realization_file(
 
     Returns
     ----------
-    None
+    real_config: dictionary containing realization file
+    output_config: dictionary containing output variable configuration
     """
 
     # Create symlinks for libraries
