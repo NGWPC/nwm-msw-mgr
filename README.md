@@ -184,19 +184,42 @@ Member 6: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-01 18z forcin
 Generate model realization and configuration files for a regionalization run of ngen using grouped catchment formulations and parameters.
 
 #### CLI
+**Regionalization run:**
 ```bash
 python -m mswm.manager build_region /path/to/input_realization.config
+```
+
+**Cold start with state save:**
+```bash
+python -m mswm.manager build_region /path/to/input_realization.config --use_cold_start --save_state
+```
+
+**Forecast with state load and checkpointing:**
+```bash
+python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
 ```
 
 #### Python
 ```python
 from mswm.manager import build_region
 
-real_path = build_region(input_path='/path/to/input_realization.config')
+real_path = build_region(
+    input_path='/path/to/input_realization.config',
+    use_cold_start=False,
+    load_state_from=None,
+    save_state=False,
+    use_checkpoint=False,
+    checkpoint_interval=None
+)
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated regionaliztion configuration file
+- `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
+- `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
+- `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
+- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
+-  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
 
 ### Required Files
 Regionalization mode requires additional files in your input directory, which are referenced in the input.config file.
@@ -212,8 +235,19 @@ See `/example_inputs/regionalization/` for example files.
 Generate model realization and configuration files for a run of ngen with default catchment parameters.
 
 #### CLI
+** Default run:**
 ```bash
 python -m mswm.manager build_default /path/to/input.config
+```
+
+** Cold start with state save:**
+```bash
+python -m mswm.manager build_default /path/to/input.config --use_cold_start --save_state
+```
+
+** Forecast with state load and checkpointing:**
+```bash
+python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
 ```
 
 #### Python
@@ -221,12 +255,22 @@ python -m mswm.manager build_default /path/to/input.config
 from mswm.manager import build_default
 
 build_default(
-    input_path='/path/to/input.config'
+    input_path='/path/to/input.config',
+    use_cold_start=False,
+    load_state_from=None,
+    save_state=False,
+    use_checkpoint=False,
+    checkpoint_interval=None
 )
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated configuration file
+- `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
+- `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
+- `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
+- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
+-  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
 
 
 ### Topoflow-Glacier Validation
