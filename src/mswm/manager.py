@@ -106,11 +106,9 @@ def main():
     build_default_sub = subparser.add_parser("build_default", help="Create default realization")
     build_default_sub.add_argument("input_path", help="Input configuration file")
     build_default_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
-    build_default_sub.add_argument("--use_lagged_ens", action="store_true", help="Enable lagged ensemble flag when passed")
-    build_default_sub.add_argument("--lagged_ens_mem", type=str, default=None, help="Name of medium range lagged ensemble member (mem1-mem6, no_da)")
-    build_default_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
     build_default_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_default_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
+    build_default_sub.add_argument("--use_checkpoint", action="store_true", help="Enable checkpoint state saving when passed")
     build_default_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
 
     # subcommand: build_calib
@@ -120,12 +118,9 @@ def main():
     # subcommand: build_region
     build_region_sub = subparser.add_parser("build_region", help="Create regionalization realization")
     build_region_sub.add_argument("input_path", help="Input configuration file")
-    build_region_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
-    build_region_sub.add_argument("--use_lagged_ens", action="store_true", help="Enable lagged ensemble flag when passed")
-    build_region_sub.add_argument("--lagged_ens_mem", type=str, default=None, help="Name of medium range lagged ensemble member (mem1-mem6, no_da)")
-    build_region_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
     build_region_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_region_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
+    build_region_sub.add_argument("--use_checkpoint", action="store_true", help="Enable checkpoint state saving when passed")
     build_region_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
 
     # subcommand: build_fcst
@@ -170,15 +165,11 @@ def main():
 
     # Parser logic
     if args.command == "build_default":
-        build_default(input_path=args.input_path, use_cold_start=args.use_cold_start, use_lagged_ens=args.use_lagged_ens, lagged_ens_mem=args.lagged_ens_mem,
-                      forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state,
-                      checkpoint_interval=args.checkpoint_interval)
+        build_default(args.input_path, args.use_cold_start, args.load_state_from, args.save_state, args.use_checkpoint, args.checkpoint_interval)
     elif args.command == "build_calib":
         build_calib(input_path=args.input_path)
     elif args.command == "build_region":
-        build_region(input_path=args.input_path, use_cold_start=args.use_cold_start, use_lagged_ens=args.use_lagged_ens, lagged_ens_mem=args.lagged_ens_mem,
-                     forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state,
-                     checkpoint_interval=args.checkpoint_interval)
+        build_region(args.input_path, args.load_state_from, args.save_state, args.use_checkpoint, args.checkpoint_interval)
     elif args.command == "build_fcst":
         build_fcst(input_path=args.input_path, valid_yaml=args.valid_yaml, fcst_run_name=args.fcst_run_name, use_cold_start=args.use_cold_start, use_warm_start=args.use_warm_start,
                    use_hindcast=args.use_hindcast, use_lagged_ens=args.use_lagged_ens, hind_cycle=args.hind_cycle, prev_hind_cycle=args.prev_hind_cycle, lagged_ens_mem=args.lagged_ens_mem,
