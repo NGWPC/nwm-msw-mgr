@@ -1668,6 +1668,13 @@ class RealizationBuilder:
                 logger.critical(msg)
                 raise TypeError(msg)
 
+            # Remove existing checkpoint save entry if present
+            if "state_saving" in self.real_config:
+                self.real_config["state_saving"] = [
+                    s for s in self.real_config["state_saving"]
+                    if not (s.get("direction") == "save" and s.get("when") == "Checkpoint")
+                ]
+
             # Initialize state saving array
             save_config = {
                 "direction": "save",
