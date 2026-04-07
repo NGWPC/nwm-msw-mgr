@@ -64,22 +64,22 @@ def checkpoint_restart(
         logger.critical(f"Error parsing realization file: {realization_file}\n{e}")
         raise
 
-    # Build state loading configuration
+    # Build checkpoint state loading configuration
     load_config = {
         "direction": "load",
-        "label": "State load",
+        "label": "Load from checkpoint",
         "path": str(checkpoint_state),
         "type": "FilePerUnit",
-        "when": "StartOfRun"
+        "when": "Checkpoint"
     }
 
     # Add or append to state_saving section
     if "state_saving" not in real_config:
         real_config["state_saving"] = []
 
-    # Remove any existing load configs and replace with new one
+    # Remove any existing checkpoint load configs and replace with new one
     real_config["state_saving"] = [
-        s for s in real_config["state_saving"] if s.get("direction") != "load"
+        s for s in real_config["state_saving"] if s.get("direction") != "load" and s.get("when") != "Checkpoint"
     ]
     real_config["state_saving"].append(load_config)
 
