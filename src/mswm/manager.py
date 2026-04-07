@@ -8,11 +8,13 @@ import argparse
 from mswm.build_inputs import RealizationBuilder, validate_topoflow_glacier
 from mswm.utils.input_configuration import InputConfig
 
-def build_default(input_path: str, use_cold_start: bool = False):
+def build_default(input_path: str, use_cold_start: bool = False, load_state_from: str = None, save_state: bool = False,
+                  use_checkpoint: bool = False, checkpoint_interval: int = None):
     """
     Call RealizationBuilder class to generate realization and config files with default parameters
     """
-    rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start)
+    rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, load_state_from=load_state_from, save_state=save_state,
+                            use_checkpoint=use_checkpoint, checkpoint_interval=checkpoint_interval)
     real_path = rb.build_default_realization()
     return real_path
 
@@ -42,11 +44,13 @@ def build_fcst(input_path: str | None, valid_yaml: str, fcst_run_name: str, use_
     return real_path
 
 
-def build_region(input_path: str):
+def build_region(input_path: str, use_cold_start: bool = False, load_state_from: str = None, save_state: bool = False,
+                 use_checkpoint: bool = False, checkpoint_interval: int = None):
     """
     Call RealizationBuilder class to generate realization and config files for regionalization
     """
-    rb = RealizationBuilder(input_path=input_path)
+    rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, load_state_from=load_state_from, save_state=save_state,
+                            use_checkpoint=use_checkpoint, checkpoint_interval=checkpoint_interval)
     real_path = rb.build_region_realization()
     return real_path
 

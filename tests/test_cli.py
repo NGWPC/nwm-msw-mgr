@@ -1,7 +1,7 @@
 """Tests for CLI argument parsing"""
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from mswm.manager import main
 
@@ -26,7 +26,7 @@ class TestCLI:
     @patch("mswm.manager.build_default")
     def test_build_default_fcst(self, mock_build):
         """build_default fcst with state load and checkpoint"""
-        with patch("sys.argv", ["mswm", "build_default", "/path/to/config.conf", "--load_state_from", "/path/to/state/", "--use_checkpoint", 100]):
+        with patch("sys.argv", ["mswm", "build_default", "/path/to/config.conf", "--load_state_from", "/path/to/state/", "--use_checkpoint", "--checkpoint_interval", "100"]):
             main()
         mock_build.assert_called_once_with("/path/to/config.conf", False, '/path/to/state/', False, True, 100)
 
@@ -54,7 +54,7 @@ class TestCLI:
     @patch("mswm.manager.build_region")
     def test_build_region_fcst(self, mock_build):
         """build_region fcst with state load and checkpoint"""
-        with patch("sys.argv", ["mswm", "build_region", "/path/to/config.conf", "--load_state_from", "/path/to/state/", "--use_checkpoint", 100]):
+        with patch("sys.argv", ["mswm", "build_region", "/path/to/config.conf", "--load_state_from", "/path/to/state/", "--use_checkpoint", "--checkpoint_interval", "100"]):
             main()
         mock_build.assert_called_once_with("/path/to/config.conf", False, '/path/to/state/', False, True, 100)
 
