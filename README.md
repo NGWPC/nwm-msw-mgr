@@ -200,12 +200,7 @@ python -m mswm.manager build_region /path/to/input_realization.config --use_cold
 
 **Forecast with state load and checkpointing:**
 ```bash
-python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --checkpoint_interval 100
-```
-
-** Lagged ensemble with state load and checkpoint:**
-```bash
-python -m mswm.manager build_region /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
+python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
 ```
 
 #### Python
@@ -215,24 +210,20 @@ from mswm.manager import build_region
 real_path = build_region(
     input_path='/path/to/input_realization.config',
     use_cold_start=False,
-    use_lagged_ens=False,
-    lagged_ens_mem=None,
-    forcing_lag=None,
-    save_state=False,
     load_state_from=None,
+    save_state=False,
+    use_checkpoint=False,
     checkpoint_interval=None
 )
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated regionaliztion configuration file
-- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
-- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
-- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
-- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
-- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
-- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
-- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
+- `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
+- `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
+- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
+-  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
 
 ### Required Files
 Regionalization mode requires additional files in your input directory, which are referenced in the input.config file.
@@ -261,12 +252,7 @@ python -m mswm.manager build_default /path/to/input.config --use_cold_start --sa
 
 ** Forecast with state load and checkpointing:**
 ```bash
-python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --checkpoint_interval 10
-```
-
-** Lagged ensemble with state load and checkpoint:**
-```bash
-python -m mswm.manager build_default /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
+python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
 ```
 
 #### Python
@@ -276,24 +262,20 @@ from mswm.manager import build_default
 build_default(
     input_path='/path/to/input.config',
     use_cold_start=False,
-    use_lagged_ens=False,
-    lagged_ens_mem=None,
-    forcing_lag=None,
-    save_state=False,
     load_state_from=None,
+    save_state=False,
+    use_checkpoint=False,
     checkpoint_interval=None
 )
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated configuration file
-- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
-- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
-- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
-- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
-- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
-- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
-- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
+- `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
+- `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
+- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
+-  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
 
 ---
 
