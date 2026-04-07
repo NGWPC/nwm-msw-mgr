@@ -474,6 +474,50 @@ python -m mswm.manager update_fcst \
 
 ---
 
+### Checkpoint Restart Workflow
+Copy an existing run folder to a new path and configure it to resume form a saved checkpoint state.
+This is used when a run was interrupted mid-execution and saved checkpoint states are available, allowing the run to continue from the last checkpoint.
+
+#### CLI
+```bash
+python -m mswm.utils.checkpoint_restart \
+    /path/to/existing/run/ \
+    /path/to/new/run/ \
+    /path/to/checkpoint/state/
+```
+
+#### Python
+```python
+from mswm.utils.checkpoint_restart import checkpoint_restart
+
+checkpoint_restart(
+    src_path="/path/to/existing/run",
+    dst_path="/path/to/new/run",
+    checkpoint_state_path="/path/to/checkpoint/folder/"
+)
+```
+#### Arguments
+- `src_path` - Path to existing run folder to copy
+- `dst_path` - Path to the destination run folder
+- `checkpoint_state_path` - Path to the /checkpoint/ state folder to load for run restart (Note: this should point to the root checkpoint folder, not the specific checkpoint iteration subfolder)
+
+
+#### Example
+```bash
+python -m mswm.utils.checkpoint_restart \
+    /run_ngen/default/default_fcst/01123000/ \
+    /run_ngen/default/default_fcst_restart/01123000/ \
+    /run_ngen/default/default_fcst/01123000/checkpoint/
+```
+
+#### Notes
+- The existing run folder is copied to the destination path before any modifications are made
+- Log files, the `/Output/` folder, `/state_save/` folder, and `/forcing_config/` folder are excluded from the copy
+- The `checkpoint_state_path` input should point to the root `/checkpoint/` folder in the run directory, as Ngen automatically uses the most recent checkpoint iteration from within that folder
+- Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
+- Checkpoint states are generated during a runwhen `--use_checkpoint` and `--checkpoint_interval` are specified in `build_default` or `build_region`
+
+
 ### Topoflow-Glacier Validation
 To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called.
 The validate_topoflow function will return a JSON with a status of True if there are catchments in the basin where Topoflow-Glacier can be applied (>=50% glacier coverage).
