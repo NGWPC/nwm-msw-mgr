@@ -187,10 +187,10 @@ class TestCheckpointRestart:
     def test_state_saving_config(self):
         assert self.real_data["state_saving"][0] == {
             "direction": "load",
-            "label": "State load",
+            "label": "Load from checkpoint",
             "path": str(self.state.resolve()),
             "type": "FilePerUnit",
-            "when": "StartOfRun"
+            "when": "Checkpoint"
         }
 
     def test_checkpoint_state_not_found_raises(self, fcst_build, tmp_path):
