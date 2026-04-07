@@ -110,8 +110,11 @@ __all__ = [
     'build_output_vars',
     'create_realization_file',
     'create_reg_realization_file',
+<<<<<<< HEAD
     'find_module_index',
     'update_realization_nwm_output',
+=======
+>>>>>>> 6b3a63d (Refactor realization handling for default/region state saving and checkpointing)
     'write_realization_to_file',
     'create_calib_config_file',
     'create_partition_file',
@@ -3393,6 +3396,7 @@ def create_reg_realization_file(
     g['catchments'] = {cat: {"formulations": grp, "forcing": "forcing_grp1"} for cat, grp in cat_to_grp.items()}
 
     return g, output_config_grp
+<<<<<<< HEAD
 
 
 def find_module_index(real_modules: List[dict], module: str) -> int | None:
@@ -3547,6 +3551,8 @@ def write_realization_to_file(
     except OSError as e:
         logger.critical(f"Unexpected error while writing realization data to JSON: {realization_file}\n{e}")
         raise
+=======
+>>>>>>> 6b3a63d (Refactor realization handling for default/region state saving and checkpointing)
 
 
 def create_calib_config_file(
