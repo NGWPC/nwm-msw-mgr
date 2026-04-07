@@ -8,22 +8,29 @@ import argparse
 from mswm.build_inputs import RealizationBuilder, validate_topoflow_glacier
 from mswm.utils.input_configuration import InputConfig
 
-def build_default(input_path: str, use_cold_start: bool = False, load_state_from: str = None, save_state: bool = False,
-                  checkpoint_interval: int = None):
+
+def build_default(input_path: str, use_cold_start: bool = False, use_lagged_ens: bool = False,
+                  lagged_ens_mem: str | None = None, forcing_lag: int | None = None,
+                  load_state_from: str | None = None, save_state: bool = False,
+                  checkpoint_interval: int | None = None,
+                  config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate realization and config files with default parameters
     """
-    rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, load_state_from=load_state_from, save_state=save_state,
-                            checkpoint_interval=checkpoint_interval)
+    rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, use_lagged_ens=use_lagged_ens,
+                            lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
+                            load_state_from=load_state_from, save_state=save_state,
+                            checkpoint_interval=checkpoint_interval,
+                            config_overrides=config_overrides)
     real_path = rb.build_default_realization()
     return real_path
 
 
-def build_calib(input_path: str):
+def build_calib(input_path: str, config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate initial calibration realization and config files
     """
-    rb = RealizationBuilder(input_path=input_path)
+    rb = RealizationBuilder(input_path=input_path, config_overrides=config_overrides)
     real_path = rb.build_calib_realization()
     return real_path
 
@@ -34,24 +41,51 @@ def build_fcst(input_path: str | None, valid_yaml: str, fcst_run_name: str, use_
                config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate forecast realization and config files
+    Returns tuple of realization path, and state save path (or None)
     """
     rb = RealizationBuilder(input_path=input_path, valid_yaml=valid_yaml, fcst_run_name=fcst_run_name,
                             use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
                             use_hindcast=use_hindcast, hind_cycle=hind_cycle, prev_hind_cycle=prev_hind_cycle,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
-                            load_state_from=load_state_from, save_state=save_state, config_overrides=config_overrides)
+                            load_state_from=load_state_from, save_state=save_state,
+                            config_overrides=config_overrides)
     real_path = rb.build_fcst_realization()
     return real_path
 
 
-def build_region(input_path: str, use_cold_start: bool = False, load_state_from: str = None, save_state: bool = False,
-                 checkpoint_interval: int = None):
+def build_region(input_path: str, use_cold_start: bool = False, use_lagged_ens: bool = False,
+                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None,
+                 load_state_from: str | None = None, save_state: bool = False,
+                 checkpoint_interval: int | None = None,
+                 config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate realization and config files for regionalization
     """
-    rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, load_state_from=load_state_from, save_state=save_state,
-                            checkpoint_interval=checkpoint_interval)
+    rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, use_lagged_ens=use_lagged_ens,
+                            lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
+                            load_state_from=load_state_from, save_state=save_state,
+                            checkpoint_interval=checkpoint_interval,
+                            config_overrides=config_overrides)
     real_path = rb.build_region_realization()
+    return real_path
+
+
+def update_fcst_run(input_path: str, src_run_path: str, dst_run_path: str, use_cold_start: bool = False, use_warm_start: bool = False,
+                    use_hindcast: bool = False, use_lagged_ens: bool = False, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
+                    lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False,
+                    checkpoint_interval: int | None = None, config_overrides: InputConfig = None):
+    """
+    Call RealizationBuilder class to copy an existing forecast run to a new path
+    and update forcing engine config, realization, and troute config
+    """
+    rb = RealizationBuilder(input_path=input_path, src_run_path=src_run_path, dst_run_path=dst_run_path,
+                            use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
+                            use_hindcast=use_hindcast, hind_cycle=hind_cycle, prev_hind_cycle=prev_hind_cycle,
+                            lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
+                            load_state_from=load_state_from, save_state=save_state,
+                            checkpoint_interval=checkpoint_interval,
+                            config_overrides=config_overrides)
+    real_path = rb.update_fcst_run()
     return real_path
 
 
@@ -73,6 +107,9 @@ def main():
     build_default_sub = subparser.add_parser("build_default", help="Create default realization")
     build_default_sub.add_argument("input_path", help="Input configuration file")
     build_default_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
+    build_default_sub.add_argument("--use_lagged_ens", action="store_true", help="Enable lagged ensemble flag when passed")
+    build_default_sub.add_argument("--lagged_ens_mem", type=str, default=None, help="Name of medium range lagged ensemble member (mem1-mem6, no_da)")
+    build_default_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
     build_default_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_default_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
     build_default_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
@@ -85,6 +122,9 @@ def main():
     build_region_sub = subparser.add_parser("build_region", help="Create regionalization realization")
     build_region_sub.add_argument("input_path", help="Input configuration file")
     build_region_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
+    build_region_sub.add_argument("--use_lagged_ens", action="store_true", help="Enable lagged ensemble flag when passed")
+    build_region_sub.add_argument("--lagged_ens_mem", type=str, default=None, help="Name of medium range lagged ensemble member (mem1-mem6, no_da)")
+    build_region_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
     build_region_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_region_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
     build_region_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
@@ -105,6 +145,24 @@ def main():
     build_fcst_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_fcst_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
 
+    # subcommand: update_fcst_run
+    update_fcst_sub = subparser.add_parser("update_fcst", help="Create forecast realization")
+    update_fcst_sub.add_argument("input_path", help="Input configuration file")
+    update_fcst_sub.add_argument("src_run_path", help="Path to existing run folder")
+    update_fcst_sub.add_argument("dst_run_path", help="Path to destination run folder")
+    update_fcst_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
+    update_fcst_sub.add_argument("--use_warm_start", action="store_true", help="Enable warm start flag when passed")
+    update_fcst_sub.add_argument("--use_hindcast", action="store_true", help="Enable hindcast flag when passed")
+    update_fcst_sub.add_argument("--use_lagged_ens", action="store_true", help="Enable lagged ensemble flag when passed")
+    update_fcst_sub.add_argument("--hind_cycle", type=int, default=None, help="Cycle interval (in hours) between hindcast start and current hindcast run")
+    update_fcst_sub.add_argument("--prev_hind_cycle", type=int, default=None, help="Previous hindcast cycle interval (in hours) used to coordinate warm start runs")
+    update_fcst_sub.add_argument("--lagged_ens_mem", type=str, default=None, help="Name of medium range lagged ensemble member (mem1-mem6, no_da)")
+    update_fcst_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
+    update_fcst_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
+    update_fcst_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
+    update_fcst_sub.add_argument("--use_checkpoint", action="store_true", help="Enable checkpoint state saving when passed")
+    update_fcst_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
+
     # subcomman: validate_topoflow
     validate_topo_sub = subparser.add_parser("validate_topoflow_glacier", help="Validate Topoflow-Glacier applicability for a basin")
     validate_topo_sub.add_argument("gpkg_file", help="Path to geopackage file")
@@ -113,17 +171,26 @@ def main():
 
     # Parser logic
     if args.command == "build_default":
-        build_default(args.input_path, args.use_cold_start, args.load_state_from, args.save_state, args.checkpoint_interval)
+        build_default(input_path=args.input_path, use_cold_start=args.use_cold_start, use_lagged_ens=args.use_lagged_ens, lagged_ens_mem=args.lagged_ens_mem,
+                      forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state,
+                      checkpoint_interval=args.checkpoint_interval)
     elif args.command == "build_calib":
-        build_calib(args.input_path)
+        build_calib(input_path=args.input_path)
     elif args.command == "build_region":
-        build_region(args.input_path, args.use_cold_start, args.load_state_from, args.save_state, args.checkpoint_interval)
+        build_region(input_path=args.input_path, use_cold_start=args.use_cold_start, use_lagged_ens=args.use_lagged_ens, lagged_ens_mem=args.lagged_ens_mem,
+                     forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state,
+                     checkpoint_interval=args.checkpoint_interval)
     elif args.command == "build_fcst":
-        build_fcst(args.input_path, args.valid_yaml, args.fcst_run_name, args.use_cold_start, args.use_warm_start, args.use_hindcast, args.use_lagged_ens,
-                   args.hind_cycle, args.prev_hind_cycle, args.lagged_ens_mem, args.forcing_lag,
-                   args.load_state_from, args.save_state)
+        build_fcst(input_path=args.input_path, valid_yaml=args.valid_yaml, fcst_run_name=args.fcst_run_name, use_cold_start=args.use_cold_start, use_warm_start=args.use_warm_start,
+                   use_hindcast=args.use_hindcast, use_lagged_ens=args.use_lagged_ens, hind_cycle=args.hind_cycle, prev_hind_cycle=args.prev_hind_cycle, lagged_ens_mem=args.lagged_ens_mem,
+                   forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state)
+    elif args.command == "update_fcst":
+        update_fcst_run(input_path=args.input_path, src_run_path=args.src_run_path, dst_run_path=args.dst_run_path, use_cold_start=args.use_cold_start, use_warm_start=args.use_warm_start,
+                        use_hindcast=args.use_hindcast, use_lagged_ens=args.use_lagged_ens, hind_cycle=args.hind_cycle, prev_hind_cycle=args.prev_hind_cycle, lagged_ens_mem=args.lagged_ens_mem,
+                        forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state,
+                        checkpoint_interval=args.checkpoint_interval)
     elif args.command == "validate_topoflow_glacier":
-        validate_topo(args.gpkg_file)
+        validate_topo(gpkg_file=args.gpkg_file)
     else:
         raise ValueError(f"Unexpected mswm command: {args.command}")
 
