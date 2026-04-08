@@ -2205,6 +2205,7 @@ class RealizationBuilder:
         Path to the updated realization file
         """
         from mswm.utils.copy_run_folder import copy_run_folder
+        self._building_fcst_realization = True
 
         # Validate src and dst paths provided
         if not self.src_run_path:
@@ -2242,10 +2243,10 @@ class RealizationBuilder:
         self._parse_forcing_engine()
         self._configure_forcing_engine()
         self._update_fcst_realization()
-        self._update_fcst_troute()
-        self._write_fcst_realization()
+        self._write_realization()
 
         logger.info("Forecast run successfully updated")
+        self._building_fcst_realization = False
         return self.realization_file
 
 
