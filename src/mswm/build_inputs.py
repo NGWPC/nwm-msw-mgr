@@ -1771,7 +1771,6 @@ class RealizationBuilder:
                 self.real_config["state_saving"].append(save_config)
             else:
                 self.real_config["state_saving"] = [save_config]
-
             logger.info(f"Checkpointing configured with an interval of {self.checkpoint_interval} timesteps.")
 
         else:
