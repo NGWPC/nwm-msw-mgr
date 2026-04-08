@@ -1686,7 +1686,7 @@ class RealizationBuilder:
             if "state_saving" in self.real_config:
                 self.real_config["state_saving"].append(save_config)
             else:
-                self.real_config["state_saving"].append(save_config)
+                self.real_config["state_saving"] = [save_config]
 
         else:
             logger.info("Checkpointing not configured.")
