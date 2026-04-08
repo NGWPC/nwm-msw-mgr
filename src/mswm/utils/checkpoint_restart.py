@@ -79,7 +79,8 @@ def checkpoint_restart(
 
     # Remove any existing checkpoint load configs and replace with new one
     real_config["state_saving"] = [
-        s for s in real_config["state_saving"] if s.get("direction") != "load" and s.get("when") != "Checkpoint"
+        s for s in real_config["state_saving"]
+        if not (s.get("direction") == "load" and s.get("when") == "Checkpoint")
     ]
     real_config["state_saving"].append(load_config)
 

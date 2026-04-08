@@ -87,7 +87,7 @@ class TestCheckpointSaving:
     def test_state_saving_config(self):
         save_configs = [
             s for s in self.real_data["state_saving"]
-            if s.get("when") == "Checkpoint"
+            if (s.get("when") == "Checkpoint" and s.get("direction") == "save")
         ]
         assert len(save_configs) == 1
         assert save_configs[0] == {
@@ -97,7 +97,7 @@ class TestCheckpointSaving:
             "type": "FilePerUnit",
             "when": "Checkpoint",
             "frequency": 2
-        }
+        }, f"Actual config: {save_configs[0]}"
 
     def test_checkpoint_interval(self):
         save_configs = [
@@ -172,7 +172,7 @@ class TestCheckpointRestart:
         assert "state_saving" in self.real_data
 
     def test_state_saving_config(self):
-        assert self.real_data["state_saving"][0] == {
+        assert self.real_data["state_saving"][1] == {
             "direction": "load",
             "label": "Load from checkpoint",
             "path": str(self.state.resolve()),

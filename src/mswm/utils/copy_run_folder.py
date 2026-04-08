@@ -44,7 +44,7 @@ def copy_run_folder(src_path: str, dst_path: str) -> None:
 
     # Copy full directory tree, ignoring existing log files, Output folder, and state_save folder
     logger.info(f"Copying run folder from {src} to {dst}")
-    shutil.copytree(src, dst, ignore=shutil.ignore_patterns('*.log', 'Output', 'state_save'))
+    shutil.copytree(src, dst, symlinks=True, ignore=shutil.ignore_patterns('*.log', 'Output', 'state_save'))
 
     # File extensions to serach for path references
     file_extensions = {
