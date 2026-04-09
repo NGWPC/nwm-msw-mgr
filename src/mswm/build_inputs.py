@@ -658,11 +658,11 @@ class RealizationBuilder:
             run_dir = os.path.join(self.conf1['main_dir'], 'default')
 
         # Form input directory paths
-        self.work_dir = os.path.join(run_dir, self.conf1['formulation'], self.basin)
+        self.work_dir = os.path.join(run_dir, self.conf1['formulation'] + '/' + self.basin)
 
         # Adjust work_dir for default/regionalization lagged ensemble runs
         if self.use_lagged_ens and self.lagged_ens_mem:
-            self.work_dir = os.path.join(self.work_dir, f"lagged_ens_{self.lagged_ens_mem}")
+            self.work_dir = os.path.join(self.work_dir, '/', f"lagged_ens_{self.lagged_ens_mem}")
 
         self.input_dir = os.path.join(self.work_dir, 'Input/')
 
@@ -1673,22 +1673,15 @@ class RealizationBuilder:
         # Preserve existing state_saving entries that are not being replaced
         state_saving = self.real_config.get('state_saving', [])
 
-        # If updating an existing run, ensure state_save directory exists for any existig save configs
-        for s in state_saving:
-            if s.get("direction") == "save" and s.get("when") == "EndOfRun":
-                existing_state_save = Path(self.work_dir) / "state_save"
-                existing_state_save.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Recreated state save directory in new run folder: {existing_state_save}")
-
-        # If loading from new state, remove existing load/StartOfRun entry
         if self.load_state_from:
+            # Remove existing load/StartOfRun entry
             state_saving = [
                 s for s in state_saving
-                if not (s.get("direction") == "load" and s.get("when") == "StartOfRun")
+                if not (s.get("direction") == "save" and s.get("when") == "StartOfRun")
             ]
 
-        # If saving new state, remove existing save/EndOfRun entry
         if self.save_state:
+            # Remove existing save/EndOfRun
             state_saving = [
                 s for s in state_saving
                 if not (s.get("direction") == "save" and s.get("when") == "EndOfRun")
@@ -2287,9 +2280,11 @@ class RealizationBuilder:
         self._parse_forcing_engine()
         self._configure_forcing_engine()
         self._update_fcst_realization()
+        self._configure_model_states()
+        self._configure_checkpointing()
         self._write_realization()
 
-        logger.info("Forecast run successfully updated")
+        logger.info(f"Run successfully updated to: {self.dst_run_path}")
         self._building_fcst_realization = False
         return self.realization_file
 
