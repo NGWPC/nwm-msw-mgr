@@ -658,11 +658,11 @@ class RealizationBuilder:
             run_dir = os.path.join(self.conf1['main_dir'], 'default')
 
         # Form input directory paths
-        self.work_dir = os.path.join(run_dir, self.conf1['formulation'] + '/' + self.basin)
+        self.work_dir = os.path.join(run_dir, self.conf1['formulation'], self.basin)
 
         # Adjust work_dir for default/regionalization lagged ensemble runs
         if self.use_lagged_ens and self.lagged_ens_mem:
-            self.work_dir = os.path.join(self.work_dir, '/', f"lagged_ens_{self.lagged_ens_mem}")
+            self.work_dir = os.path.join(self.work_dir, f"lagged_ens_{self.lagged_ens_mem}")
 
         self.input_dir = os.path.join(self.work_dir, 'Input/')
 
