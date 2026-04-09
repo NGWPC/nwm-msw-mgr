@@ -461,6 +461,7 @@ update_fcst_run(
     src_run_path="/path/to/existing/run/",
     dst_run_path="/path/to/new/run/"
 )
+```
 
 #### Arguments
 - `input_path` - Path to input configuration file containing an updated `[Forcing]` section
