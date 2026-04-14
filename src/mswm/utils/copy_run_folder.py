@@ -12,7 +12,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def copy_run_folder(src_path: str, dst_path: str) -> None:
+def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = False) -> None:
     """
     Copy a run folder to a new path, replacing internal path references
 
@@ -22,6 +22,10 @@ def copy_run_folder(src_path: str, dst_path: str) -> None:
         Path to the existing run folder
     dst_path: str
         Path to the destination folder
+    ignore_forcing_config: bool
+        If True, exlcude forcing_config directory from copy (default: False)
+        Should be set to True for update_fcst_run
+        Should be set to False for checkpoint_restart
     """
     src = Path(src_path).resolve()
     dst = Path(dst_path).resolve()
@@ -42,9 +46,14 @@ def copy_run_folder(src_path: str, dst_path: str) -> None:
         logger.warning(f"Destination path already exists and will be overwritten: {dst}")
         shutil.rmtree(dst)
 
+    # Build ignore patterns
+    ignore_patterns = ['*.log', 'Output', 'state_save']
+    if ignore_forcing_config:
+        ignore_patterns.append('forcing_config')
+
     # Copy full directory tree, ignoring existing log files, Output folder, and state_save folder
     logger.info(f"Copying run folder from {src} to {dst}")
-    shutil.copytree(src, dst, symlinks=True, ignore=shutil.ignore_patterns('*.log', 'Output', 'state_save'))
+    shutil.copytree(src, dst, symlinks=True, ignore=shutil.ignore_patterns(*ignore_patterns))
 
     # File extensions to serach for path references
     file_extensions = {
@@ -55,7 +64,6 @@ def copy_run_folder(src_path: str, dst_path: str) -> None:
     src_str = str(src)
     dst_str = str(dst)
     files_updated = 0
-    files_skipped = 0
 
     for root, dirs, files in os.walk(dst):
         for filename in files:
@@ -63,7 +71,6 @@ def copy_run_folder(src_path: str, dst_path: str) -> None:
 
             # Skip files not in file_extensions set
             if filepath.suffix.lower() not in file_extensions:
-                files_skipped += 1
                 continue
 
             # Read files that match file extensions
@@ -71,17 +78,15 @@ def copy_run_folder(src_path: str, dst_path: str) -> None:
                 content = filepath.read_text(encoding='utf-8')
             except (UnicodeDecodeError, PermissionError) as e:
                 logger.warning(f"Skipping file (cannot read): {filepath} - {e}")
-                files_skipped += 1
                 continue
 
             # Update file path if contained within file
             if src_str in content:
                 updated_content = content.replace(src_str, dst_str)
                 filepath.write_text(updated_content, encoding='utf-8')
-                logger.info(f"Updated path in references in: {filepath.relative_to(dst)}")
                 files_updated += 1
 
-    logger.info(f"Path replacement complete - {files_updated} files updated, {files_skipped} files skipped")
+    logger.info(f"Path replacement complete - {files_updated} files updated")
 
 
 def parse_args():
@@ -98,12 +103,22 @@ def parse_args():
         type=str,
         help="Path to destination run folder"
     )
+    parser.add_argument(
+        "--ingore_forcing_config",
+        action="store_true",
+        default=False,
+        help="Exclude forcing_config directory from copy (default: False)"
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    copy_run_folder(args.src_path, args.dst_path)
+    copy_run_folder(
+        src_path=args.src_path,
+        dst_path=args.dst_path,
+        ignore_forcing_config=args.ignore_forcing_config
+    )
 
 
 if __name__ == "__main__":
