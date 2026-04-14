@@ -324,6 +324,9 @@ python -m mswm.utils.checkpoint_restart \
 Copy an existing default or regionalization forecast run to a new run folder and update the forcing engine configuration, realization, and t-route config files based on a new forecast input.config file.
 This workflow is intended for operational forecast uses where an existing forecast is re-used with updated forcing inputs. This workflow is not intended to update forecast runs based off of an existing validation run.
 
+The update_fcst function can be supplemented with a range of optional arguments depending on the type of run being updated (cold start, warm start, hindcast, lagged ensemble). State saving and checkpointing optional 
+arguments can be used to update the relevant realization sections in the copied run.
+
 #### CLI
 ```bash
 python -m mswm.manager update_fcst \
@@ -347,6 +350,30 @@ update_fcst_run(
 - `input_path` - Path to input configuration file containing an updated `[Forcing]` section
 - `src_run_path` - Path to the existing default or regionalization run folder (e.g., `/run_ngen/regionalization/reg_fcst/01123000/`)
 - `src_run_path` - Path to the destination run folder (e.g., `/run_ngen/regionalization/new_reg_fcst/01123000/`)
+- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
+- `--use_warm_start` - (optional) Generate files for hindcasting warm start run
+- `--use_hindcast` - (optional) Generate files for hindcast run
+- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
+- `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
+- `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
+- `--lagged_ens_member` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
+- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
+- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
+
+#### Examples
+**Forecast with new state load and checkpoint interval**
+```bash
+python -m mswm.manager update_fcst \
+    /path/to/input.config \
+    /path/to/existing/run/ \
+    /path/to/new/run/ \
+    --load_state_from /path/to/saved/state \
+    --use_checkpoint \
+    --checkpoint_interval 6
+```
 
 ---
 

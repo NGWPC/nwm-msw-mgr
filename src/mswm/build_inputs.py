@@ -1673,6 +1673,13 @@ class RealizationBuilder:
         # Preserve existing state_saving entries that are not being replaced
         state_saving = self.real_config.get('state_saving', [])
 
+        # If updating an existing run, ensure state_save directory exists for any existig save configs
+        for s in state_saving:
+            if s.get("direction") == "save" and s.get("when") == "EndOfRun":
+                existing_state_save = Path(self.work_dir) / "state_save"
+                existing_state_save.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Recreated state save directory in new run folder: {existing_state_save}")
+
         if self.load_state_from:
             # Remove existing load/StartOfRun entry
             state_saving = [
