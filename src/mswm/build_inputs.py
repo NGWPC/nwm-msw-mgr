@@ -1471,8 +1471,9 @@ class RealizationBuilder:
 
         if self.load_state_from:
             if not self.load_state_from.exists():
-                logger.critical(f"State load directory does not exist: {self.load_state_from}")
-                raise
+                msg = f"State load directory does not exist: {self.load_state_from}"
+                logger.critical(msg)
+                raise FileNotFoundError(msg)
             logger.info(f"State load directory: {self.load_state_from}")
 
         # Initialize state saving array
