@@ -38,8 +38,6 @@ def build_fcst(input_path: str, valid_yaml: str, fcst_run_name: str, use_cold_st
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
                             load_state_from=load_state_from, save_state=save_state)
     result = rb.build_fcst_realization()
-    if save_state:
-        return result[0], result[1]
     return result
 
 
