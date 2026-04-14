@@ -1659,7 +1659,7 @@ class RealizationBuilder:
             # Remove existing load/StartOfRun entry
             state_saving = [
                 s for s in state_saving
-                if not (s.get("direction") == "save" and s.get("when") == "StartOfRun")
+                if not (s.get("direction") == "load" and s.get("when") == "StartOfRun")
             ]
 
         if self.save_state:
