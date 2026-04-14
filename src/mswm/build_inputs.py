@@ -2245,7 +2245,7 @@ class RealizationBuilder:
             raise ValueError(err)
 
         # Copy existing run folder to new path
-        copy_run_folder(str(self.src_run_path), str(self.dst_run_path))
+        copy_run_folder(str(self.src_run_path), str(self.dst_run_path), ignore_forcing_config=True)
 
         # Set work_dir and input_dir from dst_run_path
         self.work_dir = self.dst_run_path
