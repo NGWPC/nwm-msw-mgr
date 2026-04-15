@@ -476,7 +476,7 @@ update_fcst_run(
 - `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
 - `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
 - `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
-- `--lagged_ens_member` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
 - `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
