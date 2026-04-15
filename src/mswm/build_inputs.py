@@ -787,7 +787,7 @@ class RealizationBuilder:
                 elif self.use_lagged_ens:
                     # Check that use_lagged_ens is only used with medium_range configuration
                     if self.forcing_configuration != "medium_range":
-                        msg = f"Lagged ensemble run must use medium range forcing configuration. {self.forcing_configuration} configuration cannot be used for a lagged ensemble."
+                        msg = f"Lagged ensemble run must use `medium_range` forcing configuration. {self.forcing_configuration} configuration cannot be used for a lagged ensemble."
                         logger.critical(msg)
                         raise ValueError(msg)
                     self.forcing_configuration_str = f"{self.forcing_configuration}_{self.lagged_ens_mem}_config.yml"
