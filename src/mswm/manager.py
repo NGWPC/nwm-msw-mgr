@@ -31,15 +31,30 @@ def build_fcst(input_path: str | None, valid_yaml: str, fcst_run_name: str, use_
                lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str = None, save_state: bool = False,
                config_overrides: InputConfig = None):
     """
-    Call RealizationBuilder class to generate forecast realization and config files
+    Call RealizationBuilder class to generate forecast realization and config files.
+
+    Returns
+    -------
+    real_path : str
+        Path to the output realization json file.
+    saved_state_file : str or None
+        If save_state, path to a saved state file to use for a warm start, else None.
+    partition_file : str or None
+        If nprocs > 1, path to the output partition config json file (written by partitionGenerator), else None.
     """
     rb = RealizationBuilder(input_path=input_path, valid_yaml=valid_yaml, fcst_run_name=fcst_run_name,
                             use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
                             use_hindcast=use_hindcast, hind_cycle=hind_cycle, prev_hind_cycle=prev_hind_cycle,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
                             load_state_from=load_state_from, save_state=save_state, config_overrides=config_overrides)
-    real_path = rb.build_fcst_realization()
-    return real_path
+
+    real_path, saved_state_file = rb.build_fcst_realization()
+    if save_state and not saved_state_file:
+        raise ValueError(
+            f"save_state argument = {repr(save_state)} but returned saved_state_file is {repr(saved_state_file)}"
+        )
+    partition_file = getattr(rb, "part_file", None)
+    return real_path, saved_state_file, partition_file
 
 
 def build_region(input_path: str):
