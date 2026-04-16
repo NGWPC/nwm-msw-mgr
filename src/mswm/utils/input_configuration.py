@@ -33,6 +33,7 @@ class GeneralConfig(StrictBaseModel):
     Input.config general section requirement
     """
     basin: str
+    subset_type: Literal["gage", "vpu"] = 'gage'
     domain: str
     environment: Literal["test", "oe"] = 'test'
     run_type: Literal["default", "calibration", "regionalization"]
@@ -217,7 +218,7 @@ class CalibConfig(StrictBaseModel):
 valid_configs = ['standard_ana', 'aorc', 'extended_ana', 'long_range_mem1', 'long_range_mem2', 'long_range_mem3', 'long_range_mem4',
                  'medium_range_blend', 'medium_range', 'nwm', 'short_range', 'short_range_alaska', 'medium_range_blend_alaska', 'short_range_extended_alaska',
                  'short_range_hawaii', 'short_range_puertorico', 'extended_ana_alaska', 'standard_ana_alaska', 'standard_ana_hawaii',
-                 'standard_ana_puertorico', 'medium_range_mem1', 'medium_range_mem2', 'medium_range_mem3', 'medium_range_mem4', 'medium_range_mem5', 
+                 'standard_ana_puertorico', 'medium_range_mem1', 'medium_range_mem2', 'medium_range_mem3', 'medium_range_mem4', 'medium_range_mem5',
                  'medium_range_mem6', 'medium_range_no_da',]
 
 
@@ -234,7 +235,7 @@ class ForcingConfig(StrictBaseModel):
     cold_start_datetime: Optional[str] = None
     global_domain: Optional[str] = "CONUS"
     forcing_static_dir: Optional[str] = None
-    ### For WCOSS paths
+    # For WCOSS paths
     scratch_dir_override: Optional[str] = None
     input_forcing_dirs_override_root: Optional[str] = None
     forcing_product_versions: Optional[dict] = None
