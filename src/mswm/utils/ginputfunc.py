@@ -117,6 +117,7 @@ def init_ginput_logger():
 
 def call_icefabric_gpkg(
         basin: str,
+        subset_type: str,
         domain: str,
         output_dir: str,
         environment: str,
@@ -127,6 +128,7 @@ def call_icefabric_gpkg(
     Parameters
     ----------
     basin: basin name string
+    subset_type: subset type string ('gage' or 'vpu')
     domain: domain name string (conus, ak, hi, prvi)
     output_dir: location to save gpkg
     environment: environment for icefabric API ('test' or 'oe')
@@ -150,16 +152,17 @@ def call_icefabric_gpkg(
     try:
         domain = domain_mappings.get(domain.lower())
     except KeyError:
-        raise ValueError(f"Invalid domain: '{domain}. Valid options are {list(domain_mappings.keys())}")
+        raise ValueError(f"Invalid domain: '{domain}'. Valid options are {list(domain_mappings.keys())}")
 
-    # Check for VPU or gage basin input string
-    if basin.lower().startswith('vpu'):
-        basin = basin[3:]
+    # Check for VPU or gage subset_type
+    if subset_type == 'vpu':
         id_type = 'vpu_id'
-        file_prefix = 'vpu'
-    else:
+        file_prefix = 'vpu_'
+    elif subset_type == 'gage':
         id_type = 'gage_id'
         file_prefix = 'gauge_'
+    else:
+        raise ValueError(f"Invalid subset_type: '{subset_type}'. Valid options are 'gage' and 'vpu'")
 
     # Check source value
     if source not in ('hf', 'nhf'):
