@@ -16,11 +16,8 @@ dependencies = [
   "PyYAML~=6.0.2",                # Match ngen-forcing
   "numpy~=1.26.4",                # Match ngen-forcing
   "httpx~=0.28.1",
-<<<<<<< HEAD
   "ewts @ git+https://github.com/NGWPC/nwm-ewts.git@development#subdirectory=runtime/python/ewts"
-=======
   "ambiance~=1.3.1"
->>>>>>> 82d3571 (Initial implementation of nhf)
 ]
 
 [tool.setuptools]
