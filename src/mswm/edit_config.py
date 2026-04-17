@@ -17,6 +17,8 @@ import yaml
 
 import logging
 from typing import Protocol
+
+
 class LoggerLike(Protocol):
     def debug(self, msg: str, *args, **kwargs) -> object: ...
     def info(self, msg: str, *args, **kwargs) -> object: ...
@@ -76,7 +78,7 @@ def create_valid_realization_file(agent: 'Agent', eval_params: 'EvaluationOption
 
     """
     logger = _resolve_logger(logger)
-        
+
     # Retrieve output variables from calib_yaml
     with open(agent.yaml_file) as file:
         y = yaml.safe_load(file)
