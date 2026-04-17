@@ -3,6 +3,17 @@ import pandas as pd
 DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PARTITION_CONFIG_FILE_NAME_SUFFIX = "_partition_config"
 
+LAGGED_ENSEMBLE_MEMBER_LAGS: dict[str, int] = {
+    "no_da": 0,
+    "mem1": 0,
+    "mem2": 6,
+    "mem3": 12,
+    "mem4": 18,
+    "mem5": 24,
+    "mem6": 30,
+}
+"""Lagged ensemble members. Dictionary keyed on member name. Value is the lag of that member, in hours."""
+
 # information about all modules currently supported in ngen-cal
 # Column 1: module name
 # Column 2: name used by the UI (API/GUI/CLI)
