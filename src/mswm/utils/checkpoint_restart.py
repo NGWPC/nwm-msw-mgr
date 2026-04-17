@@ -1,17 +1,14 @@
 """
 Module to restart a run from a saved checkpoint, copying a run folder to a new path and configuring checkpoint restart
 """
-
-import logging
 import os
 import json
 import argparse
 from pathlib import Path
-
+import ewts
 from mswm.utils.copy_run_folder import copy_run_folder
-from mswm.utils.log_level import log_level_set, MODULE_NAME
 
-logger = logging.getLogger(MODULE_NAME)
+logger = ewts.logger.get_logger(ewts.MSW_MGR_ID)
 
 
 def checkpoint_restart(
@@ -40,7 +37,16 @@ def checkpoint_restart(
 
     # Initialize logging to dst logs directory
     log_path = os.path.join(dst, 'logs')
-    log_level_set(log_path)
+    ewts.logger.reset_logger(ewts.MSW_MGR_ID)
+    logger = ewts.logger.setup_logger(
+        ewts.MSW_MGR_ID,
+        level="INFO",
+        log_dir=log_path,
+        log_file_name="msw_mgr_checkpoint.log",
+        running_in_ngen=False,
+        enabled=True,
+        bind_now=True,
+    )
 
     # Validate checkpoint state path exists
     if not checkpoint_state.exists():
