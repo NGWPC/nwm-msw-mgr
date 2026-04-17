@@ -15,8 +15,7 @@ dependencies = [
   "pydantic~=2.11.9",
   "PyYAML~=6.0.2",                # Match ngen-forcing
   "numpy~=1.26.4",                # Match ngen-forcing
-  "httpx~=0.28.1",
-  "ewts @ git+https://github.com/NGWPC/nwm-ewts.git@development#subdirectory=runtime/python/ewts"
+  "httpx~=0.28.1"
 ]
 
 [tool.setuptools]
