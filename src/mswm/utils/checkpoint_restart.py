@@ -8,7 +8,7 @@ from pathlib import Path
 import ewts
 from mswm.utils.copy_run_folder import copy_run_folder
 
-logger = ewts.logger.get_logger(ewts.MSW_MGR_ID)
+logger = None
 
 
 def checkpoint_restart(
@@ -36,6 +36,7 @@ def checkpoint_restart(
     checkpoint_state = Path(checkpoint_state_path).resolve()
 
     # Initialize logging to dst logs directory
+    global logger
     log_path = os.path.join(dst, 'logs')
     ewts.logger.reset_logger(ewts.MSW_MGR_ID)
     logger = ewts.logger.setup_logger(
@@ -47,6 +48,8 @@ def checkpoint_restart(
         enabled=True,
         bind_now=True,
     )
+
+    logger.info(f"Copied run folder from {src_path} to {dst_path}")
 
     # Validate checkpoint state path exists
     if not checkpoint_state.exists():
