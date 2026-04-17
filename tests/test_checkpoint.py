@@ -64,8 +64,7 @@ def checkpoint_run_folder(region_build, tmp_path, checkpoint_state_folder):
     """Run checkpoint_restart and return src, dst, state, realization file and data"""
     src = Path(region_build.work_dir)
     dst = tmp_path / "dst_checkpoint"
-    with patch("mswm.utils.log_level.log_level_set"):
-        checkpoint_restart(str(src), str(dst), str(checkpoint_state_folder))
+    checkpoint_restart(str(src), str(dst), str(checkpoint_state_folder))
     real_file = list(dst.rglob("*realization*.json"))[0]
     with open(real_file) as f:
         real_data = json.load(f)
@@ -181,21 +180,19 @@ class TestCheckpointRestart:
         }
 
     def test_checkpoint_state_not_found_raises(self, region_build, tmp_path):
-        with patch("mswm.utils.log_level.log_level_set"):
-            with pytest.raises(FileNotFoundError):
-                checkpoint_restart(
-                    str(Path(region_build.input_dir)),
-                    str(tmp_path / "dst2"),
-                    str(tmp_path / "nonexistent")
-                )
+        with pytest.raises(FileNotFoundError):
+            checkpoint_restart(
+                str(Path(region_build.input_dir)),
+                str(tmp_path / "dst2"),
+                str(tmp_path / "nonexistent")
+            )
 
     def test_no_realization_file_raises(self, tmp_path):
         empty_src = tmp_path / "empty_src"
         empty_src.mkdir()
-        with patch("mswm.utils.log_level.log_level_set"):
-            with pytest.raises(FileNotFoundError):
-                checkpoint_restart(
-                    str(empty_src),
-                    str(tmp_path / "dst2"),
-                    str(self.state)
-                )
+        with pytest.raises(FileNotFoundError):
+            checkpoint_restart(
+                str(empty_src),
+                str(tmp_path / "dst2"),
+                str(self.state)
+            )
