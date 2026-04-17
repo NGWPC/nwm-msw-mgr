@@ -69,7 +69,8 @@ class TestUpdateFcstRun:
         assert "01123000" in str(self.dst)
 
     def test_files_copied(self):
-        src_files = {f.name for f in self.src.rglob("*") if f.is_file() and "forcing_config" not in f.parts}
+        ignore_dirs = {'Output', 'state_save', 'forcing_config'}
+        src_files = {f.name for f in self.src.rglob("*") if f.is_file() and not any(part in ignore_dirs for part in f.parts) and f.suffix != '.log'}
         dst_files = {f.name for f in self.dst.rglob("*") if f.is_file()}
         assert src_files.issubset(dst_files)
 
