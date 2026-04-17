@@ -8,11 +8,27 @@ import os
 import shutil
 import argparse
 from pathlib import Path
+from typing import Protocol
 
-logger = logging.getLogger(__name__)
+
+class LoggerLike(Protocol):
+    def debug(self, msg: str, *args, **kwargs) -> object: ...
+    def info(self, msg: str, *args, **kwargs) -> object: ...
+    def warning(self, msg: str, *args, **kwargs) -> object: ...
+    def error(self, msg: str, *args, **kwargs) -> object: ...
+    def critical(self, msg: str, *args, **kwargs) -> object: ...
 
 
-def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = False) -> None:
+def _resolve_logger(logger: LoggerLike | None) -> LoggerLike:
+    # Your desired behavior
+    if logger is None:
+        return logging.getLogger(__name__)
+
+    # No strict type checking — trust duck typing
+    return logger
+
+
+def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = False, logger: LoggerLike | None = None) -> None:
     """
     Copy a run folder to a new path, replacing internal path references
 
@@ -27,6 +43,7 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
         Should be set to True for update_fcst_run
         Should be set to False for checkpoint_restart
     """
+    logger = _resolve_logger(logger)
     src = Path(src_path).resolve()
     dst = Path(dst_path).resolve()
 
@@ -104,7 +121,7 @@ def parse_args():
         help="Path to destination run folder"
     )
     parser.add_argument(
-        "--ingore_forcing_config",
+        "--ignore_forcing_config",
         action="store_true",
         default=False,
         help="Exclude forcing_config directory from copy (default: False)"
