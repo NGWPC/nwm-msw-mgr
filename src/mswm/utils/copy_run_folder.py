@@ -2,33 +2,13 @@
 Module to copy a run folder to a new path, updating all internal path references
 from the original run folder to the destination path
 """
-
-import logging
 import os
 import shutil
 import argparse
 from pathlib import Path
-from typing import Protocol
 
 
-class LoggerLike(Protocol):
-    def debug(self, msg: str, *args, **kwargs) -> object: ...
-    def info(self, msg: str, *args, **kwargs) -> object: ...
-    def warning(self, msg: str, *args, **kwargs) -> object: ...
-    def error(self, msg: str, *args, **kwargs) -> object: ...
-    def critical(self, msg: str, *args, **kwargs) -> object: ...
-
-
-def _resolve_logger(logger: LoggerLike | None) -> LoggerLike:
-    # Your desired behavior
-    if logger is None:
-        return logging.getLogger(__name__)
-
-    # No strict type checking — trust duck typing
-    return logger
-
-
-def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = False, logger: LoggerLike | None = None) -> None:
+def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = False) -> None:
     """
     Copy a run folder to a new path, replacing internal path references
 
@@ -43,24 +23,19 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
         Should be set to True for update_fcst_run
         Should be set to False for checkpoint_restart
     """
-    logger = _resolve_logger(logger)
     src = Path(src_path).resolve()
     dst = Path(dst_path).resolve()
 
     # Validate source exists
     if not src.exists():
-        msg = f"Source run folder does not exist: {src}"
-        logger.critical(msg)
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Source run folder does not exist: {src}")
 
     if not src.is_dir():
-        msg = f"Source path is not a directory: {src}"
-        logger.critical(msg)
-        raise ValueError(msg)
+        raise ValueError(f"Source path is not a directory: {src}")
 
     # Warn if destination already exists, then overwrite
     if dst.exists():
-        logger.warning(f"Destination path already exists and will be overwritten: {dst}")
+        print(f"Destination path already exists and will be overwritten: {dst}")
         shutil.rmtree(dst)
 
     # Build ignore patterns
@@ -69,7 +44,6 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
         ignore_patterns.append('forcing_config')
 
     # Copy full directory tree, ignoring existing log files, Output folder, and state_save folder
-    logger.info(f"Copying run folder from {src} to {dst}")
     shutil.copytree(src, dst, symlinks=True, ignore=shutil.ignore_patterns(*ignore_patterns))
 
     # File extensions to serach for path references
@@ -80,7 +54,6 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
     # Iterate through files in destination and replace path reference
     src_str = str(src)
     dst_str = str(dst)
-    files_updated = 0
 
     for root, dirs, files in os.walk(dst):
         for filename in files:
@@ -94,16 +67,13 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
             try:
                 content = filepath.read_text(encoding='utf-8')
             except (UnicodeDecodeError, PermissionError) as e:
-                logger.warning(f"Skipping file (cannot read): {filepath} - {e}")
+                print(f"Skipping file (cannot read): {filepath} - {e}")
                 continue
 
             # Update file path if contained within file
             if src_str in content:
                 updated_content = content.replace(src_str, dst_str)
                 filepath.write_text(updated_content, encoding='utf-8')
-                files_updated += 1
-
-    logger.info(f"Path replacement complete - {files_updated} files updated")
 
 
 def parse_args():
