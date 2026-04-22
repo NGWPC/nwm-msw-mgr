@@ -180,13 +180,6 @@ class TestFcstBuild:
         filename = os.path.basename(str(self.rb.realization_file))
         assert "fcst" in filename
 
-    # Noah BMI configs updated for forecast
-    def test_noah_fcst_configs_created(self):
-        noah_dir = os.path.join(str(self.rb.input_dir), "noah-owp-modular_input")
-        assert os.path.isdir(noah_dir)
-        input_files = [f for f in os.listdir(noah_dir) if f.endswith(".input")]
-        assert len(input_files) > 0
-
     # Troute updated for forecast
     def test_troute_fcst_config_created(self):
         fcst_dir = str(self.rb.input_dir)

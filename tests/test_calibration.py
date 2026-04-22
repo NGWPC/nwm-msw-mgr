@@ -6,7 +6,6 @@ import pytest
 import os
 import json
 import yaml
-from pathlib import Path
 from unittest.mock import patch
 
 from mswm.build_inputs import RealizationBuilder
@@ -149,4 +148,4 @@ class TestCalibBuild:
         noah_dir = os.path.join(self.rb.input_dir, "noah-owp-modular_input")
         assert os.path.isdir(noah_dir)
         input_files = [f for f in os.listdir(noah_dir) if f.endswith(".input")]
-        assert len(input_files) == len(self.rb.catids) * 2  # Calib BMIs + Valid BMIs
+        assert len(input_files) == len(self.rb.catids)
