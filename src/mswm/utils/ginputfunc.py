@@ -8,7 +8,6 @@ import copy
 import logging
 import datetime
 import ewts
-import glob
 import json
 import os
 import math
@@ -90,7 +89,6 @@ __all__ = [
     'create_lasam_input',
     'create_topoflow_glacier_input',
     'create_topmodel_input',
-    'update_noah_ueb_topo_times',
     'update_troute',
     'create_troute_config',
     'create_fcst_times',
@@ -412,22 +410,18 @@ def create_cfe_input(
 
 def create_noah_input(
         catids: List[str],
-        time_period: dict,
         divides_df: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         noah_input_dir: Union[str, Path],
-        run_type: str
 ) -> None:
     """ Create BMI configuration file for Noah-OWP-Modular
 
     Parameters
     ----------
     catids : catchment IDs in the basin
-    time_period : simulation and evaluation time period
     divides_df: dataframe containing hydrofabric divides attributes
     param_dir_source : source directory containing Noah-OWP-Modular parameter files
     noah_input_dir: directory to save configuration files
-    run_type: type of run (calib, regionalization, or default)
 
     Returns
     ----------
@@ -453,13 +447,6 @@ def create_noah_input(
         except OSError as e:
             logger.critical(f"Failed to create symlink: {src} -> {dst}: {e}")
             raise
-
-    # Generate files based on run type
-    run_list_map = {
-        'calibration': ['calib', 'valid'],
-        'regionalization': ['region'],
-    }
-    run_list = run_list_map.get(run_type, [run_type])
 
     # Set base namelist section
     base_namelist = {
@@ -515,62 +502,49 @@ def create_noah_input(
         ],
     }
 
-    for run_name in run_list:
-        if not time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
-            continue
+    # Specify options for namelist file
+    for catID in catids:
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
+        tslp = cat_attrs['slope250m_mean']
+        azimuth = cat_attrs['aspect_circmean']
+        lat = cat_attrs['lat']
+        lon = cat_attrs['lon']
+        isltype = int(cat_attrs['isltyp_mode'])
+        vegtype = int(cat_attrs["ivgtyp_mode"])
+        sfctype = 2 if vegtype == 16 else 1
 
-        # Parse dates
-        startdate = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S")
-        startdate = (startdate + datetime.timedelta(hours=1)).strftime("%Y%m%d%H%M")  # TODO: Should NOAH have a start time + 1 hour?
-        enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+        # Build catchment specific namelist file
+        nom_lst = ['&timing']
+        nom_lst.extend(base_namelist['timing'])
+        nom_lst.extend(['/', '', '&parameters'])
+        nom_lst.extend(base_namelist['parameters'])
+        nom_lst.extend(['/', '', '&location'])
+        nom_lst.extend([
+            "  " + "lat".ljust(19) + f"= {lat}" + "            ! latitude [degrees]  (-90 to 90)",
+            "  " + "lon".ljust(19) + f"= {lon}" + "           ! longitude [degrees] (-180 to 180)",
+            "  " + "terrain_slope".ljust(19) + f"= {tslp}" + "           ! terrain slope [degrees]",
+            "  " + "azimuth".ljust(19) + f"= {azimuth}" + "           ! terrain azimuth or aspect [degrees clockwise from north]",
 
-        # Specify options for namelist file
-        for catID in catids:
-            # Get catchment attributes
-            cat_attrs = divides_df.loc[catID]
-            tslp = cat_attrs['slope250m_mean']
-            azimuth = cat_attrs['aspect_circmean']
-            lat = cat_attrs['lat']
-            lon = cat_attrs['lon']
-            isltype = int(cat_attrs['isltyp_mode'])
-            vegtype = int(cat_attrs["ivgtyp_mode"])
-            sfctype = 2 if vegtype == 16 else 1
+        ])
+        nom_lst.extend(['/', '', '&forcing'])
+        nom_lst.extend(base_namelist['forcing'])
+        nom_lst.extend(['/', '', '&model_options'])
+        nom_lst.extend(base_namelist['model_options'])
+        nom_lst.extend(['/', '', '&structure'])
+        nom_lst.extend([
+            "  " + "isltyp".ljust(17) + f"= {isltype}" + "              ! soil texture class",
+            "  " + "vegtyp".ljust(17) + f"= {vegtype}" + "             ! vegetation type",
+            "  " + "sfctyp".ljust(17) + f"= {sfctype}" + "              ! land surface type, 1:soil, 2:lake",
+        ])
+        nom_lst.extend(base_namelist['structure'])
+        nom_lst.extend(['/', '', '&initial_values'])
+        nom_lst.extend(base_namelist['initial_values'])
+        nom_lst.append('/')
 
-            # Build catchment specific namelist file
-            nom_lst = ['&timing']
-            nom_lst.extend(base_namelist['timing'])
-            nom_lst.extend([
-                "  " + "startdate".ljust(19) + f"= '{startdate}'" + "               ! UTC time start of simulation (YYYYMMDDhhmm)",
-                "  " + "enddate".ljust(19) + f"= '{enddate}'" + "               ! UTC time end of simulation (YYYYMMDDhhmm)",
-            ])
-            nom_lst.extend(['/', '', '&parameters'])
-            nom_lst.extend(base_namelist['parameters'])
-            nom_lst.extend(['/', '', '&location'])
-            nom_lst.extend([
-                "  " + "lat".ljust(19) + f"= {lat}" + "            ! latitude [degrees]  (-90 to 90)",
-                "  " + "lon".ljust(19) + f"= {lon}" + "           ! longitude [degrees] (-180 to 180)",
-                "  " + "terrain_slope".ljust(19) + f"= {tslp}" + "           ! terrain slope [degrees]",
-                "  " + "azimuth".ljust(19) + f"= {azimuth}" + "           ! terrain azimuth or aspect [degrees clockwise from north]",
-
-            ])
-            nom_lst.extend(['/', '', '&forcing'])
-            nom_lst.extend(base_namelist['forcing'])
-            nom_lst.extend(['/', '', '&model_options'])
-            nom_lst.extend(base_namelist['model_options'])
-            nom_lst.extend(['/', '', '&structure'])
-            nom_lst.extend([
-                "  " + "isltyp".ljust(17) + f"= {isltype}" + "              ! soil texture class",
-                "  " + "vegtyp".ljust(17) + f"= {vegtype}" + "             ! vegetation type",
-                "  " + "sfctyp".ljust(17) + f"= {sfctype}" + "              ! land surface type, 1:soil, 2:lake",
-            ])
-            nom_lst.extend(base_namelist['structure'])
-            nom_lst.extend(['/', '', '&initial_values'])
-            nom_lst.extend(base_namelist['initial_values'])
-            nom_lst.append('/')
-
-            namelst = os.path.join(noah_input_dir, f'{catID}_{run_name}.input')
-            with open(namelst, 'w') as outfile:
-                outfile.write('\n'.join(nom_lst) + '\n')
+        namelst = os.path.join(noah_input_dir, f'{catID}_noah_owp.input')
+        with open(namelst, 'w') as outfile:
+            outfile.write('\n'.join(nom_lst) + '\n')
 
 
 def create_sft_smp_input(
@@ -798,22 +772,18 @@ def create_snow17_input(
 
 def create_ueb_input(
         catids: List[str],
-        time_period: dict,
         divides_df: gpd.GeoDataFrame,
         param_dir_source: Union[str, Path],
         ueb_input_dir: str,
-        run_type: str
 ) -> None:
     """ Create BMI configuration file for ueb
 
     Parameters
     ----------
     catids : catchment IDs in the basin
-    time_period: simulation time period
     divides_df: dataframe containing hydrofabric divides attributes
     param_dir_source : directory containing UEB parameter files
     ueb_input_dir : directory for the UEB bmi configuration file
-    run_type: type of run (calib, regionalization, or default)
 
     Returns
     ----------
@@ -899,14 +869,6 @@ def create_ueb_input(
         with open(site_file, 'w') as outfile:
             outfile.writelines(lines)
 
-    # Determine run list based on run type
-    run_list_map = {
-        'calibration': ['calib', 'valid'],
-        'regionalization': ['region'],
-        'default': ['default']
-    }
-    run_list = run_list_map.get(run_type)
-
     # Set base init file template
     init_base = ['UEBGrid Model Driver Test for TWDEF',  # TODO does this need to be updated?
                  '1.0',
@@ -916,36 +878,26 @@ def create_ueb_input(
                  '1 1'
                  ]
 
-    for run_name in run_list:
-        if not time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
-            continue
+    for catID in catids:
+        site_file = os.path.join(ueb_input_dir, f'ueb_sitevars-{catID}.dat')
 
-        # Parse dates
-        startdate = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
-        enddate = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
+        # Build init file
+        input_list = [
+            init_base[0],
+            const_files['params'],
+            site_file,
+            const_files['inputctr'],
+            const_files['outputctr'],
+            f'{param_dir_source}/aggout.nc ',
+            f'{param_dir_source}/watershed_onecell.nc',
+            'watershed y x'
+        ]
+        input_list.extend(init_base[1:])
 
-        for catID in catids:
-            site_file = os.path.join(ueb_input_dir, f'ueb_sitevars-{catID}.dat')
-
-            # Build init file
-            input_list = [
-                init_base[0],
-                const_files['params'],
-                site_file,
-                const_files['inputctr'],
-                const_files['outputctr'],
-                f'{param_dir_source}/aggout.nc ',
-                f'{param_dir_source}/watershed_onecell.nc',
-                'watershed y x',
-                f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0',
-                f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0',
-            ]
-            input_list.extend(init_base[1:])
-
-            # Write init file
-            input_file = os.path.join(ueb_input_dir, f'ueb-init-{catID}_{run_name}.dat')
-            with open(input_file, "w") as f:
-                f.write('\n'.join(input_list))
+        # Write init file
+        input_file = os.path.join(ueb_input_dir, f'ueb_init-{catID}.dat')
+        with open(input_file, "w") as f:
+            f.write('\n'.join(input_list))
 
 
 def create_sac_input(
@@ -1449,9 +1401,7 @@ def create_lasam_input(
 def create_topoflow_glacier_input(
         catids: List[str],
         divides_df: gpd.GeoDataFrame,
-        time_period: dict,
         topo_input_dir: str,
-        run_type: str,
 ) -> None:
     """ Create BMI configuration file for ueb
 
@@ -1459,9 +1409,7 @@ def create_topoflow_glacier_input(
     ----------
     catids : catchment IDs in the basin
     divides_df: dataframe containing hydrofabric divides attributes
-    time_period: simulation time period
     topo_input_dir : directory for the bmi configuration file
-    run_type: type of run (calib, regionalization, or default)
 
     Returns
     ----------
@@ -1469,14 +1417,6 @@ def create_topoflow_glacier_input(
 
     """
     os.makedirs(topo_input_dir, exist_ok=True)
-
-    # Determine run list based on run type
-    run_list_map = {
-        'calibration': ['calib', 'valid'],
-        'regionalization': ['region'],
-        'default': ['default'],
-    }
-    run_list = run_list_map.get(run_type)
 
     # Set base parameter template
     param_base = {
@@ -1490,37 +1430,27 @@ def create_topoflow_glacier_input(
         'T_rain_snow': 0
     }
 
-    for run_name in run_list:
-        if not time_period['run_time_period'][run_name][0] and time_period['run_time_period'][run_name][1]:
-            continue
+    # Create topoflow-glacier parameter yaml file
+    for catID in catids:
+        # Get catchment attributes
+        cat_attrs = divides_df.loc[catID]
 
-        # Parse dates
-        start_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][0], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
-        end_time = datetime.datetime.strptime(time_period['run_time_period'][run_name][1], "%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
+        # Build catchment-specific dictionary
+        param_dict = param_base.copy()
+        param_dict.update({
+            'site_prefix': str(catID),
+            'da': float(cat_attrs["area_sqkm"]),
+            'slope': 1000 * math.tan(math.radians(float(cat_attrs['slope250m_mean']))),
+            'aspect': float(cat_attrs["aspect_circmean"]),
+            'lat': float(cat_attrs["lat"]),
+            'lon': float(cat_attrs["lon"]),
+            'elev': float(cat_attrs["elevation_mean"]),
+        })
 
-        # Create topoflow-glacier parameter yaml file
-        for catID in catids:
-            # Get catchment attributes
-            cat_attrs = divides_df.loc[catID]
-
-            # Build catchment-specific dictionary
-            param_dict = param_base.copy()
-            param_dict.update({
-                'site_prefix': str(catID),
-                'start_time': start_time,
-                'end_time': end_time,
-                'da': float(cat_attrs["area_sqkm"]),
-                'slope': 1000 * math.tan(math.radians(float(cat_attrs['slope250m_mean']))),
-                'aspect': float(cat_attrs["aspect_circmean"]),
-                'lat': float(cat_attrs["lat"]),
-                'lon': float(cat_attrs["lon"]),
-                'elev': float(cat_attrs["elevation_mean"]),
-            })
-
-            # Write bmi to file
-            topo_bmi_file = os.path.join(topo_input_dir, f'{catID}_{run_name}.yaml')
-            with open(topo_bmi_file, 'w') as f:
-                yaml.dump(param_dict, f, default_flow_style=False, sort_keys=False)
+        # Write bmi to file
+        topo_bmi_file = os.path.join(topo_input_dir, f'{catID}_bmi_config_topo_gl.yaml')
+        with open(topo_bmi_file, 'w') as f:
+            yaml.dump(param_dict, f, default_flow_style=False, sort_keys=False)
 
 
 def create_topmodel_input(
@@ -1624,136 +1554,6 @@ def create_topmodel_input(
         run_file = os.path.join(input_dir, f'{catID}_topmodel.run')
         with open(run_file, 'w') as f:
             f.writelines(run_config)
-
-
-def update_noah_ueb_topo_times(
-        real_config: dict,
-        input_dir: Path,
-        basename_opt: str,
-) -> dict:
-    """
-    For noah-owp-modular, Topoflow-Glacier, & UEB, create new BMI config files with adjusted start/end times, and then
-        update path to BMI config files in realization file accordingly
-
-    Arguments
-    ---------
-    real_config: dictionary containing the realization configuration
-    input_dir: folder for the new BMI config files
-    basename_opt: suffix for new BMI config files
-
-    Returns
-    -------
-    dictionary containing adjusted realization config
-
-    """
-    # Check for format of realization file
-    real_format = 'grouped' if 'formulation_groups' in real_config else 'uniform'
-
-    # Retrieve times from realization
-    try:
-        start_time = real_config['time']['start_time']
-        end_time = real_config['time']['end_time']
-        startdate = pd.to_datetime(start_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
-        enddate = pd.to_datetime(end_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H%M")
-        startdate_topo = pd.to_datetime(start_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
-        enddate_topo = pd.to_datetime(end_time, format="%Y-%m-%d %H:%M:%S").strftime("%Y%m%d%H")
-    except Exception as e:
-        logger.critical(f"Error converting yaml config times: {real_config['time']}\n{e}")
-        raise
-
-    # Set modules to update
-    mod_dict = {
-        'NoahOWP': 'noah-owp-modular',
-        'UEB': 'ueb',
-        'BmiTopoflowGlacier': 'topoflow-glacier'}
-
-    if real_format == 'uniform':
-        modules_list = real_config['global']['formulations'][0]['params']['modules']
-    else:
-        modules_list = []
-        for grp in real_config['formulation_groups'].values():
-            for form in grp:
-                modules_list.extend(form['params']['modules'])
-
-    # Loop through modules and update start/end times
-    for form in modules_list:
-        mod_params = form.get('params')
-        model_name = mod_params.get('model_type_name')
-
-        if model_name not in mod_dict:
-            continue
-
-        # Get source files and create destination directory
-        src0 = mod_params.get('init_config')
-        src = Path(src0.replace('{{id}}', '*'))
-        dst = Path(input_dir, f'{mod_dict[model_name]}_input')
-
-        try:
-            dst.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            logger.critical(f"Failed to create directory: {dst}\n{e}")
-            raise
-
-        # Update times with line based editting for NoahOWP/UEB
-        if model_name in ['NoahOWP', 'UEB']:
-            for f1 in glob.glob(f'{src}'):
-                with open(f1) as f:
-                    lines = f.readlines()
-
-                    # update start/end times
-                    for i, line in enumerate(lines):
-                        if model_name == 'NoahOWP':
-                            if 'startdate' in line:
-                                lines[i] = "  " + "startdate".ljust(19) + f"= '{startdate}'" + "               ! UTC time start of simulation (YYYYMMDDhhmm)\n"
-                            elif 'enddate' in line:
-                                lines[i] = "  " + "enddate".ljust(19) + f"= '{enddate}'" + "               ! UTC time end of simulation (YYYYMMDDhhmm)\n"
-                        elif model_name == 'UEB':
-                            if i == 8:
-                                lines[i] = f'{startdate[:4]} {startdate[4:6]} {startdate[6:8]} {startdate[8:10]}.0\n'
-                            elif i == 9:
-                                lines[i] = f'{enddate[:4]} {enddate[4:6]} {enddate[6:8]} {enddate[8:10]}.0\n'
-
-                    # Rename basename from _valid to basename_opt
-                    src_basename = os.path.basename(f1)
-                    new_basename = src_basename.replace('_valid', f'_{basename_opt}')
-
-                    # write to new BMI config files
-                    try:
-                        with open(Path(dst, new_basename), 'w') as outfile:
-                            outfile.writelines(lines)
-                    except (FileNotFoundError, PermissionError, OSError) as e:
-                        logger.critical(f"Error writing to {dst}\n{e}")
-                        raise
-
-                # replace path to BMI config file in realization file
-                src_basename_init = os.path.basename(src0)
-                new_basename_init = src_basename_init.replace('_valid', f'_{basename_opt}')
-                mod_params['init_config'] = str(Path(dst, new_basename_init))
-
-        # Update times with yaml-based editting for TopoflowGlacier
-        elif model_name == 'BmiTopoflowGlacier':
-            for f1 in glob.glob(f'{src}'):
-                cfg_path = Path(dst, os.path.basename(f1))
-
-                try:
-                    with open(f1, 'r') as yaml_file:
-                        cfg = yaml.safe_load(yaml_file)
-
-                    cfg['start_time'] = startdate_topo
-                    cfg['end_time'] = enddate_topo
-
-                    with open(cfg_path, 'w') as yaml_file:
-                        yaml.dump(cfg, yaml_file, default_flow_style=False, sort_keys=False)
-                except (FileNotFoundError, PermissionError, OSError) as e:
-                    logger.critical(f"Error updating Topoflow-glacier config at {cfg_path}: {e}")
-                    raise
-
-                # replace path to BMI config file in realization file
-                src_basename_init = os.path.basename(src0)
-                new_basename_init = src_basename_init.replace('_valid', f'_{basename_opt}')
-                mod_params['init_config'] = str(Path(dst, new_basename_init))
-
-    return real_config
 
 
 def update_troute(
@@ -2762,7 +2562,7 @@ def get_smp_var_map(modules: List) -> dict:
     return base_map
 
 
-def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: str, forcing_provider: str, forcing_vars: dict) -> dict:
+def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, forcing_provider: str, forcing_vars: dict) -> dict:
     """Build module configuration templates for realization"""
     if module == 'noah':
         return {
@@ -2770,7 +2570,7 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "model_type_name": get_model_type_name('noah'),
             "main_output_variable": "QINSUR",
             "library_file": lib_mod['noah'],
-            "init_config": os.path.join(bmi_dir['noah'], '{{id}}_' + run_type_abbr + '.input'),
+            "init_config": os.path.join(bmi_dir['noah'], '{{id}}_noah_owp.input'),
             "allow_exceed_end_time": True,
             "fixed_time_step": False,
             "uses_forcing_file": False,
@@ -2857,7 +2657,7 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "model_type_name": get_model_type_name('ueb'),
             "main_output_variable": "SWIT",
             "library_file": lib_mod['ueb'],
-            "init_config": os.path.join(bmi_dir['ueb'], 'ueb-init-{{id}}_' + run_type_abbr + '.dat'),
+            "init_config": os.path.join(bmi_dir['ueb'], 'ueb_init-{{id}}.dat'),
             "allow_exceed_end_time": True,
             "fixed_time_step": False,
             "uses_forcing_file": False,
@@ -2956,7 +2756,7 @@ def build_base_config(module: str, lib_mod: dict, bmi_dir: dict, run_type_abbr: 
             "python_type": "topoflow_glacier.bmi.bmi_topoflow_glacier.BmiTopoflowGlacier",
             "model_type_name": get_model_type_name('topoflow-glacier'),
             "main_output_variable": "land_surface_water__runoff_depth",
-            "init_config": os.path.join(bmi_dir['topoflow-glacier'], "{{id}}_" + run_type_abbr + ".yaml"),
+            "init_config": os.path.join(bmi_dir['topoflow-glacier'], "{{id}}_bmi_config_topo_gl.yaml"),
             "allow_exceed_end_time": True,
             "uses_forcing_file": False,
             "variables_names_map": {
@@ -3106,7 +2906,7 @@ def create_realization_file(
             continue
 
         # Build realization config section for requested module
-        base_config = build_base_config(mod, lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
+        base_config = build_base_config(mod, lib_mod, bmi_dir, forcing_provider, forcing_vars)
         base_configs[mod] = base_config
         model_configs[mod] = build_module_config(mod, base_config, modules, forcing_provider, forcing_vars)
 
@@ -3281,7 +3081,7 @@ def create_reg_realization_file(
                 continue
 
             # Build realization config section for requested module
-            base_config = build_base_config(mod, lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
+            base_config = build_base_config(mod, lib_mod, bmi_dir, forcing_provider, forcing_vars)
             base_configs[mod] = base_config
             model_configs[mod] = build_module_config(mod, base_config, grp_mod, forcing_provider, forcing_vars)
 
