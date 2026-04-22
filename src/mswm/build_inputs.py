@@ -1490,6 +1490,20 @@ class RealizationBuilder:
 
         logger.info("Set output variables")
 
+    def _update_fcst_realization(self):
+        """
+        Update forcing and time related info in realization file
+        """
+        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.basename_opt)
+        logger.info("Updated forecast realization file")
+
+    def _update_fcst_troute(self):
+        """
+        Update BMI config files for t-route for forecast period
+        """
+        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt)
+        logger.info("Updated t-route file for forecast")
+
     def _create_bmi_configs(self, is_regionalization: bool = False):
         """
         Generate BMI config files for modules or link to existing config files
@@ -1591,7 +1605,7 @@ class RealizationBuilder:
                 elif m1 == 'topmodel':
                     gfun.create_topmodel_input(cat_mod, self.divides_df, self.flowpaths_df, mod_input_dir)
                 elif m1 == 'ueb':
-                    gfun.create_ueb_input(cat_mod, self.time_period, self.divides_df, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
+                    gfun.create_ueb_input(cat_mod, self.divides_df, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
                 elif m1 == 'snow17':
                     gfun.create_snow17_input(cat_mod, self.divides_df, mod_input_dir)
                 elif m1 == "pet":
@@ -1599,7 +1613,7 @@ class RealizationBuilder:
                 elif m1 == "sac":
                     gfun.create_sac_input(cat_mod, self.divides_df, mod_input_dir)
                 elif m1 == 'noah':
-                    gfun.create_noah_input(cat_mod, self.time_period, self.divides_df, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
+                    gfun.create_noah_input(cat_mod, self.divides_df, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
                 elif m1 == 'lstm':
                     gfun.create_lstm_input(cat_mod, self.divides_df, self.conf3['lstm_parameter_dir'], mod_input_dir)
                 elif m1 == 'sft':
@@ -1633,7 +1647,7 @@ class RealizationBuilder:
                 elif m1 == 'lasam':
                     gfun.create_lasam_input(cat_mod, mods_to_pass, self.divides_df, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
                 elif m1 == 'topoflow-glacier':
-                    gfun.create_topoflow_glacier_input(cat_mod, self.divides_df, self.time_period, mod_input_dir, self.run_type)
+                    gfun.create_topoflow_glacier_input(cat_mod, self.divides_df, mod_input_dir)
                 elif m1 == 'troute':
                     routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
                     gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
@@ -1785,28 +1799,6 @@ class RealizationBuilder:
         for m1 in bmi_mods:
             m2 = settings.modules_all.loc[settings.modules_all['module'] == m1, 'name_ui'].iloc[0]
             self.bmi_dir[m1] = os.path.join(self.input_dir, m2 + '_input')
-
-    def _update_fcst_noah_ueb_topo(self):
-        """
-        For UEB, TopoFlow-Glacier, and Noah-OWP-Modular, create new BMI config files with new time info, and
-        update path to BMI configs in realization file accordingly
-        """
-        self.real_config = gfun.update_noah_ueb_topo_times(self.real_config, self.input_dir, self.basename_opt)
-        logger.info("Updated noah and ueb config files for forecast if used")
-
-    def _update_fcst_realization(self):
-        """
-        Update forcing and time related info in realization file
-        Add NWM Output variable sections to realization if requested
-        """
-        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end)
-        logger.info("Updated forecast realization file forcing and time information")
-
-        # Update troute config file for forecast period
-        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt)
-
-        if self.output_nwm_vars:
-            self._apply_nwm_output_vars()
 
     def _assemble_realization(self):
         """
@@ -2157,9 +2149,9 @@ class RealizationBuilder:
             self._set_output_vars()
             self._create_bmi_configs()
             self._set_bmi_config_dir()
-        self._configure_model_states()
-        self._update_fcst_noah_ueb_topo()
         self._update_fcst_realization()
+        self._update_fcst_troute()
+        self._configure_model_states()
         self._write_partition()
         self._write_realization()
 
