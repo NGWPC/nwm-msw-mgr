@@ -449,7 +449,15 @@ class RealizationBuilder:
                     'rexp', 'pctim', 'pfree', 'riva', 'side', 'rserv'],
             'snow17': ['scf', 'mfmax', 'mfmin', 'uadj', 'si', 'pxtemp', 'nmf', 'tipm', 'plwhc', 'daygm'],
             'topmodel': ['szm', 't0', 'td', 'chv', 'rv', 'srmax', 'sr0', 'xk0'],
-            'ueb': ['ems', 'cg', 'zo', 'rho', 'rhog', 'ks', 'de', 'avo', 'df', 'apr', 'cc', 'hcan', 'lai', 'subalb']
+            'ueb': ['ems', 'cg', 'zo', 'rho', 'rhog', 'ks', 'de', 'avo', 'df', 'apr', 'cc', 'hcan', 'lai', 'subalb'],
+            'smp': ['maxsmc', 'satpsi', 'b'],
+            'sft': ['maxsmc', 'satpsi', 'b']
+        }
+
+        # Parameter remapping for smp, sft
+        param_name_map = {
+            ('smp', 'maxsmc'): 'smcmax',
+            ('sft', 'maxsmc'): 'smcmax'
         }
 
         # For each module, retrieve group and corresponding parameter values
@@ -468,7 +476,8 @@ class RealizationBuilder:
                     # If parameter is empty, leave out of parameter dictionary
                     if not math.isnan(value):
                         try:
-                            param_values[param] = float(value)
+                            model_param = param_name_map.get((mod, param), param)
+                            param_values[model_param] = float(value)
                         except (ValueError, TypeError):
                             errors.append(f"Invalid parameter value in regionalization formulation file at: {mod}: {group}: {param}: {value}")
                 self.grp_params[mod][group] = param_values
