@@ -863,6 +863,12 @@ class RealizationBuilder:
             gfun.create_walk_file(self.basin, self.divides_df, self.gages_df, self.walk_file)
             logger.info(f"Crosswalk file created at: {self.walk_file}")
 
+        # Modify divides_df to set values of b, smcmax, satpsi values and set to defaults if they equal 0
+        # Remove code after EDFS fixes NHF attributes
+        self.divides_df.loc[self.divides_df['smcmax_mean'] == 0, 'smcmax_mean'] = 0.48
+        self.divides_df.loc[self.divides_df['psisat_geomean'] == 0, 'psisat_geomean'] = 0.163
+        self.divides_df.loc[self.divides_df['bexp_mode'] == 0, 'bexp_mode'] = 7.272
+
     def _parse_modules(self):
         """
         Read modules from input.config file and ensure formulation is valid
