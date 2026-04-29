@@ -3555,6 +3555,32 @@ def write_realization_to_file(
 >>>>>>> 6b3a63d (Refactor realization handling for default/region state saving and checkpointing)
 
 
+def write_realization_to_file(
+        real_config: dict,
+        realization_file: Union[str, Path],
+) -> None:
+    """ Create configuration YAML file for calibration run
+
+    Parameters
+    ----------
+    real_config : dictionary containing realization file schema
+    realization_file: path to write realization file
+
+    Returns
+    ----------
+    None
+    """
+    try:
+        with open(realization_file, 'w') as outfile:
+            json.dump(real_config, outfile, indent=4, separators=(", ", ": "), sort_keys=False)
+    except TypeError as e:
+        logger.critical(f"Failed to dump realization data to JSON: {realization_file}\n{e}")
+        raise
+    except OSError as e:
+        logger.critical(f"Unexpected error while writing realization data to JSON: {realization_file}\n{e}")
+        raise
+
+
 def create_calib_config_file(
         par_file: Union[str, Path],
         modules: List[str],
