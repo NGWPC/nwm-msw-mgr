@@ -3079,7 +3079,6 @@ def create_realization_file(
     forcing_provider: forcing provider option (csv or bmi)
     forcing_dir : directory to store forcing files
     forcing_config_file: path to forcing engine configuration file
-    realization_file : model realization configuration file
     model: model and module combination
     time_period : simulation and evaluation time period
     rt_dict : routing model source file directory and configuration file
