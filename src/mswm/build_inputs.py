@@ -1782,7 +1782,7 @@ class RealizationBuilder:
         Update forcing and time related info in realization file
         Add NWM Output variable sections to realization if requested
         """
-        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.basename_opt)
+        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end)
         logger.info("Updated forecast realization file forcing and time information")
 
         # Update troute config file for forecast period
