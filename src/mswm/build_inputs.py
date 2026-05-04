@@ -1502,9 +1502,16 @@ class RealizationBuilder:
     def _update_fcst_realization(self):
         """
         Update forcing and time related info in realization file
+        Add NWM Output variable sections to realization if requested
         """
         self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.basename_opt)
-        logger.info("Updated forecast realization file")
+        logger.info("Updated forecast realization file forcing and time information")
+
+        # Update troute config file for forecast period
+        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt)
+
+        if self.output_nwm_vars:
+            self._apply_nwm_output_vars()
 
     def _update_fcst_troute(self):
         """
@@ -1838,11 +1845,11 @@ class RealizationBuilder:
             for grp in self.grp_to_form:
                 self.real_config = gfun.update_realization_nwm_output(self.work_dir, self.lib_file, self.bmi_dir, self.forcing_provider,
                                                                       self.grp_to_adapters[grp], self.grp_to_form[grp], self.grp_to_nwm_output_dicts[grp], self.output_dict,
-                                                                      self.real_config, self.run_type, grp=grp)
+                                                                      self.real_config, grp=grp)
         else:
             self.real_config = gfun.update_realization_nwm_output(self.work_dir, self.lib_file, self.bmi_dir, self.forcing_provider,
                                                                   self.adapters, self.modules, self.nwm_output_dicts, self.output_dict,
-                                                                  self.real_config, self.run_type)
+                                                                  self.real_config)
         logger.info("Updated forecast realization file with NWM output variables and adapter modules")
 
     def _write_realization(self):
@@ -2158,9 +2165,9 @@ class RealizationBuilder:
             self._set_output_vars()
             self._create_bmi_configs()
             self._set_bmi_config_dir()
+        self._configure_model_states()
         self._update_fcst_realization()
         self._update_fcst_troute()
-        self._configure_model_states()
         self._write_partition()
         self._write_realization()
 
