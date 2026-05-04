@@ -562,7 +562,7 @@ class TestFcstNWMOutputBuild:
                                       'SNLIQ', 'SNEQV_kg_m2', 'QSNOW', 'soil_temperature_profile', 'soil_moisture_profile', 'SFCRNOFF', 'TRAD', 'LH', 'FIRA', 'FSH']
         assert nwm_provider_vars == nwm_required_provider_vars
 
-    def test_nwm_ouputs_in_realization(self):
+    def test_nwm_outputs_in_realization(self):
         assert len(self.rb.real_config['global']['formulations'][0]['params']['output_variables']) == 21
 
     def test_adapters_in_realizaiton(self):

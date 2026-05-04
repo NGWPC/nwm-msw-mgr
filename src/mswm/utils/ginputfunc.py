@@ -3212,7 +3212,6 @@ def update_realization_nwm_output(
         nwm_output_dicts: List[dict],
         output_dict: dict,
         real_config: dict,
-        run_type: str,
         grp: str = None
 ) -> None:
     """
@@ -3229,7 +3228,6 @@ def update_realization_nwm_output(
     nwm_output_dicts : dictionaries containing NWM output variable information
     output_dict : whether to output certain variables (currently SWE and soil moisture)
     real_config : existing realization file as a dictionary
-    run_type: type of run (calib, regionalization, or default, cold_start, forecast, hindcast, lagged_ens)
     grp: group name for regionalization realizations
 
     Returns
@@ -3238,8 +3236,6 @@ def update_realization_nwm_output(
     """
     # Create local copy of modules to not affect self.modules
     base_modules = modules.copy()
-
-    run_type_abbr = {'regionalization': 'region'}.get(run_type, run_type)
 
     # Retrieve forcing variable names
     forcing_vars = get_forcing_vars_map()
@@ -3277,7 +3273,7 @@ def update_realization_nwm_output(
         else:
             # Add sloth section to realization
             modules.insert(0, 'sloth')
-            base = build_base_config('sloth', lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
+            base = build_base_config('sloth', lib_mod, bmi_dir, forcing_provider, forcing_vars)
             sloth_config = build_module_config('sloth', base, mod_adapters, forcing_provider, forcing_vars)
             sloth_config['params']['model_params'] = sloth_params
             real_modules.insert(0, sloth_config)
@@ -3285,7 +3281,7 @@ def update_realization_nwm_output(
     if 'noah' in adapters:
         noah_index = 1 if 'sloth' in modules else 0
         modules.insert(noah_index, 'noah')
-        base = build_base_config('noah', lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
+        base = build_base_config('noah', lib_mod, bmi_dir, forcing_provider, forcing_vars)
         noah_config = build_module_config('noah', base, mod_adapters, forcing_provider, forcing_vars)
         real_modules.insert(noah_index, noah_config)
 
@@ -3293,7 +3289,7 @@ def update_realization_nwm_output(
         noah_index = find_module_index(real_modules, 'noah')
         smp_index = noah_index + 1
         modules.insert(smp_index, 'smp')
-        base = build_base_config('smp', lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
+        base = build_base_config('smp', lib_mod, bmi_dir, forcing_provider, forcing_vars)
         smp_config = build_module_config('smp', base, mod_adapters, forcing_provider, forcing_vars)
         # Enforce smp adapter variable name mapping
         smp_config['params']['variables_names_map'] = {
@@ -3306,7 +3302,7 @@ def update_realization_nwm_output(
         smp_index = find_module_index(real_modules, 'smp')
         sft_index = smp_index + 1
         modules.insert(sft_index, 'sft')
-        base = build_base_config('sft', lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
+        base = build_base_config('sft', lib_mod, bmi_dir, forcing_provider, forcing_vars)
         sft_config = build_module_config('sft', base, mod_adapters, forcing_provider, forcing_vars)
         real_modules.insert(sft_index, sft_config)
 
@@ -3314,7 +3310,7 @@ def update_realization_nwm_output(
         sft_index = find_module_index(real_modules, 'sft')
         cfes_index = sft_index + 1
         modules.insert(cfes_index, 'cfes')
-        base = build_base_config('cfes', lib_mod, bmi_dir, run_type_abbr, forcing_provider, forcing_vars)
+        base = build_base_config('cfes', lib_mod, bmi_dir, forcing_provider, forcing_vars)
         cfes_config = build_module_config('cfes', base, mod_adapters, forcing_provider, forcing_vars)
         var_maps = var_mapping(modules, "water_potential_evaporation_flux", forcing_vars['prcp'].get('csv'), forcing_vars['prcp'].get(forcing_provider), output_dict)
         cfes_config['params']['variables_names_map'] = var_maps['input']
