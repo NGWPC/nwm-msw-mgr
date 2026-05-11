@@ -196,7 +196,7 @@ python -m mswm.manager build_region /path/to/input_realization.config --use_cold
 
 **Forecast with state load and checkpointing:**
 ```bash
-python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
+python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --checkpoint_interval 100
 ```
 
 #### Python
@@ -208,7 +208,6 @@ real_path = build_region(
     use_cold_start=False,
     load_state_from=None,
     save_state=False,
-    use_checkpoint=False,
     checkpoint_interval=None
 )
 ```
@@ -218,8 +217,7 @@ real_path = build_region(
 - `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
 - `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
 - `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
-- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
--  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
+-  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
 
 ### Required Files
 Regionalization mode requires additional files in your input directory, which are referenced in the input.config file.
@@ -247,7 +245,7 @@ python -m mswm.manager build_default /path/to/input.config --use_cold_start --sa
 
 ** Forecast with state load and checkpointing:**
 ```bash
-python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
+python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --checkpoint_interval 10
 ```
 
 #### Python
@@ -259,7 +257,6 @@ build_default(
     use_cold_start=False,
     load_state_from=None,
     save_state=False,
-    use_checkpoint=False,
     checkpoint_interval=None
 )
 ```
@@ -269,8 +266,7 @@ build_default(
 - `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
 - `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
 - `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
-- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
--  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
+-  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
 
 ---
 
@@ -315,7 +311,7 @@ python -m mswm.utils.checkpoint_restart \
 - Log files, the `/Output/` folder, `/state_save/` folder, and `/forcing_config/` folder are excluded from the copy
 - The `checkpoint_state_path` input should point to the root `/checkpoint/` folder in the run directory, as Ngen automatically uses the most recent checkpoint iteration from within that folder
 - Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
-- Checkpoint states are generated during a runwhen `--use_checkpoint` and `--checkpoint_interval` are specified in `build_default` or `build_region`
+- Checkpoint states are generated during a run when `--checkpoint_interval` is specified in `build_default` or `build_region`
 
 ---
 

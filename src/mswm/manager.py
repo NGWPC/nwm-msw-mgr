@@ -9,12 +9,12 @@ from mswm.build_inputs import RealizationBuilder, validate_topoflow_glacier
 from mswm.utils.input_configuration import InputConfig
 
 def build_default(input_path: str, use_cold_start: bool = False, load_state_from: str = None, save_state: bool = False,
-                  use_checkpoint: bool = False, checkpoint_interval: int = None):
+                  checkpoint_interval: int = None):
     """
     Call RealizationBuilder class to generate realization and config files with default parameters
     """
     rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, load_state_from=load_state_from, save_state=save_state,
-                            use_checkpoint=use_checkpoint, checkpoint_interval=checkpoint_interval)
+                            checkpoint_interval=checkpoint_interval)
     real_path = rb.build_default_realization()
     return real_path
 
@@ -45,12 +45,12 @@ def build_fcst(input_path: str | None, valid_yaml: str, fcst_run_name: str, use_
 
 
 def build_region(input_path: str, use_cold_start: bool = False, load_state_from: str = None, save_state: bool = False,
-                 use_checkpoint: bool = False, checkpoint_interval: int = None):
+                 checkpoint_interval: int = None):
     """
     Call RealizationBuilder class to generate realization and config files for regionalization
     """
     rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, load_state_from=load_state_from, save_state=save_state,
-                            use_checkpoint=use_checkpoint, checkpoint_interval=checkpoint_interval)
+                            checkpoint_interval=checkpoint_interval)
     real_path = rb.build_region_realization()
     return real_path
 
@@ -75,7 +75,6 @@ def main():
     build_default_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
     build_default_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_default_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
-    build_default_sub.add_argument("--use_checkpoint", action="store_true", help="Enable checkpoint state saving when passed")
     build_default_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
 
     # subcommand: build_calib
@@ -88,7 +87,6 @@ def main():
     build_region_sub.add_argument("--use_cold_start", action="store_true", help="Enable cold start flag when passed")
     build_region_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_region_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
-    build_region_sub.add_argument("--use_checkpoint", action="store_true", help="Enable checkpoint state saving when passed")
     build_region_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
 
     # subcommand: build_fcst
@@ -115,11 +113,11 @@ def main():
 
     # Parser logic
     if args.command == "build_default":
-        build_default(args.input_path, args.use_cold_start, args.load_state_from, args.save_state, args.use_checkpoint, args.checkpoint_interval)
+        build_default(args.input_path, args.use_cold_start, args.load_state_from, args.save_state, args.checkpoint_interval)
     elif args.command == "build_calib":
         build_calib(args.input_path)
     elif args.command == "build_region":
-        build_region(args.input_path, args.use_cold_start, args.load_state_from, args.save_state, args.use_checkpoint, args.checkpoint_interval)
+        build_region(args.input_path, args.use_cold_start, args.load_state_from, args.save_state, args.checkpoint_interval)
     elif args.command == "build_fcst":
         build_fcst(args.input_path, args.valid_yaml, args.fcst_run_name, args.use_cold_start, args.use_warm_start, args.use_hindcast, args.use_lagged_ens,
                    args.hind_cycle, args.prev_hind_cycle, args.lagged_ens_mem, args.forcing_lag,
