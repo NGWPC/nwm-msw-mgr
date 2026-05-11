@@ -438,6 +438,7 @@ python -m mswm.utils.checkpoint_restart \
 - Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
 - Checkpoint states are generated during a runwhen `--use_checkpoint` and `--checkpoint_interval` are specified in `build_default` or `build_region`
 
+---
 
 ### Topoflow-Glacier Validation
 To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called.
@@ -463,6 +464,8 @@ validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
 - `basin_id` - String identifier of the basin
 - `domain` - String identifier of the region (conus, prvi, ak, hi, gl)
 - `ngen_cerf` - Boolean flag indicating the runtime environment
+
+---
 
 ---
 
