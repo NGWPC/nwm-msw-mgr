@@ -26,9 +26,9 @@ class TestCLI:
     @patch("mswm.manager.build_default")
     def test_build_default_with_lagged_ens(self, mock_build):
         """build_default with use_lagged ens, state load, and checkpoint"""
-        with patch("sys.argv", ["mswm", "build_default", "/path/to/config.conf", "--use_lagged_ens", "--lagged_ens_mem", "mem1", "--forcing_lag", "0", "--load_state_from", "/path/to/state/", "--use_checkpoint", "--checkpoint_interval", "100"]):
+        with patch("sys.argv", ["mswm", "build_default", "/path/to/config.conf", "--use_lagged_ens", "--lagged_ens_mem", "mem1", "--forcing_lag", "0", "--load_state_from", "/path/to/state/", "--checkpoint_interval", "100"]):
             main()
-        mock_build.assert_called_once_with(input_path='/path/to/config.conf', use_cold_start=False, use_lagged_ens=True, lagged_ens_mem="mem1", forcing_lag=0, load_state_from="/path/to/state/", save_state=False, use_checkpoint=True, checkpoint_interval=100)
+        mock_build.assert_called_once_with(input_path='/path/to/config.conf', use_cold_start=False, use_lagged_ens=True, lagged_ens_mem="mem1", forcing_lag=0, load_state_from="/path/to/state/", save_state=False, checkpoint_interval=100)
 
     @patch("mswm.manager.build_default")
     def test_build_default_fcst(self, mock_build):
@@ -61,9 +61,9 @@ class TestCLI:
     @patch("mswm.manager.build_region")
     def test_build_region_with_lagged_ens(self, mock_build):
         """build_region with use_lagged ens, state load, and checkpoint"""
-        with patch("sys.argv", ["mswm", "build_region", "/path/to/config.conf", "--use_lagged_ens", "--lagged_ens_mem", "mem1", "--forcing_lag", "0", "--load_state_from", "/path/to/state/", "--use_checkpoint", "--checkpoint_interval", "100"]):
+        with patch("sys.argv", ["mswm", "build_region", "/path/to/config.conf", "--use_lagged_ens", "--lagged_ens_mem", "mem1", "--forcing_lag", "0", "--load_state_from", "/path/to/state/", "--checkpoint_interval", "100"]):
             main()
-        mock_build.assert_called_once_with(input_path='/path/to/config.conf', use_cold_start=False, use_lagged_ens=True, lagged_ens_mem="mem1", forcing_lag=0, load_state_from="/path/to/state/", save_state=False, use_checkpoint=True, checkpoint_interval=100)
+        mock_build.assert_called_once_with(input_path='/path/to/config.conf', use_cold_start=False, use_lagged_ens=True, lagged_ens_mem="mem1", forcing_lag=0, load_state_from="/path/to/state/", save_state=False, checkpoint_interval=100)
 
     @patch("mswm.manager.build_region")
     def test_build_region_fcst(self, mock_build):
