@@ -63,7 +63,7 @@ class RealizationBuilder:
 
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
-                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, use_checkpoint: bool = False, checkpoint_interval: int | None = None,
+                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, checkpoint_interval: int | None = None,
                  config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
@@ -98,7 +98,6 @@ class RealizationBuilder:
         self.prev_hind_cycle = prev_hind_cycle if prev_hind_cycle else 0
         self.load_state_from = Path(load_state_from) if load_state_from else None
         self.save_state = save_state
-        self.use_checkpoint = use_checkpoint
         self.checkpoint_interval = checkpoint_interval if checkpoint_interval else None
         self.lagged_ens_mem = lagged_ens_mem if lagged_ens_mem else None
         self.forcing_lag = forcing_lag if forcing_lag else 0
@@ -1736,10 +1735,7 @@ class RealizationBuilder:
         Configure checkpoint state saving configuration in state saving section
         """
 
-        if self.checkpoint_interval is not None and not self.use_checkpoint:
-            logger.warning("Use_checkpoint flag set to False, but received checkpoint_interval")
-
-        if self.use_checkpoint and self.checkpoint_interval is not None:
+        if self.checkpoint_interval is not None:
             # Create directory for checkpoints
             self.save_checkpoint_to = Path(self.work_dir) / "checkpoint"
             self.save_checkpoint_to.mkdir(parents=True, exist_ok=True)
@@ -1767,6 +1763,8 @@ class RealizationBuilder:
                 self.real_config["state_saving"].append(save_config)
             else:
                 self.real_config["state_saving"] = [save_config]
+
+            logger.info(f"Checkpointing configured with an interval of {self.checkpoint_interval} timesteps.")
 
         else:
             logger.info("Checkpointing not configured.")
