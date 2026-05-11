@@ -21,7 +21,6 @@ def _run_region_build(tmp_work_dir):
     # Initialize builder
     rb = RealizationBuilder(
         config_overrides=config,
-        use_checkpoint=True,
         checkpoint_interval=2,
     )
 
