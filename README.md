@@ -436,7 +436,7 @@ python -m mswm.utils.checkpoint_restart \
 - Log files, the `/Output/` folder, `/state_save/` folder, and `/forcing_config/` folder are excluded from the copy
 - The `checkpoint_state_path` input should point to the root `/checkpoint/` folder in the run directory, as Ngen automatically uses the most recent checkpoint iteration from within that folder
 - Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
-- Checkpoint states are generated during a runwhen `--use_checkpoint` and `--checkpoint_interval` are specified in `build_default` or `build_region`
+- Checkpoint states are generated during a run when `--checkpoint_interval` is specified in `build_default` or `build_region`
 
 ---
 
