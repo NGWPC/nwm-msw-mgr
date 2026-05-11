@@ -282,104 +282,6 @@ build_default(
 ### Checkpoint Restart Workflow
 Copy an existing run folder to a new path and configure it to resume form a saved checkpoint state.
 This is used when a run was interrupted mid-execution and saved checkpoint states are available, allowing the run to continue from the last checkpoint.
-The checkpoint state copied to the new run folder and is inferred from the destination path at <dst_path>/checkpoint/.
-
-#### CLI
-```bash
-python -m mswm.utils.checkpoint_restart \
-    /path/to/existing/run/ \
-    /path/to/new/run/ \
-```
-
-#### Python
-```python
-from mswm.utils.checkpoint_restart import checkpoint_restart
-
-checkpoint_restart(
-    src_path="/path/to/existing/run",
-    dst_path="/path/to/new/run",
-)
-```
-#### Arguments
-- `src_path` - Path to existing run folder to copy
-- `dst_path` - Path to the destination run folder
-
-
-#### Example
-```bash
-python -m mswm.utils.checkpoint_restart \
-    /run_ngen/default/default_fcst/01123000/ \
-    /run_ngen/default/default_fcst_restart/01123000/ \
-```
-
-#### Notes
-- The existing run folder is copied to the destination path before any modifications are made
-- Log files, the `/Output/` folder, `/state_save/` folder, and `/forcing_config/` folder are excluded from the copy
-- Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
-- Checkpoint states are generated during a run when `--checkpoint_interval` is specified in `build_default` or `build_region`
-
----
-
-### Update Forecast Run Workflow
-Copy an existing default or regionalization forecast run to a new run folder and update the forcing engine configuration, realization, and t-route config files based on a new forecast input.config file.
-This workflow is intended for operational forecast uses where an existing forecast is re-used with updated forcing inputs. This workflow is not intended to update forecast runs based off of an existing validation run.
-
-The update_fcst function can be supplemented with a range of optional arguments depending on the type of run being updated (cold start, warm start, hindcast, lagged ensemble). State saving and checkpointing optional 
-arguments can be used to update the relevant realization sections in the copied run.
-
-#### CLI
-```bash
-python -m mswm.manager update_fcst \
-    /path/to/input.config \
-    /path/to/existing/run/ \
-    /path/to/new/run/
-```
-
-#### Python
-```python
-from mswm.manager import update_fcst_run
-
-update_fcst_run(
-    input_path="/path/to/input.config",
-    src_run_path="/path/to/existing/run/",
-    dst_run_path="/path/to/new/run/"
-)
-```
-
-#### Arguments
-- `input_path` - Path to input configuration file containing an updated `[Forcing]` section
-- `src_run_path` - Path to the existing default or regionalization run folder (e.g., `/run_ngen/regionalization/reg_fcst/01123000/`)
-- `src_run_path` - Path to the destination run folder (e.g., `/run_ngen/regionalization/new_reg_fcst/01123000/`)
-- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
-- `--use_warm_start` - (optional) Generate files for hindcasting warm start run
-- `--use_hindcast` - (optional) Generate files for hindcast run
-- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
-- `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
-- `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
-- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
-- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
-- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
-- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
-- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
-- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
-
-#### Examples
-**Forecast with new state load and checkpoint interval**
-```bash
-python -m mswm.manager update_fcst \
-    /path/to/input.config \
-    /path/to/existing/run/ \
-    /path/to/new/run/ \
-    --load_state_from /path/to/saved/state \
-    --use_checkpoint \
-    --checkpoint_interval 6
-```
-
----
-
-### Checkpoint Restart Workflow
-Copy an existing run folder to a new path and configure it to resume form a saved checkpoint state.
-This is used when a run was interrupted mid-execution and saved checkpoint states are available, allowing the run to continue from the last checkpoint.
 
 #### CLI
 ```bash
@@ -420,6 +322,7 @@ python -m mswm.utils.checkpoint_restart \
 - Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
 - Checkpoint states are generated during a runwhen `--use_checkpoint` and `--checkpoint_interval` are specified in `build_default` or `build_region`
 
+---
 
 ### Topoflow-Glacier Validation
 To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called.
@@ -445,6 +348,8 @@ validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
 - `basin_id` - String identifier of the basin
 - `domain` - String identifier of the region (conus, prvi, ak, hi, gl)
 - `ngen_cerf` - Boolean flag indicating the runtime environment
+
+---
 
 ---
 
