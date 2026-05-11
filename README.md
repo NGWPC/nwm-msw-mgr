@@ -272,6 +272,7 @@ build_default(
 - `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
 -  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
 
+---
 
 ### Checkpoint Restart Workflow
 Copy an existing run folder to a new path and configure it to resume form a saved checkpoint state.
@@ -316,6 +317,7 @@ python -m mswm.utils.checkpoint_restart \
 - Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
 - Checkpoint states are generated during a runwhen `--use_checkpoint` and `--checkpoint_interval` are specified in `build_default` or `build_region`
 
+---
 
 ### Topoflow-Glacier Validation
 To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called:
@@ -333,6 +335,8 @@ The validate_topoflow function will return a JSON with a status of False if ther
 Within Python scripts, regionalization input files can be generated calling the build_region realization function:
 1. from mswm.build_inputs import validate_topoflow
 2. validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
+
+---
 
 # nwm-msw-mgr Input Configuration File Reference
 This section describes all configuration parameters in the `input.config` file used by the nwm-msw-mgr. Full example files for each run type are available in `/example_inputs/`
