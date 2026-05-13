@@ -895,7 +895,7 @@ def create_ueb_input(
             lines[line_idx] = f"{cat_attrs[col]}\n"
 
         # Write sitevars file
-        site_file = os.path.join(ueb_input_dir, 'ueb_sitevars-f{catID}.dat')
+        site_file = os.path.join(ueb_input_dir, f'ueb_sitevars-{catID}.dat')
         with open(site_file, 'w') as outfile:
             outfile.writelines(lines)
 
