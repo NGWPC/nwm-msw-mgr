@@ -696,7 +696,6 @@ class RealizationBuilder:
         self.forcing_configuration = self.forcingSec.get('forcing_configuration', None)
         self.forcing_template_dir = self.forcingSec.get('forcing_template_dir', None)
         self.root_dir = self.forcingSec.get('root_dir', None)
-        self.global_domain = self.forcingSec.get('global_domain', "CONUS")
         self.forcing_static_dir = self.forcingSec.get('forcing_static_dir', None)
         self.scratch_dir_override = self.forcingSec.get("scratch_dir_override", None)
         self.forcing_product_versions = self.forcingSec.get(
@@ -1365,7 +1364,7 @@ class RealizationBuilder:
                                                 )
             else:
                 # Update historical dynamic parameters in forcing engine configuration file
-                gfun.update_hist_forcing_config(self.time_period, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir, self.forcing_config_file, self.run_type, self.global_domain, self.forcing_static_dir)
+                gfun.update_hist_forcing_config(self.time_period, self.root_dir, self.forcing_template, gpkg_file, self.forcing_config_dir, self.forcing_config_file, self.run_type, self.domain, self.forcing_static_dir)
 
             logger.info(f"Configured BMI forcing engine: {self.forcing_config_file}")
 

@@ -329,6 +329,7 @@ Parameters for forcing engine configuration. Required for all run types, includi
 | `forcing_template_dir` | path | BMI provider | Directory containing forcing engine template configuration files. Required in `forcing_provider = bmi`.|
 | `root_dir` | path | BMI Proivder | Root directory for forecast files. Required if `forcing_provider = bmi`. Typically `/ngencerf/data/forecast_work` for ngencerf or `/ngen-app/data` for local runs. |
 | `forcing_configuration` | string | BMI provider | Forcing engine configuration: `aorc`, `nwm`, or other forecast configuration. Required if `forcing_provider = bmi`. |
+| `forcing_static_dir` | string | BMI provider | Path to forcing engine static geogrid files (only used for NWM retrospective) |
 | `cycle_datetime` | datetime | No | Cycle start time for forecast (format: `YYYY-MM-DD HH:MM:SS`). Only used for forecast runs with BMI forcing. |
 | `cold_start_datetime` | datetime | No | Cold start period end time (format: `YYYY-MM-DD HH:MM:SS`). Only used for forecast runs with BMI forcing. |
 

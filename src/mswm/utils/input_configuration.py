@@ -7,7 +7,7 @@ This module contains Pydantic classes to validate input.config files for the MSW
 from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
 from pydantic_core.core_schema import ValidationInfo
 from pathlib import Path
-from typing import Optional, Literal, Union
+from typing import Optional, Literal, Union, ClassVar
 
 
 class StrictBaseModel(BaseModel):
@@ -47,6 +47,26 @@ class GeneralConfig(StrictBaseModel):
     output_sm: Optional[bool] = None
     sm_profile_depth: Optional[list[float] | str] = Field(default_factory=lambda: [0.1, 0.4, 1.0, 2.0])
     sm_frac_depth: Optional[float] = 0.4
+
+    DOMAIN_MAPPINGS: ClassVar[dict[str, str]] = {
+        'conus': 'CONUS',
+        'alaska': 'Alaska',
+        'ak': 'Alaska',
+        'hawaii': 'Hawaii',
+        'hi': 'Hawaii',
+        'puerto_rico': 'Puerto_Rico',
+        'prvi': 'Puerto_Rico',
+        'gl': 'Great_Lakes'}
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def normalize_domain(cls, val):
+        if not isinstance(val, str):
+            raise ValueError(f"domain must be a string, got {type(val)}")
+        normalized_val = cls.DOMAIN_MAPPINGS.get(val.lower())
+        if normalized_val is None:
+            raise ValueError(f"Invalid domain {repr(val)}. Valid options: {list(cls.DOMAIN_MAPPINGS)}")
+        return normalized_val
 
     @field_validator("sm_profile_depth", mode="before")
     @classmethod
@@ -251,7 +271,6 @@ class ForcingConfig(StrictBaseModel):
     forcing_configuration: Optional[str] = None
     cycle_datetime: Optional[str] = None
     cold_start_datetime: Optional[str] = None
-    global_domain: Optional[str] = "CONUS"
     forcing_static_dir: Optional[str] = None
     # For WCOSS paths
     scratch_dir_override: Optional[str] = None
