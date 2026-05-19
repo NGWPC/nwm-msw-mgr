@@ -102,10 +102,6 @@ class TestFcstBuild:
 
     # Forecasts Tests
     # Workflow states
-    # This test will be addressed by maxkipp-restrict-aorc-forcing-to-conus
-    # def test_run_type(self):
-    #     assert self.rb.run_type == "forecast"
-
     def test_basename_opt(self):
         assert self.rb.basename_opt == "fcst"
 

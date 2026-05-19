@@ -280,8 +280,8 @@ def create_walk_file(
             logger.critical(e)
             raise
 
-    # Retrieve catchment ID (fp_id) for specified gage
-    outlet_cat_id = gage_match['fp_id'].iloc[0]
+    # Retrieve catchment ID (div_id) for specified gage
+    outlet_cat_id = gage_match['div_id'].iloc[0]
 
     # Build crosswalk dictionary
     cw = {}
