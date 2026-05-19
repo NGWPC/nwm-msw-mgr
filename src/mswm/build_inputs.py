@@ -1812,7 +1812,7 @@ class RealizationBuilder:
         general_dict['yaml_file'] = self.calib_config_file
 
         # items related to running from GUI
-        for s1 in ['calibration_run_id', 'ngen_cerf', 'auth_token']:
+        for s1 in ['calibration_run_id', 'ngen_cerf', 'auth_token', 'ngencerf_base_url']:
             general_dict[s1] = self.conf2[s1]
 
         # Set output variables

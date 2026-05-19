@@ -278,38 +278,39 @@ Parameters required only for regionalization runs. Section does not need to be s
 ## Calibration Section: `[Calibration]`
 Parameters required only for calibration runs. Section does not need to be supplied for other run types.
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `optimization_algorithm` | string | Calibration | Optimization algorithm: `dds`, `pso`, or `gwo`. |
-| `swarm_size` | integer | Calibration | Population size for PSO or GWO algorithms. |
-| `c1` | float | No | PSO cognitive parameter (default: `2.0`) |
-| `c2` | float | No | PSO social parameter (default: `2.0`) |
-| `w` | float | No | PSO intertia weight (default: `0.7`) |
-| `objective_function` | string | Calibration | Objective function for optimization: `kge`, `nse`, `nnse`, `nselog`, `corr`, `csi`, `pod`, `rmse`, `mae`, `rsr`, `far`, `pkbias`, `pkte`, `evbias`, `bpias`, `lseg_fdc`, `hseg_fdc`. |
-| `start_iteration` | integer | No | Starting iteration number (default: `0`) |
-| `number_iteration` | integer | Calibration | Number of iterations to run. |
-| `restart` | integer | No | Restart from stopped iteration: `0` = no restart (default), `1` = restart (currently only 0 supported) |
-| `calib_output_vars` | boolean | No | Write output variables during calibration iterations (default: `False`) |
-| `valid_output_vars` | boolean | No | Write output variables during validation runs (default: `True`) |
-| `calib_start_period` | datetime | Calibration | Calibration simulation start time (format: `YYYY-MM-DD HH:MM:SS`). |
-| `calib_end_period` | datetime | Calibration | Calibration simulation end time (format: `YYYY-MM-DD HH:MM:SS`). |
-| `calib_eval_start_period` | datetime | Calibration | Calibration evaluation start time, excludes warm up period (format: `YYYY-MM-DD HH:MM:SS`). |
-| `calib_eval_end_period` | datetime | Calibration | Calibration evaluation end time, excludes warm up period (format: `YYYY-MM-DD HH:MM:SS`). |
-| `valid_start_period` | datetime | Calibration | Validation simulation start time (format: `YYYY-MM-DD HH:MM:SS`). |
-| `valid_end_period` | datetime | Calibration | Validation simulation end time (format: `YYYY-MM-DD HH:MM:SS`). |
-| `valid_eval_start_period` | datetime | Calibration | Validation evaluation start time(format: `YYYY-MM-DD HH:MM:SS`). |
-| `valid_eval_end_period` | datetime | Calibration | Validation evaluation end time(format: `YYYY-MM-DD HH:MM:SS`). |
-| `full_eval_start_period` | datetime | Calibration | Full evluation period start (calibration + validation) (format: `YYYY-MM-DD HH:MM:SS`). |
-| `full_eval_end_period` | datetime | Calibration | Full evluation period end (calibration + validation)(format: `YYYY-MM-DD HH:MM:SS`). |
-| `save_plot_iter` | integer | No | Save plots at iterations: `0` = no (default), `1` = yes with iteration number in filename |
-| `save_plot_iter_freq` | integer | No | Iteration interval for saving plots default: `1` |
-| `streamflow_threshold` | float | No | Streamflow threshold in cms for categorical scores (optional: if not specified, categorical metrics skipped) |
-| `station_name` | string | No | Streamflow station name for plot titles (optional) |
-| `ngen_cerf` | boolean | No | Whether running from ngenCERF server (default: `false`) |
-| `calibration_run_id` | integer | No | Calibration run ID from ngenCERF (only needed when `ngen_cerf = true`) |
-| `auth_token` | string | No | Authentication token from ngenCERF (only needed when `ngen_cerf = true`) |
-| `user_email` | string | No |Email address to receive run completion notification (optional) |
-| `calib_parameter_file` | path | Calibration | Path to calibration parameter files. Can be: (1) folder with tab-delimited CSV files per module, (2) folder with comma-delimited CSV files per module, (3) single file with all parameters in fixed-width format. |
+| Parameter                 | Type | Required | Description                                                                                                                                                                                                       |
+|---------------------------|------|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `optimization_algorithm`  | string | Calibration | Optimization algorithm: `dds`, `pso`, or `gwo`.                                                                                                                                                                   |
+| `swarm_size`              | integer | Calibration | Population size for PSO or GWO algorithms.                                                                                                                                                                        |
+| `c1`                      | float | No | PSO cognitive parameter (default: `2.0`)                                                                                                                                                                          |
+| `c2`                      | float | No | PSO social parameter (default: `2.0`)                                                                                                                                                                             |
+| `w`                       | float | No | PSO intertia weight (default: `0.7`)                                                                                                                                                                              |
+| `objective_function`      | string | Calibration | Objective function for optimization: `kge`, `nse`, `nnse`, `nselog`, `corr`, `csi`, `pod`, `rmse`, `mae`, `rsr`, `far`, `pkbias`, `pkte`, `evbias`, `bpias`, `lseg_fdc`, `hseg_fdc`.                              |
+| `start_iteration`         | integer | No | Starting iteration number (default: `0`)                                                                                                                                                                          |
+| `number_iteration`        | integer | Calibration | Number of iterations to run.                                                                                                                                                                                      |
+| `restart`                 | integer | No | Restart from stopped iteration: `0` = no restart (default), `1` = restart (currently only 0 supported)                                                                                                            |
+| `calib_output_vars`       | boolean | No | Write output variables during calibration iterations (default: `False`)                                                                                                                                           |
+| `valid_output_vars`       | boolean | No | Write output variables during validation runs (default: `True`)                                                                                                                                                   |
+| `calib_start_period`      | datetime | Calibration | Calibration simulation start time (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                |
+| `calib_end_period`        | datetime | Calibration | Calibration simulation end time (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                  |
+| `calib_eval_start_period` | datetime | Calibration | Calibration evaluation start time, excludes warm up period (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                       |
+| `calib_eval_end_period`   | datetime | Calibration | Calibration evaluation end time, excludes warm up period (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                         |
+| `valid_start_period`      | datetime | Calibration | Validation simulation start time (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                 |
+| `valid_end_period`        | datetime | Calibration | Validation simulation end time (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                   |
+| `valid_eval_start_period` | datetime | Calibration | Validation evaluation start time(format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                  |
+| `valid_eval_end_period`   | datetime | Calibration | Validation evaluation end time(format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                    |
+| `full_eval_start_period`  | datetime | Calibration | Full evluation period start (calibration + validation) (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                           |
+| `full_eval_end_period`    | datetime | Calibration | Full evluation period end (calibration + validation)(format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                              |
+| `save_plot_iter`          | integer | No | Save plots at iterations: `0` = no (default), `1` = yes with iteration number in filename                                                                                                                         |
+| `save_plot_iter_freq`     | integer | No | Iteration interval for saving plots default: `1`                                                                                                                                                                  |
+| `streamflow_threshold`    | float | No | Streamflow threshold in cms for categorical scores (optional: if not specified, categorical metrics skipped)                                                                                                      |
+| `station_name`            | string | No | Streamflow station name for plot titles (optional)                                                                                                                                                                |
+| `ngen_cerf`               | boolean | No | Whether running from ngenCERF server (default: `false`)                                                                                                                                                           |
+| `calibration_run_id`      | integer | No | Calibration run ID from ngenCERF (only needed when `ngen_cerf = true`)                                                                                                                                            |
+| `auth_token`              | string | No | Authentication token from ngenCERF (only needed when `ngen_cerf = true`)                                                                                                                                          |
+| `ngencerf_base_url`       | string | No | Base url for the ngenCERF server (only needed when `ngen_cerf = true`)                                                                                                                                              |
+| `user_email`              | string | No | Email address to receive run completion notification (optional)                                                                                                                                                   |
+| `calib_parameter_file`    | path | Calibration | Path to calibration parameter files. Can be: (1) folder with tab-delimited CSV files per module, (2) folder with comma-delimited CSV files per module, (3) single file with all parameters in fixed-width format. |
 
 ## NWM Output Variable Section `[NWMOuput]`
 Parameters for activating full set of NWM output variables. Only used for forecast, default, and regionalization runs.
