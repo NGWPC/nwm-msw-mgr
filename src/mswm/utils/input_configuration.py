@@ -207,6 +207,7 @@ class CalibConfig(StrictBaseModel):
     ngen_cerf: bool
     calibration_run_id: Optional[int] = None
     auth_token: Optional[str] = None
+    ngencerf_base_url: Optional[str] = None
     user_email: Optional[str] = None
     calib_parameter_file: Optional[str] = None
 
