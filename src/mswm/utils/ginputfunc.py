@@ -910,9 +910,9 @@ def create_ueb_input(
     # Set base init file template
     init_base = ['UEBGrid Model Driver Test for TWDEF',  # TODO does this need to be updated?
                  '1.0',
-                 '-7.0',
                  '0',
-                 '1 15 16',  # TODO: Confirm time zone offset is correct
+                 '0',
+                 '1 15 16',
                  '1 1'
                  ]
 
