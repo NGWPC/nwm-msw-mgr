@@ -663,13 +663,23 @@ class RealizationBuilder:
 
         main_logger.info(f"Input directory created at: {self.input_dir}")
 
+    @property
+    def safe_run_type(self) -> str:
+        """Run type string sanitized for building a log file name"""
+        return re.sub(r"[^A-Za-z0-9._-]", "_", self.run_type)
+
+    @property
+    def log_file_path(self) -> str:
+        """Log file path"""
+        log_path = os.path.join(self.work_dir, "logs")
+        log_file_name = f"msw_mgr_{self.safe_run_type}.log"
+        return os.path.join(log_path, log_file_name)
+
     def _init_log(self):
         """
         Initialize logging depending on run type
         """
-        # Set location for msw-mgr log
-        log_path = os.path.join(self.work_dir, 'logs')
-        safe_run_type = re.sub(r"[^A-Za-z0-9._-]", "_", self.run_type)
+        log_dir, log_file_name = os.path.split(self.log_file_path)
 
         # Initialize logging
         global logger
@@ -677,8 +687,8 @@ class RealizationBuilder:
         logger = ewts.logger.setup_logger(
             ewts.MSW_MGR_ID,
             level="INFO",
-            log_dir=log_path,
-            log_file_name=f"msw_mgr_{safe_run_type}.log",
+            log_dir=log_dir,
+            log_file_name=log_file_name,
             running_in_ngen=False,
             enabled=True,
             bind_now=True,
