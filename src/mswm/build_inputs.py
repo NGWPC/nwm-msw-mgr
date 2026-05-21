@@ -695,6 +695,7 @@ class RealizationBuilder:
         )
 
         gfun.init_ginput_logger()
+        logger.info(ewts.Payload(ewts.Status.INITTED))
         logger.info(f"Building {self.run_type} realization from: {self.input_path}")
 
     def _parse_forcing_engine(self):
@@ -1865,6 +1866,7 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
+        logger.info(ewts.Payload(ewts.Status.STARTING, msg="Building calibration realization"))
         if self.run_type != 'calibration':
             try:
                 raise ValueError(f"Unexpected run_type {self.run_type} for build_calib_realization. Must be `calibration`.")
@@ -1872,6 +1874,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
+        logger.info(ewts.Payload(ewts.Status.INPROG, msg="Building calibration realization"))
         self._parse_forcing_engine()
         self._parse_time()
         self._parse_calib_settings()
@@ -1895,7 +1898,7 @@ class RealizationBuilder:
         self._create_calib_model_dict()
         self._write_calib_configuration()
 
-        logger.info("Calibration run set up successfully")
+        logger.info(ewts.Payload(ewts.Status.COMPLETE, msg="Calibration run set up successfully"))
 
         return self.realization_file
 
@@ -1908,6 +1911,7 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
+        logger.info(ewts.Payload(ewts.Status.STARTING, msg="Building regionalization realization"))
         if self.run_type != 'regionalization':
             try:
                 raise ValueError(f"Unexpected run_type {self.run_type} for build_region_realization. Must be `regionalization`.")
@@ -1915,6 +1919,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
+        logger.info(ewts.Payload(ewts.Status.INPROG, msg="Building regionalization realization"))
         self._parse_forcing_engine()
         self._load_reg_formulation()
         self._load_reg_catchments()
@@ -1940,7 +1945,7 @@ class RealizationBuilder:
         self._write_realization()
         self._write_partition()
 
-        logger.info("Regionalization run set up successfully")
+        logger.info(ewts.Payload(ewts.Status.COMPLETE, msg="Regionalization run set up successfully"))
 
         return self.realization_file
 
@@ -1964,6 +1969,10 @@ class RealizationBuilder:
         self._parse_config()
         self._create_fcst_dir()
         self._init_log()
+
+        logger.info(ewts.Payload(ewts.Status.STARTING, msg="Building forecast realization"))
+
+        logger.info(ewts.Payload(ewts.Status.INPROG, msg="Building forecast realization"))
         self._parse_yaml()
         self._load_realization()
         self._parse_forcing_engine()
@@ -1985,11 +1994,8 @@ class RealizationBuilder:
         self._write_partition()
         self._write_realization()
 
-        if self.use_cold_start:
-            logger.info("Cold start run set up successfully")
-        else:
-            logger.info("Forecast run set up successfully")
-        self._building_fcst_realization = False
+        adjective = "Cold start" if self.use_cold_start else "Forecast"
+        logger.info(ewts.Payload(ewts.Status.COMPLETE, msg=f"{adjective} run set up successfully"))
 
         self._building_fcst_realization = False
 
@@ -2007,6 +2013,8 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
+        logger.info(ewts.Payload(ewts.Status.STARTING, msg="Building default realization"))
+
         if self.run_type != 'default':
             try:
                 raise ValueError(f"Unexpected run_type {self.run_type} for build_default_realization. Must be `default`.")
@@ -2014,6 +2022,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
+        logger.info(ewts.Payload(ewts.Status.INPROG, msg="Building default realization"))
         self._parse_forcing_engine()
         self._parse_time()
         self._extract_hydrofabric()
@@ -2036,7 +2045,7 @@ class RealizationBuilder:
         self._write_realization()
         self._write_partition()
 
-        logger.info("Default run set up successfully")
+        logger.info(ewts.Payload(ewts.Status.COMPLETE, msg="Default run set up successfully"))
 
         return self.realization_file
 
