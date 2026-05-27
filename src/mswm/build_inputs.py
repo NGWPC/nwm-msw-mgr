@@ -678,13 +678,17 @@ class RealizationBuilder:
     @property
     def safe_run_type(self) -> str:
         """Run type string sanitized for building a log file name"""
+        run_type = getattr(self, 'run_type', None)
+        if not run_type:
+            return None
         return re.sub(r"[^A-Za-z0-9._-]", "_", self.run_type)
 
     @property
     def log_file_path(self) -> str:
         """Log file path"""
         log_path = os.path.join(self.work_dir, "logs")
-        log_file_name = f"msw_mgr_{self.safe_run_type}.log"
+        run_type = self.safe_run_type
+        log_file_name = f"msw_mgr_{run_type}.log" if run_type else "msw_mgr.log"
         return os.path.join(log_path, log_file_name)
 
     def _init_log(self):
