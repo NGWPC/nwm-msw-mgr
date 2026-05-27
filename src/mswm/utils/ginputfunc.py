@@ -3048,7 +3048,7 @@ def build_output_vars(var_maps: dict, output_dict: dict, precip_output: str) -> 
         output_vars.append({
             'name': precip_output,
             'header': 'rainmelt',
-            'units': 'mm/s'
+            'units': 'mm/h'
         })
 
     return output_vars
