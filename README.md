@@ -129,7 +129,7 @@ build_fcst(
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
 
-#### Example
+#### Example:
 **Cold start:**
 ```bash
 python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --use_cold_start --save_state
@@ -164,6 +164,18 @@ python -m mswm.manager build_fcst input.config valid.yaml lagged_ens_no_da--use_
 ```bash
 python -m mswm.manager build_fcst input.config valid.yaml lagged_ens_mem1--use_lagged_ens --lagged_ens_mem mem1 --load_state_from /path/to/closed_loop_saved_state/
 ```
+
+#### Lagged Ensemble Time Handling:
+Each lagged ensemble member uses forcing data from different lagged forecast cycle times, offset by a member-specific lag time. Members 1 to 6 have lag times of 0, 6, 12, 18, 24, and 30 hours respectively. The no DA member uses the same time handling as Member 1, but loads from a different saved state state during operational use. Member 1 is a 10 day medium range forecast that uses forcing inputs that are valid at the user-supplied cycle datetime with no time lag. Members 2-6 are each 8.5 day ngen runs that begin at the same time as Member 1, but use forcing inputs from sequentially older cycles. The 6 hours difference in RefcstBDateProc values in the Forcing Engine configuration templates across members describes which past cycle each member is using. The ForecastInputHorizon values in the Forcing Engine configuration templates describe the time in hours from the RefcstBDateProc to the end of each members ngen run. The time handling to align the ngen run times is handled by the nwm-msw-mgr. 
+
+When a user requests lagged ensemble runs at 2015-10-03 00:00:
+ 
+Member 1: 10 day forecast beginning at 2015-10-02 00:00, using 10-03 00z forcing (14400 hrs)
+Member 2: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-02 18z forcing (12600 hrs)
+Member 3: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-02 12z forcing (12960 hrs)
+Member 4: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-02 06z forcing (13320 hrs)
+Member 5: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-02 00z forcing (13680 hrs)
+Member 6: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-01 18z forcing (14040 hrs)
 
 ---
 
