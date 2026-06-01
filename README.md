@@ -503,11 +503,12 @@ Parameters required only for calibration runs. Section does not need to be suppl
 | `calib_parameter_file`    | path | Calibration | Path to calibration parameter files. Can be: (1) folder with tab-delimited CSV files per module, (2) folder with comma-delimited CSV files per module, (3) single file with all parameters in fixed-width format. |
 
 ## NWM Output Variable Section `[NWMOuput]`
-Parameters for activating full set of NWM output variables. Only used for forecast, default, and regionalization runs.
+Parameters for configuring NWM output variables.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `nwm_output_variables` | bool | No | Boolean flag to activate output of full set of NWM output variables |
+| `output_format` | bool | No | Output format(s) for model outputs. Accepts 'CSV', 'NetCDF', or both |
 
 
 ## Forcing Section: `[Forcing]`

@@ -518,6 +518,7 @@ class RealizationBuilder:
         # Retrieve NWM output variable inputs
         self.nwm_output_sec = self.input_configs.get("NWMOutput")
         self.output_nwm_vars = self.nwm_output_sec.get('nwm_output_variables') if self.nwm_output_sec else False
+        self.output_format = self.nwm_output_sec.get('output_format') if self.nwm_output_sec else ['CSV']
 
         # Load run_type specific config section or empty dict for default
         run_key = (self.run_type or "").capitalize()
@@ -1520,7 +1521,7 @@ class RealizationBuilder:
         Update forcing and time related info in realization file
         Add NWM Output variable sections to realization if requested
         """
-        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end)
+        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.output_format)
         logger.info("Updated forecast realization file forcing and time information")
 
         if self.output_nwm_vars:
@@ -1833,6 +1834,7 @@ class RealizationBuilder:
         """
         Assemble realization file for calibration and default runs
         """
+
         # Set file paths
         routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + self.run_configs[0])
         rt_dict = {"routing": {"t_route_config_file_with_path": routing_config_file}}
@@ -1840,11 +1842,11 @@ class RealizationBuilder:
         # Assemble realization file
         if hasattr(self, 'grp_to_form') and self.grp_to_form:
             self.real_config, self.output_config = gfun.create_reg_realization_file(self.work_dir, self.lib_file, self.bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file,
-                                                                                    self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.run_type, self.cat_to_grp, self.grp_to_form,
+                                                                                    self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.output_format, self.run_type, self.cat_to_grp, self.grp_to_form,
                                                                                     getattr(self, 'grp_params', {}))
         else:
             self.real_config, self.output_config = gfun.create_realization_file(self.work_dir, self.lib_file, self.bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file,
-                                                                                self.modules, self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.run_type)
+                                                                                self.modules, self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.output_format, self.run_type)
 
         # Update realization with NWM output variables if needed
         if self.output_nwm_vars:
