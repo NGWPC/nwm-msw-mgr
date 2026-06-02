@@ -41,15 +41,6 @@ def region_build(tmp_work_dir, dummy_files):
 
 
 @pytest.fixture
-def checkpoint_state_folder(tmp_path):
-    """Create a minimal checkpoint state folder"""
-    state = tmp_path / "state_save"
-    state.mkdir()
-    (state / "cat-1_state").write_text("{}")
-    return state
-
-
-@pytest.fixture
 def copied_run_folder(region_build, tmp_path):
     """Run copy_run_folder once and return src/dst paths"""
     src = Path(region_build.input_dir)
@@ -59,15 +50,20 @@ def copied_run_folder(region_build, tmp_path):
 
 
 @pytest.fixture
-def checkpoint_run_folder(region_build, tmp_path, checkpoint_state_folder):
+def checkpoint_run_folder(region_build, tmp_path):
     """Run checkpoint_restart and return src, dst, state, realization file and data"""
     src = Path(region_build.work_dir)
     dst = tmp_path / "dst_checkpoint"
-    checkpoint_restart(str(src), str(dst), str(checkpoint_state_folder))
+
+    state = src / "checkpoint"
+    state.mkdir(exist_ok=True)
+    (state / "cat-1_state").write_text("{}")
+
+    checkpoint_restart(str(src), str(dst))
     real_file = list(dst.rglob("*realization*.json"))[0]
     with open(real_file) as f:
         real_data = json.load(f)
-    return src, dst, checkpoint_state_folder, real_file, real_data
+    return src, dst, state, real_file, real_data
 
 
 class TestCheckpointSaving:
@@ -173,7 +169,7 @@ class TestCheckpointRestart:
         assert self.real_data["state_saving"][1] == {
             "direction": "load",
             "label": "Load from checkpoint",
-            "path": str(self.state.resolve()),
+            "path": str(self.dst / "checkpoint"),
             "type": "FilePerUnit",
             "when": "Checkpoint"
         }
@@ -182,8 +178,7 @@ class TestCheckpointRestart:
         with pytest.raises(FileNotFoundError):
             checkpoint_restart(
                 str(Path(region_build.input_dir)),
-                str(tmp_path / "dst2"),
-                str(tmp_path / "nonexistent")
+                str(tmp_path / "dst2")
             )
 
     def test_no_realization_file_raises(self, tmp_path):
@@ -192,6 +187,5 @@ class TestCheckpointRestart:
         with pytest.raises(FileNotFoundError):
             checkpoint_restart(
                 str(empty_src),
-                str(tmp_path / "dst2"),
-                str(self.state)
+                str(tmp_path / "dst2")
             )
