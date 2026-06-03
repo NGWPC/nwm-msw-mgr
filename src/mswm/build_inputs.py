@@ -684,6 +684,9 @@ class RealizationBuilder:
         """
         log_dir, log_file_name = os.path.split(self.log_file_path)
 
+        # Create logs directory if it does not exist
+        os.makedirs(log_dir, exist_ok=True)
+
         # Initialize logging
         global logger
         ewts.logger.reset_logger(ewts.MSW_MGR_ID)
