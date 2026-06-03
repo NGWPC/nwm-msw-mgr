@@ -2056,7 +2056,7 @@ class RealizationBuilder:
         if self.save_state:
             return self.realization_file, self.save_state_to
         else:
-            return self.realization_file
+            return self.realization_file, None
 
     def build_default_realization(self):
         """
