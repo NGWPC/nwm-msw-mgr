@@ -727,6 +727,10 @@ class RealizationBuilder:
             err = f"No geopackage file found in the input directory: {self.input_dir}"
             logger.critical(err)
             raise FileNotFoundError(err)
+        if len(gpkg_files) > 1:
+            err = f"Multiple geopackage files found in the input directory: {self.input_dir}"
+            logger.critical(err)
+            raise ValueError(err)
         self.gpkg_cats = str(gpkg_files[0])
         self.gpkg_nexus = str(gpkg_files[0])
         logger.info(f"Geopackage file found: {self.gpkg_cats}")
@@ -1639,16 +1643,21 @@ class RealizationBuilder:
     def _configure_model_states(self):
         """
         Configure state saving configuration in state saving and loading realization sections
+
+        If `load_state_from` is set, validates the path exists and inserts a `direction=load / when=StartOfRun` entry, replacing any existing state load
+        If ``save_state` is set, creates `<work_dir>/state_save/` sets `self.save_state_to`, and inserts a `direction=save / when=EndOfRun` entry, replacing any existing state save.
+        All other `state_saving` entries are preserverd, such as checkpointing state saves
         """
         if not self.load_state_from and not self.save_state:
             logger.info("No model state management configured.")
 
-        # Ensure model state directories exist
+        # Create model state saving directories if state saving is set
         if self.save_state:
             self.save_state_to = Path(self.work_dir) / "state_save"
             self.save_state_to.mkdir(parents=True, exist_ok=True)
             logger.info(f"State save directory: {self.save_state_to}")
 
+        # Ensure state load directory exists
         if self.load_state_from:
             if not self.load_state_from.exists():
                 msg = f"State load directory does not exist: {self.load_state_from}"
@@ -1666,15 +1675,15 @@ class RealizationBuilder:
                 existing_state_save.mkdir(parents=True, exist_ok=True)
                 logger.info(f"Recreated state save directory in new run folder: {existing_state_save}")
 
+        # If loading from new state, remove existing load/StartOfRun entry
         if self.load_state_from:
-            # Remove existing load/StartOfRun entry
             state_saving = [
                 s for s in state_saving
                 if not (s.get("direction") == "load" and s.get("when") == "StartOfRun")
             ]
 
+        # If saving new state, remove existing save/EndOfRun entry
         if self.save_state:
-            # Remove existing save/EndOfRun
             state_saving = [
                 s for s in state_saving
                 if not (s.get("direction") == "save" and s.get("when") == "EndOfRun")
