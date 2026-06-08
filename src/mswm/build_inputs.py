@@ -727,6 +727,10 @@ class RealizationBuilder:
             err = f"No geopackage file found in the input directory: {self.input_dir}"
             logger.critical(err)
             raise FileNotFoundError(err)
+        if len(gpkg_files) > 1:
+            err = f"Multiple geopackage files found in the input directory: {self.input_dir}"
+            logger.critical(err)
+            raise ValueError(err)
         self.gpkg_cats = str(gpkg_files[0])
         self.gpkg_nexus = str(gpkg_files[0])
         logger.info(f"Geopackage file found: {self.gpkg_cats}")
@@ -1680,15 +1684,15 @@ class RealizationBuilder:
                 existing_state_save.mkdir(parents=True, exist_ok=True)
                 logger.info(f"Recreated state save directory in new run folder: {existing_state_save}")
 
+        # If loading from new state, remove existing load/StartOfRun entry
         if self.load_state_from:
-            # Remove existing load/StartOfRun entry
             state_saving = [
                 s for s in state_saving
                 if not (s.get("direction") == "load" and s.get("when") == "StartOfRun")
             ]
 
+        # If saving new state, remove existing save/EndOfRun entry
         if self.save_state:
-            # Remove existing save/EndOfRun
             state_saving = [
                 s for s in state_saving
                 if not (s.get("direction") == "save" and s.get("when") == "EndOfRun")
