@@ -131,13 +131,13 @@ class TestCopyRunFolder:
             content = f.read_text()
             assert str(self.src) not in content
 
-    def test_dst_overwritten_if_exists(self, region_build, tmp_path):
+    def test_dst_exists_raises(self, region_build, tmp_path):
         src = Path(region_build.work_dir)
         dst2 = tmp_path / "dst_overwrite"
         dst2.mkdir()
         (dst2 / "old_file.txt").write_text("old_content")
-        copy_run_folder(str(src), str(dst2))
-        assert not (dst2 / "old_file.txt").exists()
+        with pytest.raises(FileExistsError):
+            copy_run_folder(str(src), str(dst2))
 
     def test_src_not_found_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
