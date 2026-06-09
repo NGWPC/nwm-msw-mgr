@@ -744,6 +744,10 @@ class RealizationBuilder:
             err = f"No realization file found in destination folder: {self.work_dir}"
             logger.critical(err)
             raise FileNotFoundError(err)
+        if len(realization_files) > 1:
+            err = f"Multiple realization files found in the destination directory: {self.work_dir}"
+            logger.critical(err)
+            raise ValueError(err)
         self.real_input_file = realization_files[0]
         logger.info(f"Realization file found: {self.real_input_file}")
 
