@@ -70,8 +70,9 @@ def checkpoint_restart(
         with open(realization_file) as f:
             real_config = json.load(f)
     except json.JSONDecodeError as e:
-        logger.critical(f"Error parsing realization file: {realization_file}\n{e}")
-        raise
+        msg = f"Error parsing realization file: {realization_file}\n{e}"
+        logger.critical(msg)
+        raise json.JSONDecodeError(msg)
 
     # Build checkpoint state loading configuration
     load_config = {
@@ -98,8 +99,9 @@ def checkpoint_restart(
         with open(realization_file, 'w') as f:
             json.dump(real_config, f, indent=4, separators=(", ", ": "), sort_keys=False)
     except OSError as e:
-        logger.critical(f"Error writing realization file: {realization_file}\n{e}")
-        raise
+        msg = f"Error writing realization file: {realization_file}\n{e}"
+        logger.critical(msg)
+        raise OSError(msg)
 
     logger.info(f"Checkpointing restart state configured in realization file: {realization_file}")
     logger.info(f"Loading state from: {checkpoint_state}")
