@@ -33,10 +33,9 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
     if not src.is_dir():
         raise ValueError(f"Source path is not a directory: {src}")
 
-    # Warn if destination already exists, then overwrite
+    # Raise error if destination directory already exists
     if dst.exists():
-        print(f"Destination path already exists and will be overwritten: {dst}")
-        shutil.rmtree(dst)
+        raise FileExistsError(f"Destination directory already exists: {dst}")
 
     # Build ignore patterns
     ignore_patterns = ['*.log', 'Output', 'state_save']
@@ -66,9 +65,10 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
             # Read files that match file extensions
             try:
                 content = filepath.read_text(encoding='utf-8')
-            except (UnicodeDecodeError, PermissionError) as e:
-                print(f"Skipping file (cannot read): {filepath} - {e}")
-                continue
+            except UnicodeDecodeError as e:
+                raise UnicodeDecodeError(f"Unicode decode error reading file: {filepath}") from e
+            except PermissionError as e:
+                raise PermissionError(f"Permission error reading file: {filepath}") from e
 
             # Update file path if contained within file
             if src_str in content:
