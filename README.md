@@ -184,19 +184,40 @@ Member 6: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-01 18z forcin
 Generate model realization and configuration files for a regionalization run of ngen using grouped catchment formulations and parameters.
 
 #### CLI
+**Regionalization run:**
 ```bash
 python -m mswm.manager build_region /path/to/input_realization.config
+```
+
+**Cold start with state save:**
+```bash
+python -m mswm.manager build_region /path/to/input_realization.config --use_cold_start --save_state
+```
+
+**Forecast with state load and checkpointing:**
+```bash
+python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --checkpoint_interval 100
 ```
 
 #### Python
 ```python
 from mswm.manager import build_region
 
-real_path = build_region(input_path='/path/to/input_realization.config')
+real_path = build_region(
+    input_path='/path/to/input_realization.config',
+    use_cold_start=False,
+    load_state_from=None,
+    save_state=False,
+    checkpoint_interval=None
+)
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated regionaliztion configuration file
+- `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
+- `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
+- `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
+-  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
 
 ### Required Files
 Regionalization mode requires additional files in your input directory, which are referenced in the input.config file.
@@ -212,8 +233,19 @@ See `/example_inputs/regionalization/` for example files.
 Generate model realization and configuration files for a run of ngen with default catchment parameters.
 
 #### CLI
+** Default run:**
 ```bash
 python -m mswm.manager build_default /path/to/input.config
+```
+
+** Cold start with state save:**
+```bash
+python -m mswm.manager build_default /path/to/input.config --use_cold_start --save_state
+```
+
+** Forecast with state load and checkpointing:**
+```bash
+python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --checkpoint_interval 10
 ```
 
 #### Python
@@ -221,13 +253,67 @@ python -m mswm.manager build_default /path/to/input.config
 from mswm.manager import build_default
 
 build_default(
-    input_path='/path/to/input.config'
+    input_path='/path/to/input.config',
+    use_cold_start=False,
+    load_state_from=None,
+    save_state=False,
+    checkpoint_interval=None
 )
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated configuration file
+- `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
+- `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
+- `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
+-  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
 
+---
+
+### Checkpoint Restart Workflow
+Copy an existing run folder to a new path and configure it to resume form a saved checkpoint state.
+This is used when a run was interrupted mid-execution and saved checkpoint states are available, allowing the run to continue from the last checkpoint.
+
+#### CLI
+```bash
+python -m mswm.utils.checkpoint_restart \
+    /path/to/existing/run/ \
+    /path/to/new/run/ \
+    /path/to/checkpoint/state/
+```
+
+#### Python
+```python
+from mswm.utils.checkpoint_restart import checkpoint_restart
+
+checkpoint_restart(
+    src_path="/path/to/existing/run",
+    dst_path="/path/to/new/run",
+    checkpoint_state_path="/path/to/checkpoint/folder/"
+)
+```
+#### Arguments
+- `src_path` - Path to existing run folder to copy
+- `dst_path` - Path to the destination run folder
+- `checkpoint_state_path` - Path to the /checkpoint/ state folder to load for run restart (Note: this should point to the root checkpoint folder, not the specific checkpoint iteration subfolder)
+
+
+#### Example
+```bash
+python -m mswm.utils.checkpoint_restart \
+    /run_ngen/default/default_fcst/01123000/ \
+    /run_ngen/default/default_fcst_restart/01123000/ \
+    /run_ngen/default/default_fcst/01123000/checkpoint/
+```
+
+#### Notes
+- The existing run folder is copied to the destination path before any modifications are made
+- Log files, the `/Output/` folder, `/state_save/` folder, and `/forcing_config/` folder are excluded from the copy
+- The `checkpoint_state_path` input should point to the root `/checkpoint/` folder in the run directory, as Ngen automatically uses the most recent checkpoint iteration from within that folder
+- Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
+- Checkpoint states are generated during a run when `--checkpoint_interval` is specified in `build_default` or `build_region`
+
+---
 
 ### Topoflow-Glacier Validation
 To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called:
@@ -245,6 +331,8 @@ The validate_topoflow function will return a JSON with a status of False if ther
 Within Python scripts, regionalization input files can be generated calling the build_region realization function:
 1. from mswm.build_inputs import validate_topoflow
 2. validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
+
+---
 
 # nwm-msw-mgr Input Configuration File Reference
 This section describes all configuration parameters in the `input.config` file used by the nwm-msw-mgr. Full example files for each run type are available in `/example_inputs/`

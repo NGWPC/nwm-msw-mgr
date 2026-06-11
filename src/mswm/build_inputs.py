@@ -63,7 +63,7 @@ class RealizationBuilder:
 
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
-                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False,
+                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, checkpoint_interval: int | None = None,
                  config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
@@ -98,6 +98,7 @@ class RealizationBuilder:
         self.prev_hind_cycle = prev_hind_cycle if prev_hind_cycle else 0
         self.load_state_from = Path(load_state_from) if load_state_from else None
         self.save_state = save_state
+        self.checkpoint_interval = checkpoint_interval if checkpoint_interval else None
         self.lagged_ens_mem = lagged_ens_mem if lagged_ens_mem else None
         self.forcing_lag = forcing_lag if forcing_lag else 0
 
@@ -1649,6 +1650,45 @@ class RealizationBuilder:
             self.real_config['state_saving'] = state_saving
             logger.info("Model state configuration set in realization file")
 
+    def _configure_checkpointing(self):
+        """"
+        Configure checkpoint state saving configuration in state saving section
+        """
+
+        if self.checkpoint_interval is not None:
+            # Create directory for checkpoints
+            self.save_checkpoint_to = Path(self.work_dir) / "checkpoint"
+            self.save_checkpoint_to.mkdir(parents=True, exist_ok=True)
+
+            # Validate checkpoint_interval value
+            try:
+                checkpoint_int = int(round(self.checkpoint_interval))
+            except TypeError:
+                msg = f"checkpoint_interval must be a numeric value, got {type(self.checkpoint_interval).__name__}: {self.checkpoint_interval}"
+                logger.critical(msg)
+                raise TypeError(msg)
+
+            # Initialize state saving array
+            save_config = {
+                "direction": "save",
+                "label": "Save at checkpoint",
+                "path": str(self.save_checkpoint_to),
+                "type": "FilePerUnit",
+                "when": "Checkpoint",
+                "frequency": checkpoint_int
+            }
+
+            # Add to state saving section
+            if "state_saving" in self.real_config:
+                self.real_config["state_saving"].append(save_config)
+            else:
+                self.real_config["state_saving"] = [save_config]
+
+            logger.info(f"Checkpointing configured with an interval of {self.checkpoint_interval} timesteps.")
+
+        else:
+            logger.info("Checkpointing not configured.")
+
     def _set_bmi_config_dir(self):
         """
         Set directories of BMI config files
@@ -1976,6 +2016,8 @@ class RealizationBuilder:
         self._create_bmi_configs(is_regionalization=True)
         self._set_bmi_config_dir()
         self._assemble_realization()
+        self._configure_model_states()
+        self._configure_checkpointing()
         self._write_realization()
         self._write_partition()
 
@@ -2104,6 +2146,8 @@ class RealizationBuilder:
         self._create_bmi_configs()
         self._set_bmi_config_dir()
         self._assemble_realization()
+        self._configure_model_states()
+        self._configure_checkpointing()
         self._write_realization()
         self._write_partition()
 
