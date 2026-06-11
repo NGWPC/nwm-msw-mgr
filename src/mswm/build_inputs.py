@@ -765,6 +765,9 @@ class RealizationBuilder:
         self.forcing_product_versions = self.forcingSec.get(
             "forcing_product_versions", None
         )
+        # Optional override of forcing template `LookBack` (minutes). Applied
+        # after the template is loaded, below. None means use the template value.
+        self.lookback = self.forcingSec.get("lookback", None)
 
         # Raise error if forecast or cold start is run with CSV provider
         if self.forcing_provider == 'csv' and self.run_type in ('forecast', 'cold_start'):
@@ -853,6 +856,12 @@ class RealizationBuilder:
             except Exception as e:
                 logger.critical(f"Unexpected error loading config at: {self.forcing_template_file}\n{e}")
                 raise
+
+            # Apply optional LookBack override (minutes) from the [Forcing] config.
+            # Overrides the template value used to compute the AnA simulation window.
+            if self.lookback is not None:
+                logger.info(f"Overriding forcing template LookBack: {self.forcing_template.get('LookBack')} -> {self.lookback} (minutes)")
+                self.forcing_template['LookBack'] = self.lookback
 
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Retrieve ngen start and end time based on forecast cycle date, hour and configuration
