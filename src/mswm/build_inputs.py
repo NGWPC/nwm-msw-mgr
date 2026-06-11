@@ -64,6 +64,7 @@ class RealizationBuilder:
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
                  lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, checkpoint_interval: int | None = None,
+                 src_run_path: str | None = None, dst_run_path: str | None = None,
                  config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
@@ -101,6 +102,8 @@ class RealizationBuilder:
         self.checkpoint_interval = checkpoint_interval if checkpoint_interval else None
         self.lagged_ens_mem = lagged_ens_mem if lagged_ens_mem else None
         self.forcing_lag = forcing_lag if forcing_lag else 0
+        self.src_run_path = Path(src_run_path) if src_run_path else None
+        self.dst_run_path = Path(dst_run_path) if dst_run_path else None
 
         # Validate optional forecast flags
         fcst_modes = sum([self.use_cold_start, self.use_warm_start, self.use_hindcast, self.use_lagged_ens])
@@ -655,7 +658,12 @@ class RealizationBuilder:
             run_dir = os.path.join(self.conf1['main_dir'], 'default')
 
         # Form input directory paths
-        self.work_dir = os.path.join(run_dir, self.conf1['formulation'] + '/' + self.basin)
+        self.work_dir = os.path.join(run_dir, self.conf1['formulation'], self.basin)
+
+        # Adjust work_dir for default/regionalization lagged ensemble runs
+        if self.use_lagged_ens and self.lagged_ens_mem:
+            self.work_dir = os.path.join(self.work_dir, f"lagged_ens_{self.lagged_ens_mem}")
+
         self.input_dir = os.path.join(self.work_dir, 'Input/')
 
         # Create directory
@@ -670,13 +678,17 @@ class RealizationBuilder:
     @property
     def safe_run_type(self) -> str:
         """Run type string sanitized for building a log file name"""
+        run_type = getattr(self, 'run_type', None)
+        if not run_type:
+            return None
         return re.sub(r"[^A-Za-z0-9._-]", "_", self.run_type)
 
     @property
     def log_file_path(self) -> str:
         """Log file path"""
         log_path = os.path.join(self.work_dir, "logs")
-        log_file_name = f"msw_mgr_{self.safe_run_type}.log"
+        run_type = self.safe_run_type
+        log_file_name = f"msw_mgr_{run_type}.log" if run_type else "msw_mgr.log"
         return os.path.join(log_path, log_file_name)
 
     def _init_log(self):
@@ -703,7 +715,41 @@ class RealizationBuilder:
 
         gfun.init_ginput_logger()
         logger.info(ewts.Payload(ewts.Status.INITTED, modnm=MODNM))
-        logger.info(f"Building {self.run_type} realization from: {self.input_path}")
+        logger.info(f"Building realization from: {self.input_path}")
+
+    def _parse_gpkg_from_input(self):
+        """
+        Find geopackage file in input directory and set gpkg_cats and gpkg_nexus paths
+        This assumes the run folder has a gpkg in the /Input/ directory
+        """
+        gpkg_files = list(Path(self.input_dir).glob("*.gpkg"))
+        if not gpkg_files:
+            err = f"No geopackage file found in the input directory: {self.input_dir}"
+            logger.critical(err)
+            raise FileNotFoundError(err)
+        if len(gpkg_files) > 1:
+            err = f"Multiple geopackage files found in the input directory: {self.input_dir}"
+            logger.critical(err)
+            raise ValueError(err)
+        self.gpkg_cats = str(gpkg_files[0])
+        self.gpkg_nexus = str(gpkg_files[0])
+        logger.info(f"Geopackage file found: {self.gpkg_cats}")
+
+    def _find_realization_file(self):
+        """
+        Find realization file in work directory and set real_input_file path
+        """
+        realization_files = list(self.work_dir.rglob("*realization*.json"))
+        if not realization_files:
+            err = f"No realization file found in destination folder: {self.work_dir}"
+            logger.critical(err)
+            raise FileNotFoundError(err)
+        if len(realization_files) > 1:
+            err = f"Multiple realization files found in the destination directory: {self.work_dir}"
+            logger.critical(err)
+            raise ValueError(err)
+        self.real_input_file = realization_files[0]
+        logger.info(f"Realization file found: {self.real_input_file}")
 
     def _parse_forcing_engine(self):
         """
@@ -753,7 +799,7 @@ class RealizationBuilder:
                 elif self.use_lagged_ens:
                     # Check that use_lagged_ens is only used with medium_range configuration
                     if self.forcing_configuration != "medium_range":
-                        msg = f"Lagged ensemble run must use medium range forcing configuration. {self.forcing_configuration} configuration cannot be used for a lagged ensemble."
+                        msg = f"Lagged ensemble run must use `medium_range` forcing configuration. {self.forcing_configuration} configuration cannot be used for a lagged ensemble."
                         logger.critical(msg)
                         raise ValueError(msg)
                     self.forcing_configuration_str = f"{self.forcing_configuration}_{self.lagged_ens_mem}_config.yml"
@@ -1601,16 +1647,21 @@ class RealizationBuilder:
     def _configure_model_states(self):
         """
         Configure state saving configuration in state saving and loading realization sections
+
+        If `load_state_from` is set, validates the path exists and inserts a `direction=load / when=StartOfRun` entry, replacing any existing state load
+        If ``save_state` is set, creates `<work_dir>/state_save/` sets `self.save_state_to`, and inserts a `direction=save / when=EndOfRun` entry, replacing any existing state save.
+        All other `state_saving` entries are preserverd, such as checkpointing state saves
         """
         if not self.load_state_from and not self.save_state:
             logger.info("No model state management configured.")
 
-        # Ensure model state directories exist
+        # Create model state saving directories if state saving is set
         if self.save_state:
             self.save_state_to = Path(self.work_dir) / "state_save"
             self.save_state_to.mkdir(parents=True, exist_ok=True)
             logger.info(f"State save directory: {self.save_state_to}")
 
+        # Ensure state load directory exists
         if self.load_state_from:
             if not self.load_state_from.exists():
                 msg = f"State load directory does not exist: {self.load_state_from}"
@@ -1618,8 +1669,29 @@ class RealizationBuilder:
                 raise FileNotFoundError(msg)
             logger.info(f"State load directory: {self.load_state_from}")
 
-        # Initialize state saving array
-        state_saving = []
+        # Preserve existing state_saving entries that are not being replaced
+        state_saving = self.real_config.get('state_saving', [])
+
+        # If updating an existing run, ensure state_save directory exists for any existig save configs
+        for s in state_saving:
+            if s.get("direction") == "save" and s.get("when") == "EndOfRun":
+                existing_state_save = Path(self.work_dir) / "state_save"
+                existing_state_save.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Recreated state save directory in new run folder: {existing_state_save}")
+
+        # If loading from new state, remove existing load/StartOfRun entry
+        if self.load_state_from:
+            state_saving = [
+                s for s in state_saving
+                if not (s.get("direction") == "load" and s.get("when") == "StartOfRun")
+            ]
+
+        # If saving new state, remove existing save/EndOfRun entry
+        if self.save_state:
+            state_saving = [
+                s for s in state_saving
+                if not (s.get("direction") == "save" and s.get("when") == "EndOfRun")
+            ]
 
         # Add state loading configuration if specified
         if self.load_state_from:
@@ -1667,6 +1739,13 @@ class RealizationBuilder:
                 msg = f"checkpoint_interval must be a numeric value, got {type(self.checkpoint_interval).__name__}: {self.checkpoint_interval}"
                 logger.critical(msg)
                 raise TypeError(msg)
+
+            # Remove existing checkpoint save entry if present
+            if "state_saving" in self.real_config:
+                self.real_config["state_saving"] = [
+                    s for s in self.real_config["state_saving"]
+                    if not (s.get("direction") == "save" and s.get("when") == "Checkpoint")
+                ]
 
             # Initialize state saving array
             save_config = {
@@ -1720,7 +1799,7 @@ class RealizationBuilder:
         Update forcing and time related info in realization file
         Add NWM Output variable sections to realization if requested
         """
-        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.basename_opt)
+        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end)
         logger.info("Updated forecast realization file forcing and time information")
 
         # Update troute config file for forecast period
@@ -2157,6 +2236,62 @@ class RealizationBuilder:
             )
         )
 
+        return self.realization_file
+
+    def update_fcst_run(self) -> str:
+        """
+        Copy an existing forecast or regionalization run to a new path and update forcing engine config, realization, and troute config based
+        on new cycle_datetime and forcing_configuration from the input.config [Forcing] section
+
+        Returns
+        -------
+        Path to the updated realization file
+        """
+        from mswm.utils.copy_run_folder import copy_run_folder
+        self._building_fcst_realization = True
+
+        # Validate src and dst paths provided
+        if not self.src_run_path:
+            err = "src_run_path_must be provided to call update_fcst_run"
+            logger.critical(err)
+            raise ValueError(err)
+
+        if not self.dst_run_path:
+            err = "dst_run_path_must be provided to call update_fcst_run"
+            logger.critical(err)
+            raise ValueError(err)
+
+        # Copy existing run folder to new path
+        copy_run_folder(str(self.src_run_path), str(self.dst_run_path), ignore_forcing_config=True)
+
+        # Set work_dir and input_dir from dst_run_path
+        self.work_dir = self.dst_run_path
+        self.input_dir = self.work_dir / 'Input'
+        self.basename_opt = ''
+
+        # Initialize logging
+        self._init_log()
+
+        # Load and parse config, and locate gpkg file
+        self.load_config_apply_overrides()
+        self._parse_config()
+        self._parse_gpkg_from_input()
+
+        # Load existing realization file from dst
+        self._find_realization_file()
+        self._load_realization()
+
+        # Update config files and realization for new forcing configuration
+        # TODO: This assumes we are copying the partition generator from the previous run
+        self._parse_forcing_engine()
+        self._configure_forcing_engine()
+        self._update_fcst_realization()
+        self._configure_model_states()
+        self._configure_checkpointing()
+        self._write_realization()
+
+        logger.info(f"Run successfully updated to: {self.dst_run_path}")
+        self._building_fcst_realization = False
         return self.realization_file
 
 

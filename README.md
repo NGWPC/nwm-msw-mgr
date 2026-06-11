@@ -80,6 +80,9 @@ build_calib(input_path="/path/to/input.config")
 
 Modify the realization and configuration files from an existing calibration run for a forecast run of ngen. If executing a Hindcast or Lagged Ensemble run through the nwm-fcst-mgr, the fcst-mgr will orchestrate these calls to the mswm.
 
+Medium range lagged ensembles cycles are run with with forcing inputs lagged at 6 hour intervals, with open and closed loop AnA start up states. Members 1 and no_da have no forcing time lags, while Members 2-6 have sequential 6 hour time lags. All lagged ensemble ngen runs are orchestrated to begin at the same time and run for either 10 days (Members 1 and no_da) or 8.5 days (Members 2-6). The no_da member should be initialized with a state load from an open loop cycle. Members 1-6 should be initialized with
+a state load from a closed loop cycle. The lagged ensemble workflow can only be executed with a medium range configuration.
+
 #### CLI
 
 ```bash
@@ -124,7 +127,7 @@ build_fcst(
 - `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
 - `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
 - `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
-- `--lagged_ens_member` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
 - `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
@@ -182,6 +185,7 @@ Member 6: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-01 18z forcin
 ### Regionalization Workflow
 
 Generate model realization and configuration files for a regionalization run of ngen using grouped catchment formulations and parameters.
+The default parameter workflow can also be used to set up cold start, forecast, and hindcast runs.
 
 #### CLI
 **Regionalization run:**
@@ -199,6 +203,11 @@ python -m mswm.manager build_region /path/to/input_realization.config --use_cold
 python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --checkpoint_interval 100
 ```
 
+** Lagged ensemble with state load and checkpoint:**
+```bash
+python -m mswm.manager build_region /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
+```
+
 #### Python
 ```python
 from mswm.manager import build_region
@@ -206,18 +215,24 @@ from mswm.manager import build_region
 real_path = build_region(
     input_path='/path/to/input_realization.config',
     use_cold_start=False,
-    load_state_from=None,
+    use_lagged_ens=False,
+    lagged_ens_mem=None,
+    forcing_lag=None,
     save_state=False,
+    load_state_from=None,
     checkpoint_interval=None
 )
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated regionaliztion configuration file
-- `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
-- `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
-- `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
--  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
+- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
+- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
 
 ### Required Files
 Regionalization mode requires additional files in your input directory, which are referenced in the input.config file.
@@ -231,6 +246,7 @@ See `/example_inputs/regionalization/` for example files.
 
 ### Default Parameter Workflow
 Generate model realization and configuration files for a run of ngen with default catchment parameters.
+The default parameter workflow can also be used to set up cold start, forecast, and hindcast runs.
 
 #### CLI
 ** Default run:**
@@ -248,6 +264,11 @@ python -m mswm.manager build_default /path/to/input.config --use_cold_start --sa
 python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --checkpoint_interval 10
 ```
 
+** Lagged ensemble with state load and checkpoint:**
+```bash
+python -m mswm.manager build_default /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
+```
+
 #### Python
 ```python
 from mswm.manager import build_default
@@ -255,31 +276,37 @@ from mswm.manager import build_default
 build_default(
     input_path='/path/to/input.config',
     use_cold_start=False,
-    load_state_from=None,
+    use_lagged_ens=False,
+    lagged_ens_mem=None,
+    forcing_lag=None,
     save_state=False,
+    load_state_from=None,
     checkpoint_interval=None
 )
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated configuration file
-- `--use_cold_start` - (optional) Generate files for a cold start period (default: `False`)
-- `--load_state_from` - (optional) Path to directory containig model states to load at beginning of run
-- `--save_state` - (optional) Save model state files at the end of a run (default: `False`)
--  `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
+- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
+- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
 
 ---
 
 ### Checkpoint Restart Workflow
 Copy an existing run folder to a new path and configure it to resume form a saved checkpoint state.
 This is used when a run was interrupted mid-execution and saved checkpoint states are available, allowing the run to continue from the last checkpoint.
+The checkpoint state copied to the new run folder and is inferred from the destination path at <dst_path>/checkpoint/.
 
 #### CLI
 ```bash
 python -m mswm.utils.checkpoint_restart \
     /path/to/existing/run/ \
     /path/to/new/run/ \
-    /path/to/checkpoint/state/
 ```
 
 #### Python
@@ -289,13 +316,11 @@ from mswm.utils.checkpoint_restart import checkpoint_restart
 checkpoint_restart(
     src_path="/path/to/existing/run",
     dst_path="/path/to/new/run",
-    checkpoint_state_path="/path/to/checkpoint/folder/"
 )
 ```
 #### Arguments
 - `src_path` - Path to existing run folder to copy
 - `dst_path` - Path to the destination run folder
-- `checkpoint_state_path` - Path to the /checkpoint/ state folder to load for run restart (Note: this should point to the root checkpoint folder, not the specific checkpoint iteration subfolder)
 
 
 #### Example
@@ -303,34 +328,99 @@ checkpoint_restart(
 python -m mswm.utils.checkpoint_restart \
     /run_ngen/default/default_fcst/01123000/ \
     /run_ngen/default/default_fcst_restart/01123000/ \
-    /run_ngen/default/default_fcst/01123000/checkpoint/
 ```
 
 #### Notes
 - The existing run folder is copied to the destination path before any modifications are made
 - Log files, the `/Output/` folder, `/state_save/` folder, and `/forcing_config/` folder are excluded from the copy
-- The `checkpoint_state_path` input should point to the root `/checkpoint/` folder in the run directory, as Ngen automatically uses the most recent checkpoint iteration from within that folder
 - Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
 - Checkpoint states are generated during a run when `--checkpoint_interval` is specified in `build_default` or `build_region`
 
 ---
 
+### Update Forecast Run Workflow
+Copy an existing default or regionalization forecast run to a new run folder and update the forcing engine configuration, realization, and t-route config files based on a new forecast input.config file.
+This workflow is intended for operational forecast uses where an existing forecast is re-used with updated forcing inputs. This workflow is not intended to update forecast runs based off of an existing validation run.
+
+The update_fcst function can be supplemented with a range of optional arguments depending on the type of run being updated (cold start, warm start, hindcast, lagged ensemble). State saving and checkpointing optional 
+arguments can be used to update the relevant realization sections in the copied run.
+
+#### CLI
+```bash
+python -m mswm.manager update_fcst \
+    /path/to/input.config \
+    /path/to/existing/run/ \
+    /path/to/new/run/
+```
+
+#### Python
+```python
+from mswm.manager import update_fcst_run
+
+update_fcst_run(
+    input_path="/path/to/input.config",
+    src_run_path="/path/to/existing/run/",
+    dst_run_path="/path/to/new/run/"
+)
+```
+
+#### Arguments
+- `input_path` - Path to input configuration file containing an updated `[Forcing]` section
+- `src_run_path` - Path to the existing default or regionalization run folder (e.g., `/run_ngen/regionalization/reg_fcst/01123000/`)
+- `src_run_path` - Path to the destination run folder (e.g., `/run_ngen/regionalization/new_reg_fcst/01123000/`)
+- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
+- `--use_warm_start` - (optional) Generate files for hindcasting warm start run
+- `--use_hindcast` - (optional) Generate files for hindcast run
+- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
+- `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
+- `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
+- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
+- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
+
+#### Examples
+**Forecast with new state load and checkpoint interval**
+```bash
+python -m mswm.manager update_fcst \
+    /path/to/input.config \
+    /path/to/existing/run/ \
+    /path/to/new/run/ \
+    --load_state_from /path/to/saved/state \
+    --use_checkpoint \
+    --checkpoint_interval 6
+```
+
+---
+
 ### Topoflow-Glacier Validation
-To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called:
-1. python -m mswm.manager validate_topoflow 01123000 conus False
-
-The mswm.manager script in topoflow validation mode takes two command line arguments:
-1. Command for topoflow validation mode (validate_topoflow)
-2. Basin id
-3. Domain id (conus, prvi, ak, hi, gl)
-4. NgenCERF Flag (True = running inside NgenCERF, False = running outside NgenCERF)
-
+To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called.
 The validate_topoflow function will return a JSON with a status of True if there are catchments in the basin where Topoflow-Glacier can be applied (>=50% glacier coverage).
 The validate_topoflow function will return a JSON with a status of False if there are no catchments in the basin where Topoflow-Glacier can be applied.
 
-Within Python scripts, regionalization input files can be generated calling the build_region realization function:
-1. from mswm.build_inputs import validate_topoflow
-2. validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
+#### CLI
+```bash
+python -m mswm.manager validate_topoflow \
+    01123000 \
+    conus \
+    False
+```
+
+#### Python
+```python
+from mswm.build_inputs import validate_topoflow
+
+validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
+```
+
+#### Arguments
+- `basin_id` - String identifier of the basin
+- `domain` - String identifier of the region (conus, prvi, ak, hi, gl)
+- `ngen_cerf` - Boolean flag indicating the runtime environment
+
+---
 
 ---
 

@@ -14,10 +14,10 @@ logger = None
 def checkpoint_restart(
         src_path: str,
         dst_path: str,
-        checkpoint_state_path: str,
 ) -> None:
     """
     Copy a run folder to a new path and configure it to load from a checkpoint state
+    The checkpoint state copied to the new run folder and is inferred from the destination path at <dst_path>/checkpoint/.
 
     Parameters
     ----------
@@ -25,15 +25,11 @@ def checkpoint_restart(
         Path to the existing run folder
     dst_path: str
         Path to the destination run folder
-    checkpoint_state_path: str
-        Path to the checkpoint state folder to load
     """
 
     # Copy existing run folder to new path
     copy_run_folder(src_path, dst_path)
-
     dst = Path(dst_path).resolve()
-    checkpoint_state = Path(checkpoint_state_path).resolve()
 
     # Initialize logging to dst logs directory
     global logger
@@ -50,6 +46,20 @@ def checkpoint_restart(
     )
 
     logger.info(f"Copied run folder from {src_path} to {dst_path}")
+
+    # Infer checkpoint state path from destination folder
+    checkpoint_state = dst / "checkpoint"
+    if not checkpoint_state.exists():
+        msg = f"Checkpoint state path does not exist: {checkpoint_state}"
+        logger.critical(msg)
+        raise FileNotFoundError(msg)
+
+    # Confirm checkpoint state folder contains files
+    checkpoint_files = list(checkpoint_state.iterdir())
+    if not checkpoint_files:
+        msg = f"Checkpoint state folder is empty: {checkpoint_state}"
+        logger.critical(msg)
+        raise FileNotFoundError(msg)
 
     # Validate checkpoint state path exists
     if not checkpoint_state.exists():
@@ -121,17 +131,12 @@ def parse_args():
         type=str,
         help="Path to the destination run folder"
     )
-    parser.add_argument(
-        "checkpoint_state_path",
-        type=str,
-        help="Path to the checkpoint state folder to load"
-    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    checkpoint_restart(args.src_path, args.dst_path, args.checkpoint_state_path)
+    checkpoint_restart(args.src_path, args.dst_path)
 
 
 if __name__ == "__main__":
