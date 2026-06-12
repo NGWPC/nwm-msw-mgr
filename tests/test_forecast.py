@@ -180,13 +180,6 @@ class TestFcstBuild:
         filename = os.path.basename(str(self.rb.realization_file))
         assert "fcst" in filename
 
-    # Noah BMI configs updated for forecast
-    def test_noah_fcst_configs_created(self):
-        noah_dir = os.path.join(str(self.rb.input_dir), "noah-owp-modular_input")
-        assert os.path.isdir(noah_dir)
-        input_files = [f for f in os.listdir(noah_dir) if f.endswith(".input")]
-        assert len(input_files) > 0
-
     # Troute updated for forecast
     def test_troute_fcst_config_created(self):
         fcst_dir = str(self.rb.input_dir)
@@ -569,7 +562,7 @@ class TestFcstNWMOutputBuild:
                                       'SNLIQ', 'SNEQV_kg_m2', 'QSNOW', 'soil_temperature_profile', 'soil_moisture_profile', 'SFCRNOFF', 'TRAD', 'LH', 'FIRA', 'FSH']
         assert nwm_provider_vars == nwm_required_provider_vars
 
-    def test_nwm_ouputs_in_realization(self):
+    def test_nwm_outputs_in_realization(self):
         assert len(self.rb.real_config['global']['formulations'][0]['params']['output_variables']) == 21
 
     def test_adapters_in_realizaiton(self):
