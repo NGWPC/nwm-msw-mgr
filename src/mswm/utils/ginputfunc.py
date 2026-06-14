@@ -1634,8 +1634,135 @@ def update_troute(
 
     return real_config
 
-
 def create_troute_config(
+        gpkg_file: Union[str, Path],
+        time_period: dict,
+        rt_cfg_file: Union[str, Path],
+        run_configs: List[str],
+        run_type: str
+) -> None:
+    """ Create routing configuration YAML file
+
+    Parameters
+    ----------
+    gpkg_file :  GeoPackage hydrofabric file
+    time_period: simulation time period
+    rt_cfg_file : t-route configuration YAML file
+    run_configs: list of file name suffixes for varying run types
+    run_type: type of run (calib, regionalization, or default)
+
+    Returns
+    ----------
+    None
+
+    """
+    # Determine run names based on run type
+    run_type_map = {
+        'calibration': ['calib', 'valid', 'valid'],
+        'regionalization': ['region'],
+        'default': ['default'],
+    }
+    run_names = run_type_map.get(run_type)
+
+    # Set base log parameters
+    log_param = {
+        "showtiming": True,
+        "log_level": 'DEBUG'
+    }
+
+    # Set network topology parameters
+    nwtopo_param = {
+        "supernetwork_parameters": {
+            "geo_file_path": str(gpkg_file),
+            "network_type": "NHF",
+        },
+        "waterbody_parameters": {
+            "break_network_at_waterbodies": True
+        },
+    }
+
+    # Set base data assimilation parameters
+    stream_da = {
+        "streamflow_nudging": False,
+        "diffusive_streamflow_nudging": False,
+    }
+
+    res_da = {
+        "reservoir_persistence_da": {
+            "reservoir_persistence_usgs": False,
+        },
+        "reservoir_rfc_da": {
+            "reservoir_rfc_forecasts": False,
+        },
+    }
+
+    for file_name, run_name in zip(run_configs, run_names):
+        if not len(time_period['run_time_period'][run_name][0]) != 0 & len(time_period['run_time_period'][run_name][0]):
+            continue
+
+        # Parse time and compute time steps
+        run_range = pd.to_datetime(time_period['run_time_period'][run_name])
+
+        # Calibration scoring is hourly, so avoid generating long 5-minute NetCDF outputs.
+        # Keep default/regionalization behavior unchanged.
+        troute_dt = 3600 if run_type == 'calibration' else 300
+        qts_subdivisions = 1 if run_type == 'calibration' else 12
+        freq = '1h' if run_type == 'calibration' else '5min'
+
+        nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq=freq)) - 1
+        max_loop_size = divmod(nts * troute_dt, 3600)[0] + 1
+
+        # Set compute parameters
+        comp_param = {
+            "parallel_compute_method": "by-subnetwork-jit-clustered",
+            "compute_kernel": "V02-structured",
+            "assume_short_ts": True,
+            "subnetwork_target_size": 10000,
+            "cpu_pool": 16,  # TODO: Should this be set from info in the Parallel section?
+            "restart_parameters": {
+                "start_datetime": time_period['run_time_period'][run_name][0]
+            },
+            "forcing_parameters": {
+                "qts_subdivisions": qts_subdivisions,
+                "dt": troute_dt,  # Timestep in seconds
+                "qlat_input_folder": ".",
+                "qlat_file_pattern_filter": "nex-*",  # TODO: Possibly update based on NHF ngen output names
+                "nts": nts,
+                "max_loop_size": max_loop_size
+            },
+            "data_assimilation_parameters": {
+                "streamflow_da": stream_da,
+                "reservoir_da": res_da
+            },
+        }
+
+        # Set output_parameters
+        output_param = {
+            'stream_output': {
+                'stream_output_directory': ".",
+                'stream_output_time': max_loop_size,
+                'stream_output_type': '.nc',
+                'stream_output_internal_frequency': 60,
+            },
+        }
+
+        # Combine all parameters
+        config = {
+            "log_parameters": log_param,
+            "network_topology_parameters": nwtopo_param,
+            "compute_parameters": comp_param,
+            "output_parameters": output_param,
+        }
+
+        # Save configuration into yaml file
+        routing_config_file = f'{rt_cfg_file}{file_name}'
+        with open(routing_config_file, 'w') as file:
+            yaml.dump(config, file, sort_keys=False, default_flow_style=False, indent=4)
+        run_name1 = file_name.replace('_troute_config_', '').replace('.yaml', '')
+        logger.info(f'troute config file for {run_name1} is created at: {routing_config_file}')
+
+
+def create_troute_config_old(
         gpkg_file: Union[str, Path],
         time_period: dict,
         rt_cfg_file: Union[str, Path],
