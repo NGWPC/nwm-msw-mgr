@@ -331,25 +331,165 @@ class RealizationBuilder:
 
         main_logger.info(f'[MSWM] Run directory created at: {self.input_dir}')
 
-    def _parse_yaml(self):
+    def _parse_modules(self):
         """
-        Read realization file, hydrofabric gpkg and ngen executable paths from yaml file
+        Read modules from input.config file and ensure formulation is valid
         """
-        # Set realization file path
-        try:
-            self.real_input_file = Path(self.valid_conf['model']['realization']).absolute()
 
-            # Get hydrofabric gpkg paths
-            self.gpkg_cats = self.valid_conf['model']['catchments']
-            self.gpkg_nexus = self.valid_conf['model']['nexus']
+        logger.info(f"Available module names: {settings.modules_all['name_ui'].tolist()}")
 
-            # Get ngen executable path
-            self.ngen_exe = self.valid_conf['model']['binary']
-        except Exception as e:
-            logger.critical(f"Yaml config valid file is missing fields: {self.valid_yaml}\n{e}")
-            raise
+        # Retrieve modules from config file
+        modules0 = [x.replace(" ", "") for x in re.split(',', self.conf1['models'])]
+        self.modules = []
+        invalid_modules = []
 
-        logger.info("Yaml file parsed")
+        # Ensure modules match possible options provided in settings
+        for m1 in modules0:
+            filtered = settings.modules_all.loc[settings.modules_all['name_ui'] == m1.lower(), 'module']
+
+            if filtered.empty:
+                invalid_modules.append(m1)
+
+            else:
+                self.modules.append(filtered.iloc[0])
+
+        # Raise an error if any invalid modules were found
+        if invalid_modules:
+            try:
+                raise ValueError(f"Invalid module(s) found: {', '.join(invalid_modules)}. Please check your configuration.")
+            except ValueError as e:
+                logger.critical(e)
+                raise
+
+        # Add SLOTH if CFE, LASAM, or supported paired formulations need it.
+        # Keep the 'sloth' check outside the process condition so we do not add duplicates.
+        if (
+            (
+                any(x in self.modules for x in ['cfes', 'cfex', 'lasam'])
+                or ('topmodel' in self.modules and 'smp' in self.modules)
+                or ('sac' in self.modules and 'smp' in self.modules)
+            )
+            and 'sloth' not in self.modules
+        ):
+            logger.info("CFE, LASAM, or SMP/Topmodel is used in the formulation. SLOTH added to module list")
+            self.modules = ['sloth'] + self.modules
+
+        # Make sure SMP and SFT are always selected together
+        if 'smp' in self.modules and 'sft' not in self.modules:
+            logger.info('SMP and SFT must be selected together. SFT added to module list')
+            self.modules = self.modules + ['sft']
+        if 'sft' in self.modules and 'smp' not in self.modules:
+            logger.info('SMP and SFT must be selected together. SMP added to module list')
+            self.modules = self.modules + ['smp']
+
+        # Always ensure troute is included
+        if 'troute' not in self.modules:
+            logger.info("T-Route must be included in the formulation. T-Route added to module list")
+            self.modules = self.modules + ['troute']
+
+        # Make sure SMP/SFT are paired with Noah-OWP-Modular
+        if any(m in self.modules for m in ('smp', 'sft')) and 'noah' not in self.modules:
+            try:
+                raise ValueError("NOAH-OWP-Modular required to supply inputs for SMP and SFT. Add NOAH-OWP-Modular to formulation.")
+            except ValueError as e:
+                logger.critical(e)
+                raise
+
+        # Rearrange modules in order of hydrologic processes
+        self.modules = [m1 for m1 in settings.modules_all['module'] if m1 in self.modules]
+
+        # Reorder "sft" and "smp"
+        if "sft" in self.modules and "smp" in self.modules:
+            smp_index = self.modules.index("smp")
+            sft_index = self.modules.index("sft")
+            if smp_index > sft_index:
+                self.modules.remove("smp")
+                self.modules.insert(sft_index, "smp")
+
+        # If Topoflow-Glacier is in modules, validate glacier coverage and create grouped realizations.
+        # This is intentionally catchment-selective:
+        #   group_1 = non-glacier catchments using the normal non-TopoFlow formulation
+        #   group_2 = glacier catchments using TopoFlow-Glacier
+        if 'topoflow-glacier' in self.modules:
+
+            glacier_thresh = 50
+
+            if 'glacier_percent' not in self.divides_df.columns:
+                try:
+                    raise ValueError("'glacier_percent' column not found in geopackage divides layer. Cannot safely assign TopoFlow-Glacier.")
+                except ValueError as e:
+                    logger.critical(e)
+                    raise
+
+            topo_cats = self.divides_df[self.divides_df['glacier_percent'] >= glacier_thresh].index.tolist()
+            nontopo_cats = self.divides_df[self.divides_df['glacier_percent'] < glacier_thresh].index.tolist()
+
+            if len(topo_cats) == 0:
+                logger.warning(
+                    f"No catchments with >= {glacier_thresh}% glacier coverage. "
+                    "Removing TopoFlow-Glacier from formulation."
+                )
+                self.modules.remove('topoflow-glacier')
+                logger.info(f"Updated module list (TopoFlow removed): {self.modules}")
+            else:
+                mod_notopo = self.modules.copy()
+                mod_notopo.remove('topoflow-glacier')
+
+                self.grp_to_form = {
+                    'group_1': mod_notopo,
+                    'group_2': ['topoflow-glacier'],
+                }
+
+                # IMPORTANT:
+                # group_1 is the non-glacier formulation, so it must receive NON-glacier catchments.
+                # group_2 is the TopoFlow-Glacier formulation, so it must receive glacier catchments.
+                self.grp_to_cat = {
+                    'group_1': nontopo_cats,
+                    'group_2': topo_cats,
+                }
+
+                bad_topo_cats = [
+                    cat for cat in self.grp_to_cat['group_2']
+                    if self.divides_df.loc[cat, 'glacier_percent'] < glacier_thresh
+                ]
+
+                bad_nontopo_cats = [
+                    cat for cat in self.grp_to_cat['group_1']
+                    if self.divides_df.loc[cat, 'glacier_percent'] >= glacier_thresh
+                ]
+
+                if bad_topo_cats or bad_nontopo_cats:
+                    try:
+                        raise ValueError(
+                            "Invalid TopoFlow-Glacier catchment assignment. "
+                            f"Non-glacier catchments assigned to TopoFlow: {bad_topo_cats[:10]}; "
+                            f"glacier catchments assigned to non-TopoFlow formulation: {bad_nontopo_cats[:10]}"
+                        )
+                    except ValueError as e:
+                        logger.critical(e)
+                        raise
+
+                self.grp_aet_rootzone = {
+                    'group_1': self.aet_rootzone,
+                    'group_2': 0,
+                }
+
+                logger.info(
+                    "Final list of modules in formulation: "
+                    f"'group_1' non-glacier={mod_notopo} for {len(nontopo_cats)} catchments; "
+                    f"'group_2' glacier=['topoflow-glacier'] for {len(topo_cats)} catchments"
+                )
+
+                logger.info(
+                    "TopoFlow-Glacier catchment assignment summary: "
+                    f"threshold={glacier_thresh}%, "
+                    f"topoflow_catchments={len(self.grp_to_cat['group_2'])}, "
+                    f"non_topoflow_catchments={len(self.grp_to_cat['group_1'])}, "
+                    f"topoflow_ids={self.grp_to_cat['group_2'][:20]}"
+                )
+
+        else:
+            logger.info(f"Final list of modules in formulation: {self.modules}")
 
     def _load_reg_formulation(self):
         """
@@ -1085,37 +1225,64 @@ class RealizationBuilder:
                 self.modules.remove("smp")
                 self.modules.insert(sft_index, "smp")
 
-        # If Topoflow-glacier in modules,validate glacier coverage and create grouped realizations
+        # If Topoflow-glacier in modules, validate glacier coverage and create grouped realizations
         if 'topoflow-glacier' in self.modules:
 
-            # Retrieve list of catchments where glaciated percent >= 50
             glacier_thresh = 50
             topo_cats = self.divides_df[self.divides_df['glacier_percent'] >= glacier_thresh].index.tolist()
             nontopo_cats = self.divides_df[self.divides_df['glacier_percent'] < glacier_thresh].index.tolist()
 
-            # Ensure catchments exist where topoflow-glacier can be applied
             if len(topo_cats) == 0:
-                logger.warning(f"No catchments with >={glacier_thresh}% glacier coverage. "
-                               "Removing Topoflow-Glacier from formulation.")
+                logger.warning(
+                    f"No catchments with >= {glacier_thresh}% glacier coverage. "
+                    "Removing TopoFlow-Glacier from formulation."
+                )
                 self.modules.remove('topoflow-glacier')
                 logger.info(f"Updated module list (TopoFlow removed): {self.modules}")
             else:
-                # Create grouped realizations if glaciated catchments exist
                 mod_notopo = self.modules.copy()
                 mod_notopo.remove('topoflow-glacier')
-                self.grp_to_form = {}
-                self.grp_to_form['group_1'] = mod_notopo
-                self.grp_to_form['group_2'] = ['topoflow-glacier']
 
-                self.grp_to_cat = {'group_1': topo_cats,
-                                   'group_2': nontopo_cats}
+                self.grp_to_form = {
+                    'group_1': mod_notopo,
+                    'group_2': ['topoflow-glacier'],
+                }
 
-                # If CFE in modules, retrieve is_aet_rootzone flag
-                self.grp_aet_rootzone = {}
-                self.grp_aet_rootzone['group_1'] = self.aet_rootzone
-                self.grp_aet_rootzone['group_2'] = 0
+                # IMPORTANT:
+                # group_1 is the non-glacier formulation, so it must receive NON-glacier catchments.
+                # group_2 is the TopoFlow-Glacier formulation, so it must receive glacier catchments.
+                self.grp_to_cat = {
+                    'group_1': nontopo_cats,
+                    'group_2': topo_cats,
+                }
+               
+                bad_topo_cats = [
+                    cat for cat in self.grp_to_cat['group_2']
+                    if self.divides_df.loc[cat, 'glacier_percent'] < glacier_thresh
+                ]
 
-                logger.info(f"Final list of modules in formulation: 'group1': {mod_notopo}, 'group2': ['topoflow-glacier']")
+                bad_nontopo_cats = [
+                    cat for cat in self.grp_to_cat['group_1']
+                    if self.divides_df.loc[cat, 'glacier_percent'] >= glacier_thresh
+                ]
+
+                if bad_topo_cats or bad_nontopo_cats:
+                    raise ValueError(
+                        "Invalid TopoFlow-Glacier catchment assignment. "
+                        f"Non-glacier catchments assigned to TopoFlow: {bad_topo_cats[:10]}; "
+                        f"glacier catchments assigned to non-TopoFlow formulation: {bad_nontopo_cats[:10]}"
+                    )
+                
+                self.grp_aet_rootzone = {
+                    'group_1': self.aet_rootzone,
+                    'group_2': 0,
+                }
+
+                logger.info(
+                    "Final list of modules in formulation: "
+                    f"'group_1' non-glacier={mod_notopo} for {len(nontopo_cats)} catchments; "
+                    f"'group_2' glacier=['topoflow-glacier'] for {len(topo_cats)} catchments"
+                )
 
     def _parse_reg_modules(self):
         """
@@ -2290,7 +2457,6 @@ class RealizationBuilder:
         self._building_fcst_realization = False
         return self.realization_file
 
-
 def validate_topoflow_glacier(gpkg_file: str) -> dict:
     """Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
 
@@ -2298,7 +2464,7 @@ def validate_topoflow_glacier(gpkg_file: str) -> dict:
         gpkg_file: path to geopackage file
     """
 
-    # Read attributes from provided geopackge
+    # Read attributes from provided geopackage
     attr_df = gpd.read_file(gpkg_file, layer='divides')
 
     # Count number of catchments with glacier percent >= 50%
@@ -2313,7 +2479,11 @@ def validate_topoflow_glacier(gpkg_file: str) -> dict:
 
     # Return json message for Topoflow-Glacier applicability
     if glacier_cat >= 1:
-        return {'result': True}
+        return {
+            'result': True,
+            'glacier_catchments': int(glacier_cat),
+            'threshold': glacier_thresh,
+        }
     else:
         return {
             'result': False,
