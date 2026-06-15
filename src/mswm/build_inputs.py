@@ -1112,8 +1112,8 @@ class RealizationBuilder:
                 mod_notopo = self.modules.copy()
                 mod_notopo.remove('topoflow-glacier')
                 self.grp_to_form = {
-                    'group1': mod_notopo,
-                    'group2': ['topoflow-glacier']
+                    'group_1': mod_notopo,
+                    'group_2': ['topoflow-glacier']
                 }
 
                 self.grp_to_cat = {'group_1': nontopo_cats,
@@ -1121,11 +1121,11 @@ class RealizationBuilder:
 
                 # If CFE in modules, retrieve is_aet_rootzone flag
                 self.grp_aet_rootzone = {
-                    'group1': self.aet_rootzone,
-                    'group2': 0
+                    'group_1': self.aet_rootzone,
+                    'group_2': 0
                 }
 
-                logger.info(f"Final list of modules in formulation: 'group1': {mod_notopo}, 'group2': ['topoflow-glacier']")
+                logger.info(f"Final list of modules in formulation: 'group_1': {mod_notopo}, 'group_2': ['topoflow-glacier']")
 
     def _parse_reg_modules(self):
         """
