@@ -1090,6 +1090,14 @@ class RealizationBuilder:
 
             # Retrieve list of catchments where glaciated percent >= 50
             glacier_thresh = 50
+
+            if 'glacier_percent' not in self.divides_df.columns:
+                try:
+                    raise ValueError("'glacier_percent' column not found in geopackage divides layer. Cannot safely assign Topoflow-Glacier.")
+                except ValueError as e:
+                    logger.critical(e)
+                    raise
+
             topo_cats = self.divides_df[self.divides_df['glacier_percent'] >= glacier_thresh].index.tolist()
             nontopo_cats = self.divides_df[self.divides_df['glacier_percent'] < glacier_thresh].index.tolist()
 
@@ -1103,17 +1111,19 @@ class RealizationBuilder:
                 # Create grouped realizations if glaciated catchments exist
                 mod_notopo = self.modules.copy()
                 mod_notopo.remove('topoflow-glacier')
-                self.grp_to_form = {}
-                self.grp_to_form['group_1'] = mod_notopo
-                self.grp_to_form['group_2'] = ['topoflow-glacier']
+                self.grp_to_form = {
+                    'group1': mod_notopo,
+                    'group2': ['topoflow-glacier']
+                }
 
-                self.grp_to_cat = {'group_1': topo_cats,
-                                   'group_2': nontopo_cats}
+                self.grp_to_cat = {'group_1': nontopo_cats,
+                                   'group_2': topo_cats}
 
                 # If CFE in modules, retrieve is_aet_rootzone flag
-                self.grp_aet_rootzone = {}
-                self.grp_aet_rootzone['group_1'] = self.aet_rootzone
-                self.grp_aet_rootzone['group_2'] = 0
+                self.grp_aet_rootzone = {
+                    'group1': self.aet_rootzone,
+                    'group2': 0
+                }
 
                 logger.info(f"Final list of modules in formulation: 'group1': {mod_notopo}, 'group2': ['topoflow-glacier']")
 
