@@ -123,7 +123,7 @@ def init_ginput_logger():
     Initialize ginputfunc.py logger once MSWM named logger is created
     """
     global logger
-    logger = ewts.get_logger(ewts.MSW_MGR_ID).get_bound_logger()
+    logger = ewts.get_logger(ewts.MSW_MGR_ID)
 
 
 def call_icefabric_gpkg(

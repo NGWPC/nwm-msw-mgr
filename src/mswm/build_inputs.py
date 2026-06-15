@@ -702,7 +702,6 @@ class RealizationBuilder:
 
         # Initialize logging
         global logger
-        ewts.logger.reset_logger(ewts.MSW_MGR_ID)
         logger = ewts.logger.setup_logger(
             ewts.MSW_MGR_ID,
             level="INFO",
@@ -710,7 +709,6 @@ class RealizationBuilder:
             log_file_name=log_file_name,
             running_in_ngen=False,
             enabled=True,
-            bind_now=True,
         )
 
         gfun.init_ginput_logger()
