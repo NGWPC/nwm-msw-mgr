@@ -1107,6 +1107,8 @@ class RealizationBuilder:
                     logger.critical(e)
                     raise
 
+            self.divides_df['glacier_percent'] = self.divides_df['glacier_percent'].fillna(0)
+
             topo_cats = self.divides_df[self.divides_df['glacier_percent'] >= glacier_thresh].index.tolist()
             nontopo_cats = self.divides_df[self.divides_df['glacier_percent'] < glacier_thresh].index.tolist()
 
@@ -1133,6 +1135,15 @@ class RealizationBuilder:
                     'group_1': self.aet_rootzone,
                     'group_2': 0
                 }
+
+                # Check for unassigned catchments
+                unassigned_cats = set(self.catids) - set(topo_cats) - set(nontopo_cats)
+                if unassigned_cats:
+                    try:
+                        raise ValueError(f"{len(unassigned_cats)} catchment(s) not assigned to any group: {unassigned_cats}")
+                    except ValueError as e:
+                        logger.critical(e)
+                        raise
 
                 logger.info(f"Final list of modules in formulation: 'group_1': {mod_notopo}, 'group_2': ['topoflow-glacier']")
 
