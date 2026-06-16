@@ -622,6 +622,7 @@ Parameters for forcing engine configuration. Required for all run types, includi
 | `forcing_static_dir` | string | BMI provider | Path to forcing engine static geogrid files (only used for NWM retrospective) |
 | `cycle_datetime` | datetime | No | Cycle start time for forecast (format: `YYYY-MM-DD HH:MM:SS`). Only used for forecast runs with BMI forcing. |
 | `cold_start_datetime` | datetime | No | Cold start period end time (format: `YYYY-MM-DD HH:MM:SS`). Only used for forecast runs with BMI forcing. |
+| `lookback` | int | No | Override the lookback period in minutes in the template file. The lookback period equals simulation window length plus one timestep. For example, for T0=12z with hourly timesteps, if the simulation window is 3 hours, the lookback period is 3\*60 + 60 = 240 |
 
 ## DataFile Section: `[DataFile]`
 Parameters for data files and library paths. Required for all run types, excluding forecast.
