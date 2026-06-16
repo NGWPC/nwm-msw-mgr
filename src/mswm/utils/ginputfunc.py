@@ -2219,8 +2219,7 @@ def update_realization_fcst(
     """
     Adjust the realization configuration with forecast or cold start information accordingly:
         1) update forcing information
-        2) update start and end times
-        3) Add output format
+        2) update output format
 
     Arguments
     ---------
