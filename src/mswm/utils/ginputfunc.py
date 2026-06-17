@@ -24,6 +24,7 @@ import yaml
 import httpx
 
 from mswm.utils import settings
+from mswm.utils.default_attrs import DEFAULT_ATTRS
 
 logger = None
 
@@ -74,6 +75,7 @@ __all__ = [
     'init_ginput_logger',
     'call_icefabric_gpkg',
     'reproject_gpkg',
+    'fill_divides_nan',
     'create_walk_file',
     'create_cfe_input',
     'create_noah_input',
@@ -246,6 +248,24 @@ def reproject_gpkg(src_file: Union[str, Path], dst_file: Union[str, Path], epsg:
             tmp_file.unlink()
         logger.critical(f"Failed to reproject {src_file} to EPSG:{epsg}: {e}")
         raise
+
+
+def fill_divides_nan(divides_df):
+    "Fill NaN values in hydrofabric divides dataframe with default values"
+    for attr_name, attr_info in DEFAULT_ATTRS.items():
+        if attr_name not in divides_df.columns:
+            continue
+
+        nan_count = divides_df[attr_name].isna().sum()
+        if nan_count > 0:
+            default_value = attr_info['default']
+            logger.warning(
+                f"{nan_count} catchment(s) have NaN {attr_name}; "
+                f"filling with default value {default_value}"
+            )
+            divides_df[attr_name] = divides_df[attr_name].fillna(default_value)
+
+        return divides_df
 
 
 def create_walk_file(
