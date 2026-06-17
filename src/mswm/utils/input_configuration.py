@@ -276,6 +276,10 @@ class ForcingConfig(StrictBaseModel):
     # For WCOSS paths
     scratch_dir_override: Optional[str] = None
     forcing_product_versions: Optional[dict[str, list[str]]] = None
+    # Optional override of the forcing template `LookBack` (minutes). When set,
+    # replaces the `LookBack` value read from the forcing template yaml, which
+    # controls the analysis (AnA) simulation window. Ignored when None.
+    lookback: Optional[int] = None
 
     # Check optional fields that depend on forcing_provider
     @model_validator(mode="after")
