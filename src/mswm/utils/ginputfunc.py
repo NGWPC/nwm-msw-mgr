@@ -265,7 +265,7 @@ def fill_divides_nan(divides_df):
             )
             divides_df[attr_name] = divides_df[attr_name].fillna(default_value)
 
-        return divides_df
+    return divides_df
 
 
 def create_walk_file(
