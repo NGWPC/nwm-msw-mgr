@@ -445,10 +445,10 @@ class RealizationBuilder:
         params_dict = {
             'cfes': ['b', 'satdk', 'satpsi', 'slope',
                      'maxsmc', 'wltsmc', 'max_gw_storage', 'Cgw', 'expon',
-                     'refkdt', 'Kn', 'Klf', 'is_aet_rootzone'],
+                     'refkdt', 'Kn', 'Klf'],
             'cfex': ['b', 'satdk', 'satpsi', 'slope',
                      'maxsmc', 'wltsmc', 'max_gw_storage', 'Cgw', 'expon',
-                     'refkdt', 'Kn', 'Klf', 'is_aet_rootzone', 'a_Xinanjiang_inflection_point_parameter',
+                     'refkdt', 'Kn', 'Klf', 'a_Xinanjiang_inflection_point_parameter',
                      'b_Xinanjiang_shape_parameter', 'x_Xinanjiang_shape_parameter'],
             'lasam': ['ponded_depth_max', 'field_capacity', 'smcmin', 'smcmax', 'van_genuchten_alpha', 'van_genuchten_n', 'hydraulic_conductivity'],
             'noah': ['RSURF_EXP', 'CWP', 'VCMX25', 'MP', 'MFSNO', 'RSURF_SNOW', 'SCAMAX'],
