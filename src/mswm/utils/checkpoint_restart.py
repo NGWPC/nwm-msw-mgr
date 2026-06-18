@@ -41,8 +41,7 @@ def checkpoint_restart(
         log_dir=log_path,
         log_file_name="msw_mgr_checkpoint.log",
         running_in_ngen=False,
-        enabled=True,
-        bind_now=True,
+        enabled=True
     )
 
     logger.info(f"Copied run folder from {src_path} to {dst_path}")
