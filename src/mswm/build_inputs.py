@@ -413,7 +413,7 @@ class RealizationBuilder:
         if not cat_req_columns.issubset(self.cat_grp_df.columns):
             missing_cols = cat_req_columns - set(self.cat_grp_df.columns)
             try:
-                raise ValueError(f"Regionalization formulation file is missing required columns: {missing_cols}")
+                raise ValueError(f"Regionalization catchment group file is missing required columns: {missing_cols}")
             except ValueError as e:
                 logger.critical(e)
                 raise
