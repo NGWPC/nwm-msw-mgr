@@ -7,7 +7,7 @@ This module contains Pydantic classes to validate input.config files for the MSW
 from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
 from pydantic_core.core_schema import ValidationInfo
 from pathlib import Path
-from typing import Optional, Literal, Union, ClassVar
+from typing import Optional, Literal, Union, ClassVar, List
 
 
 class StrictBaseModel(BaseModel):
@@ -151,6 +151,7 @@ class NWMOutputConfig(StrictBaseModel):
     Input.config NWM output variables section requirement
     """
     nwm_output_variables: Optional[Union[int, bool, str]] = None
+    output_format: Optional[Union[str, List[str]]] = Field(default=["CSV"])
 
     # Normalize nwm_output_variables values
     @field_validator('nwm_output_variables')
@@ -162,6 +163,21 @@ class NWMOutputConfig(StrictBaseModel):
         if val in ('0', 0, False, "false", "False"):
             return False
         raise ValueError(f"Invalid value set for nwm_output_variables: {val}")
+
+    @field_validator('output_format')
+    def norm_output_format(cls, val):
+        if val is None:
+            return None
+        valid = {"csv": "CSV", "netcdf": "NetCDF"}
+        if isinstance(val, str):
+            values = [v.strip() for v in val.split(",")]
+        else:
+            values = val
+        normalized = [v.lower() for v in values]
+        invalid = [v for v in normalized if v not in valid]
+        if invalid:
+            raise ValueError(f"Invalid output_format value(s): {invalid}. Must be 'CSV' or 'NetCDF'")
+        return [valid[v] for v in normalized]
 
 
 class RegionConfig(StrictBaseModel):

@@ -97,7 +97,7 @@ __all__ = [
     'replace_forcing_placeholders',
     'update_fcst_forcing_config',
     'update_hist_forcing_config',
-    'update_forcing_in_realization',
+    'update_realization_fcst',
     'get_forcing_vars_map',
     'map_var_names_forcing_engine',
     'var_mapping',
@@ -2208,17 +2208,18 @@ def update_hist_forcing_config(
             yaml.dump(forcing_template, file, Dumper=ForcingDumper, sort_keys=False, default_flow_style=False)
 
 
-def update_forcing_in_realization(
+def update_realization_fcst(
         real_config: dict,
         forcing_path: Path,
         forcing_config_file: Path,
         fcst_start: str,
         fcst_end: str,
+        output_format: list,
 ) -> dict:
     """
     Adjust the realization configuration with forecast or cold start information accordingly:
         1) update forcing information
-        2) update start and end times
+        2) update output format
 
     Arguments
     ---------
@@ -2227,6 +2228,7 @@ def update_forcing_in_realization(
     forcing_config_file: path to forcing engine configuration yaml file
     fcst_start: cold_start or fcst ngen start time
     fcst_end: cold_start or fcst ngen end time
+    output_format: list of output format(s) for output variables
 
     Returns
     -------
@@ -2270,6 +2272,9 @@ def update_forcing_in_realization(
         # Map module variable names to new forcing engine names
         if mod_var_names is not None:
             mod['params']['variables_names_map'] = map_var_names_forcing_engine(mod_var_names)
+
+    # Update output format configuration
+    real_config['output_format'] = output_format
 
     return real_config
 
@@ -2884,6 +2889,7 @@ def create_realization_file(
         rt_dict: dict,
         output_dict: dict,
         calib_output_vars: bool,
+        output_format: list,
         run_type: str
 ) -> None:
     """
@@ -2902,6 +2908,7 @@ def create_realization_file(
     rt_dict : routing model source file directory and configuration file
     output_dict: whether to output certain variables (currently SWE and soil moisture)
     calib_output_vars: boolean flag for writing calibration output variables
+    output_format: list of output format(s) for output variables
     run_type: type of run (calib, regionalization, or default)
 
     Returns
@@ -3032,6 +3039,9 @@ def create_realization_file(
     # Add routing section
     g.update(rt_dict)
 
+    # Output format configuration
+    g['output_format'] = output_format
+
     return g, output_config
 
 
@@ -3046,6 +3056,7 @@ def create_reg_realization_file(
         rt_dict: dict,
         output_dict: dict,
         calib_output_vars: dict,
+        output_format: list,
         run_type: str,
         cat_to_grp: dict,
         grp_to_form: dict,
@@ -3065,6 +3076,7 @@ def create_reg_realization_file(
     rt_dict : routing model source file directory and configuration file
     output_dict: whether to output certain variables (currently SWE and soil moisture)
     calib_output_vars: boolean flag for writing calibration output variables
+    output_format: list of output format(s) for output variables
     run_type: type of run (calib, regionalization, or default)
     cat_to_grp: dictionary mapping catchments to regionalization groups
     grp_to_form: dictionary mapping regionalization groups to formulations
@@ -3211,6 +3223,9 @@ def create_reg_realization_file(
 
     # Add catchment groups
     g['catchments'] = {cat: {"formulations": grp, "forcing": "forcing_grp1"} for cat, grp in cat_to_grp.items()}
+
+    # Output format configuration
+    g['output_format'] = output_format
 
     return g, output_config_grp
 
