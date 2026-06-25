@@ -1040,6 +1040,10 @@ class RealizationBuilder:
             logger.warning(f"Number of processors {nprocs} exceeds the number of divides; reducing nprocs to {ncats}.")
             self.parallelSec["nprocs"] = ncats
 
+        # Relay nprocs change back to input_configs
+        if self.input_configs.get("Parallel"):
+            self.input_configs["Parallel"]["nprocs"] = self.parallelSec["nprocs"] if self.parallelSec else 1
+
     def _parse_modules(self):
         """
         Read modules from input.config file and ensure formulation is valid
@@ -1922,7 +1926,8 @@ class RealizationBuilder:
                                                     partition_config_basename_prefix,
                                                     sub_dir_name) if self.parallelSec else None
 
-        logger.info(f"Partition file is created at: {self.part_file}")
+        if self.part_file is not None:
+            logger.info(f"Partition file is created at: {self.part_file}")
 
     def _create_calib_model_dict(self):
         """
