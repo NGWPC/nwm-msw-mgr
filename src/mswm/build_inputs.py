@@ -530,10 +530,6 @@ class RealizationBuilder:
         self.forcingSec = self.input_configs.get('Forcing')
         self.parallelSec = self.input_configs.get('Parallel')
 
-        # Use parallel ngen only when the number of processors is greater than 1
-        if not self.parallelSec or self.parallelSec.get("nprocs", 0) < 2:
-            self.parallelSec = None
-
     def _load_realization(self):
         """
         Load realization json file
@@ -1022,6 +1018,27 @@ class RealizationBuilder:
 
         # Fill NaN attribute values in divides layer with default values
         self.divides_df = gfun.fill_divides_nan(self.divides_df)
+
+    def _adjust_parallel_procs(self):
+        """
+        Adjust the number of parallel processes based on catchment count.
+        Disables parallel if nprocs < 2, ncatchments == 1, or parallelSec not set.
+        Reduces nprocs to ncatchments if nprocs > ncatchments.
+        """
+        # Use parallel ngen only when the number of processors is greater than 1
+        if not self.parallelSec or self.parallelSec.get("nprocs", 0) < 2:
+            self.parallelSec = None
+            return
+
+        nprocs = int(self.parallelSec.get("nprocs", 1))
+        ncats = len(self.catids)
+
+        if ncats == 1:
+            logger.warning("Only 1 catchment in gpkg; disabling parallel ngen.")
+            self.parallelSec = None
+        elif nprocs > ncats:
+            logger.warning(f"Number of processors {nprocs} exceeds the number of divides; reducing nprocs to {ncats}.")
+            self.parallelSec["nprocs"] = ncats
 
     def _parse_modules(self):
         """
@@ -2038,6 +2055,7 @@ class RealizationBuilder:
         self._parse_calib_settings()
         self._extract_hydrofabric()
         self._read_hydrofabric()
+        self._adjust_parallel_procs()
         self._parse_modules()
         self._validate_processes()
         self._map_cat_to_grp()
@@ -2102,6 +2120,7 @@ class RealizationBuilder:
         self._parse_time()
         self._extract_hydrofabric()
         self._read_hydrofabric()
+        self._adjust_parallel_procs()
         self._parse_reg_params()
         self._parse_reg_modules()
         self._validate_processes()
@@ -2168,10 +2187,11 @@ class RealizationBuilder:
         self._parse_yaml()
         self._load_realization()
         self._parse_forcing_engine()
-        self._configure_forcing_engine()
+        self._configure_forcing_engine()   
+        self._read_hydrofabric()
+        self._adjust_parallel_procs()
         if self.output_nwm_vars:
             self._parse_realization()
-            self._read_hydrofabric()
             self._map_cat_to_grp()
             self._map_cat_to_form()
             self._map_mod_to_cat()
@@ -2233,6 +2253,7 @@ class RealizationBuilder:
         self._parse_time()
         self._extract_hydrofabric()
         self._read_hydrofabric()
+        self._adjust_parallel_procs()
         self._parse_modules()
         self._validate_processes()
         self._map_cat_to_grp()
