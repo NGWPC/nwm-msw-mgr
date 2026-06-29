@@ -63,7 +63,7 @@ class RealizationBuilder:
 
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
-                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, save_state_dir: str | None = None, checkpoint_dir: str | None = NOne,
+                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, save_state_dir: str | None = None, checkpoint_dir: str | None = None,
                  checkpoint_interval: int | None = None, src_run_path: str | None = None, dst_run_path: str | None = None, config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
@@ -1726,7 +1726,7 @@ class RealizationBuilder:
 
         # Create model state saving directories if state saving is set
         if self.save_state:
-            self.save_state_to = self.save_state_dir if self.save_state else Path(self.work_dir) / "state_save"
+            self.save_state_to = self.save_state_dir if self.save_state_dir else Path(self.work_dir) / "state_save"
             self.save_state_to.mkdir(parents=True, exist_ok=True)
             logger.info(f"State save directory: {self.save_state_to}")
 
