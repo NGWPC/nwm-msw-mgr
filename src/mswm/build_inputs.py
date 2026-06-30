@@ -709,7 +709,7 @@ class RealizationBuilder:
         )
 
         gfun.init_ginput_logger()
-        logger.info(ewts.Payload(ewts.Status.INITTED, modnm=MODNM))
+        logger.status(ewts.Payload(ewts.Status.INITTED, modnm=MODNM))
         logger.info(f"Building realization from: {self.input_path}")
 
     def _parse_gpkg_from_input(self):
@@ -2036,7 +2036,7 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.STARTING,
                 msg="Building calibration realization",
@@ -2050,7 +2050,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.INPROG, msg="Building calibration realization", modnm=MODNM
             )
@@ -2079,7 +2079,7 @@ class RealizationBuilder:
         self._create_calib_model_dict()
         self._write_calib_configuration()
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.COMPLETE,
                 msg="Calibration run set up successfully",
@@ -2098,7 +2098,7 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.STARTING,
                 msg="Building regionalization realization",
@@ -2112,7 +2112,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.INPROG,
                 msg="Building regionalization realization",
@@ -2147,7 +2147,7 @@ class RealizationBuilder:
         self._write_realization()
         self._write_partition()
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.COMPLETE,
                 msg="Regionalization run set up successfully",
@@ -2178,13 +2178,13 @@ class RealizationBuilder:
         self._create_fcst_dir()
         self._init_log()
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.STARTING, msg="Building forecast realization", modnm=MODNM
             )
         )
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.INPROG, msg="Building forecast realization", modnm=MODNM
             )
@@ -2212,7 +2212,7 @@ class RealizationBuilder:
         self._write_realization()
 
         adjective = "Cold start" if self.use_cold_start else "Forecast"
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.COMPLETE,
                 msg=f"{adjective} run set up successfully",
@@ -2236,7 +2236,7 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.STARTING, msg="Building default realization", modnm=MODNM
             )
@@ -2249,7 +2249,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.INPROG, msg="Building default realization", modnm=MODNM
             )
@@ -2279,7 +2279,7 @@ class RealizationBuilder:
         self._write_realization()
         self._write_partition()
 
-        logger.info(
+        logger.status(
             ewts.Payload(
                 ewts.Status.COMPLETE, msg="Default run set up successfully", modnm=MODNM
             )
