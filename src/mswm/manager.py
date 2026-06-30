@@ -112,7 +112,9 @@ def main():
     build_default_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
     build_default_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_default_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
+    build_default_sub.add_argument("--save_state_dir", type=str, help="Directory to save state at end of run. Defaults to <work_dir>/state_save/.")
     build_default_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
+    build_default_sub.add_argument("--checkpoint_dir", type=str, default=None, help="Directory to save checkpoint states. Defaults to <work_dir>/checkpoint")
 
     # subcommand: build_calib
     build_calib_sub = subparser.add_parser("build_calib", help="Create calibration realization")
@@ -127,7 +129,9 @@ def main():
     build_region_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
     build_region_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_region_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
+    build_region_sub.add_argument("--save_state_dir", type=str, help="Directory to save state at end of run. Defaults to <work_dir>/state_save/.")
     build_region_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
+    build_region_sub.add_argument("--checkpoint_dir", type=str, default=None, help="Directory to save checkpoint states. Defaults to <work_dir>/checkpoint")
 
     # subcommand: build_fcst
     build_fcst_sub = subparser.add_parser("build_fcst", help="Create forecast realization")
@@ -144,6 +148,7 @@ def main():
     build_fcst_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
     build_fcst_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     build_fcst_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
+    build_fcst_sub.add_argument("--save_state_dir", type=str, help="Directory to save state at end of run. Defaults to <work_dir>/state_save/.")
 
     # subcommand: update_fcst_run
     update_fcst_sub = subparser.add_parser("update_fcst", help="Create forecast realization")
@@ -160,8 +165,10 @@ def main():
     update_fcst_sub.add_argument("--forcing_lag", type=int, default=None, help="Number of hours lagged ensemble forcing valid time is lagged from start of ngen run")
     update_fcst_sub.add_argument("--load_state_from", type=str, default=None, help="Path to directory containing model states to load at beginning of run")
     update_fcst_sub.add_argument("--save_state", action="store_true", help="Enable save state at end of run flag when passed")
+    update_fcst_sub.add_argument("--save_state_dir", type=str, help="Directory to save state at end of run. Defaults to <work_dir>/state_save/.")
     update_fcst_sub.add_argument("--use_checkpoint", action="store_true", help="Enable checkpoint state saving when passed")
     update_fcst_sub.add_argument("--checkpoint_interval", type=int, default=None, help="Checkpointing interval in integer number of timesteps")
+    update_fcst_sub.add_argument("--checkpoint_dir", type=str, default=None, help="Directory to save checkpoint states. Defaults to <work_dir>/checkpoint")
 
     # subcomman: validate_topoflow
     validate_topo_sub = subparser.add_parser("validate_topoflow_glacier", help="Validate Topoflow-Glacier applicability for a basin")
@@ -172,23 +179,23 @@ def main():
     # Parser logic
     if args.command == "build_default":
         build_default(input_path=args.input_path, use_cold_start=args.use_cold_start, use_lagged_ens=args.use_lagged_ens, lagged_ens_mem=args.lagged_ens_mem,
-                      forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state,
-                      checkpoint_interval=args.checkpoint_interval)
+                      forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state, save_state_dir=args.save_state_dir,
+                      checkpoint_interval=args.checkpoint_interval, checkpoint_dir=args.checkpoint_dir)
     elif args.command == "build_calib":
         build_calib(input_path=args.input_path)
     elif args.command == "build_region":
         build_region(input_path=args.input_path, use_cold_start=args.use_cold_start, use_lagged_ens=args.use_lagged_ens, lagged_ens_mem=args.lagged_ens_mem,
-                     forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state,
-                     checkpoint_interval=args.checkpoint_interval)
+                     forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state, save_state_dir=args.save_state_dir,
+                     checkpoint_interval=args.checkpoint_interval, checkpoint_dir=args.checkpoint_dir)
     elif args.command == "build_fcst":
         build_fcst(input_path=args.input_path, valid_yaml=args.valid_yaml, fcst_run_name=args.fcst_run_name, use_cold_start=args.use_cold_start, use_warm_start=args.use_warm_start,
                    use_hindcast=args.use_hindcast, use_lagged_ens=args.use_lagged_ens, hind_cycle=args.hind_cycle, prev_hind_cycle=args.prev_hind_cycle, lagged_ens_mem=args.lagged_ens_mem,
-                   forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state)
+                   forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state, save_state_dir=args.save_state_dir)
     elif args.command == "update_fcst":
         update_fcst_run(input_path=args.input_path, src_run_path=args.src_run_path, dst_run_path=args.dst_run_path, use_cold_start=args.use_cold_start, use_warm_start=args.use_warm_start,
                         use_hindcast=args.use_hindcast, use_lagged_ens=args.use_lagged_ens, hind_cycle=args.hind_cycle, prev_hind_cycle=args.prev_hind_cycle, lagged_ens_mem=args.lagged_ens_mem,
-                        forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state,
-                        checkpoint_interval=args.checkpoint_interval)
+                        forcing_lag=args.forcing_lag, load_state_from=args.load_state_from, save_state=args.save_state, save_state_dir=args.save_state_dir,
+                        checkpoint_interval=args.checkpoint_interval, checkpoint_dir=args.checkpoint_dir)
     elif args.command == "validate_topoflow_glacier":
         validate_topo(gpkg_file=args.gpkg_file)
     else:

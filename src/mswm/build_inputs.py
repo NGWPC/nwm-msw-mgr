@@ -63,9 +63,8 @@ class RealizationBuilder:
 
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
-                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, checkpoint_interval: int | None = None,
-                 src_run_path: str | None = None, dst_run_path: str | None = None,
-                 config_overrides: InputConfig | None = None):
+                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, save_state_dir: str | None = None, checkpoint_dir: str | None = None,
+                 checkpoint_interval: int | None = None, src_run_path: str | None = None, dst_run_path: str | None = None, config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
         self._config_overrides: InputConfig | None
@@ -104,6 +103,8 @@ class RealizationBuilder:
         self.forcing_lag = forcing_lag if forcing_lag else 0
         self.src_run_path = Path(src_run_path) if src_run_path else None
         self.dst_run_path = Path(dst_run_path) if dst_run_path else None
+        self.save_state_dir = Path(save_state_dir) if save_state_dir else None
+        self.checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
 
         # Validate optional forecast flags
         fcst_modes = sum([self.use_cold_start, self.use_warm_start, self.use_hindcast, self.use_lagged_ens])
@@ -1720,9 +1721,12 @@ class RealizationBuilder:
         if not self.load_state_from and not self.save_state:
             logger.info("No model state management configured.")
 
+        if self.save_state_dir and not self.save_state:
+            logger.warning("save_state_dir is set by save_state is False; state will not be saved.")
+
         # Create model state saving directories if state saving is set
         if self.save_state:
-            self.save_state_to = Path(self.work_dir) / "state_save"
+            self.save_state_to = self.save_state_dir if self.save_state_dir else Path(self.work_dir) / "state_save"
             self.save_state_to.mkdir(parents=True, exist_ok=True)
             logger.info(f"State save directory: {self.save_state_to}")
 
@@ -1792,9 +1796,12 @@ class RealizationBuilder:
         Configure checkpoint state saving configuration in state saving section
         """
 
+        if self.checkpoint_dir and self.checkpoint_interval is None:
+            logger.warning("checkpoint_dir is set but checkpoint_interval is None; checkpoints will not be saved.")
+
         if self.checkpoint_interval is not None:
             # Create directory for checkpoints
-            self.save_checkpoint_to = Path(self.work_dir) / "checkpoint"
+            self.save_checkpoint_to = self.checkpoint_dir if self.checkpoint_dir else Path(self.work_dir) / "checkpoint"
             self.save_checkpoint_to.mkdir(parents=True, exist_ok=True)
 
             # Validate checkpoint_interval value

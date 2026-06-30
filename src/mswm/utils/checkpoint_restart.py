@@ -14,6 +14,7 @@ logger = None
 def checkpoint_restart(
         src_path: str,
         dst_path: str,
+        checkpoint_dir: str | None = None,
 ) -> None:
     """
     Copy a run folder to a new path and configure it to load from a checkpoint state
@@ -25,6 +26,8 @@ def checkpoint_restart(
         Path to the existing run folder
     dst_path: str
         Path to the destination run folder
+    checkpoint_dir: str
+        Path to the existing checkpointing state folder
     """
 
     # Copy existing run folder to new path
@@ -46,8 +49,8 @@ def checkpoint_restart(
 
     logger.info(f"Copied run folder from {src_path} to {dst_path}")
 
-    # Infer checkpoint state path from destination folder
-    checkpoint_state = dst / "checkpoint"
+    # Infer checkpoint state path from destination folder or use provided path
+    checkpoint_state = Path(checkpoint_dir).resolve() if checkpoint_dir else dst / "checkpoint"
     if not checkpoint_state.exists():
         msg = f"Checkpoint state path does not exist: {checkpoint_state}"
         logger.critical(msg)
@@ -130,12 +133,18 @@ def parse_args():
         type=str,
         help="Path to the destination run folder"
     )
+    parser.add_argument(
+        "--checkpoint_dir",
+        type=str,
+        default=None,
+        help="Path to checkpoint state directory. Defaults to <dst_path>/checkpoint/."
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    checkpoint_restart(args.src_path, args.dst_path)
+    checkpoint_restart(args.src_path, args.dst_path, checkpoint_dir=args.checkpoint_dir)
 
 
 if __name__ == "__main__":

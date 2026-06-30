@@ -113,7 +113,8 @@ build_fcst(
     lagged_ens_mem=None,
     forcing_lag=None,
     save_state=True,
-    load_state_from="/path/to/saved_state/"
+    save_state_dir="/path/to/saved_state/",
+    load_state_from="/path/to/prev_saved_state/",
 )
 ```
 
@@ -130,12 +131,13 @@ build_fcst(
 - `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
 - `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--save_state_dir` - (optional) Directory to save model state at end of run. Defaults to `<work_dir>/state_save/` if not provided
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
 
 #### Example:
 **Cold start:**
 ```bash
-python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --use_cold_start --save_state
+python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --use_cold_start --save_state --state_save_dir /path/to/saved_state/
 ```
 
 **Forecast:**
@@ -145,7 +147,7 @@ python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --load_state
 
 **Warm start:**
 ```bash
-python -m mswm.manager build_fcst input.config valid_yaml hind_run1 --use_warm_start --save_state
+python -m mswm.manager build_fcst input.config valid_yaml hind_run1 --use_warm_start --save_state --state_save_dir /path/to/saved_state/
 ```
 
 **Hindcast (cycle 0):**
@@ -195,17 +197,17 @@ python -m mswm.manager build_region /path/to/input_realization.config
 
 **Cold start with state save:**
 ```bash
-python -m mswm.manager build_region /path/to/input_realization.config --use_cold_start --save_state
+python -m mswm.manager build_region /path/to/input_realization.config --use_cold_start --save_state --save_state_dir /path/to/state_saving/
 ```
 
 **Forecast with state load and checkpointing:**
 ```bash
-python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --checkpoint_interval 100
+python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --checkpoint_interval 100 --checkpoint_dir /path/to/checkpoint/
 ```
 
 ** Lagged ensemble with state load and checkpoint:**
 ```bash
-python -m mswm.manager build_region /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
+python -m mswm.manager build_region /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100 --checkpoint_dir /path/to/checkpoint/
 ```
 
 #### Python
@@ -219,8 +221,10 @@ real_path = build_region(
     lagged_ens_mem=None,
     forcing_lag=None,
     save_state=False,
+    save_state_dir=None,
     load_state_from=None,
-    checkpoint_interval=None
+    checkpoint_interval=None,
+    checkpoint_dir=None,
 )
 ```
 
@@ -231,8 +235,10 @@ real_path = build_region(
 - `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
 - `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--save_state_dir` - (optional) Directory to save model state at end of run. Defaults to `<work_dir>/state_save/` if not provided
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
 - `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--checkpoint_dir` - (optional) Directory to save checkpoint states. Defaults to `<work_dir>/checkpoint/` if not provided
 
 ### Required Files
 Regionalization mode requires additional files in your input directory, which are referenced in the input.config file.
@@ -256,17 +262,17 @@ python -m mswm.manager build_default /path/to/input.config
 
 ** Cold start with state save:**
 ```bash
-python -m mswm.manager build_default /path/to/input.config --use_cold_start --save_state
+python -m mswm.manager build_default /path/to/input.config --use_cold_start --save_state --save_state_dir /path/to/state_saving/
 ```
 
 ** Forecast with state load and checkpointing:**
 ```bash
-python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --checkpoint_interval 10
+python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --checkpoint_interval 10 --checkpoint_dir /path/to/checkpoint/
 ```
 
 ** Lagged ensemble with state load and checkpoint:**
 ```bash
-python -m mswm.manager build_default /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100
+python -m mswm.manager build_default /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --checkpoint_interval 100 --checkpoint_dir /path/to/checkpoint/
 ```
 
 #### Python
@@ -280,8 +286,10 @@ build_default(
     lagged_ens_mem=None,
     forcing_lag=None,
     save_state=False,
+    save_state_dir=None,
     load_state_from=None,
-    checkpoint_interval=None
+    checkpoint_interval=None,
+    checkpoint_dir=None,
 )
 ```
 
@@ -292,9 +300,10 @@ build_default(
 - `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
 - `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--save_state_dir` - (optional) Directory to save model state at end of run. Defaults to `<work_dir>/state_save/` if not provided
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
 - `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
-
+- `--checkpoint_dir` - (optional) Directory to save checkpoint states. Defaults to `<work_dir>/checkpoint/` if not provided
 ---
 
 ### Checkpoint Restart Workflow
@@ -305,8 +314,9 @@ The checkpoint state copied to the new run folder and is inferred from the desti
 #### CLI
 ```bash
 python -m mswm.utils.checkpoint_restart \
-    /path/to/existing/run/ \
-    /path/to/new/run/ \
+    /path/to/existing_run/ \
+    /path/to/new_run/ \
+    --checkpoint_dir /path/to/checkpoint/
 ```
 
 #### Python
@@ -314,13 +324,15 @@ python -m mswm.utils.checkpoint_restart \
 from mswm.utils.checkpoint_restart import checkpoint_restart
 
 checkpoint_restart(
-    src_path="/path/to/existing/run",
-    dst_path="/path/to/new/run",
+    src_path="/path/to/existing_run",
+    dst_path="/path/to/new_run",
+    checkpoint_dir="/path/to/checkpoint
 )
 ```
 #### Arguments
 - `src_path` - Path to existing run folder to copy
 - `dst_path` - Path to the destination run folder
+- `checkpoint_dir` - (optional) Directory to save checkpoint states. Defaults to `<dst_dir>/checkpoint/` if not provided
 
 
 #### Example
@@ -328,6 +340,7 @@ checkpoint_restart(
 python -m mswm.utils.checkpoint_restart \
     /run_ngen/default/default_fcst/01123000/ \
     /run_ngen/default/default_fcst_restart/01123000/ \
+    --checkpoint_dir /run_ngen/default/default_fcst/checkpoint/
 ```
 
 #### Notes
@@ -349,8 +362,8 @@ arguments can be used to update the relevant realization sections in the copied 
 ```bash
 python -m mswm.manager update_fcst \
     /path/to/input.config \
-    /path/to/existing/run/ \
-    /path/to/new/run/
+    /path/to/existing_run/ \
+    /path/to/new_run/
 ```
 
 #### Python
@@ -359,8 +372,8 @@ from mswm.manager import update_fcst_run
 
 update_fcst_run(
     input_path="/path/to/input.config",
-    src_run_path="/path/to/existing/run/",
-    dst_run_path="/path/to/new/run/"
+    src_run_path="/path/to/existing_run/",
+    dst_run_path="/path/to/new_run/"
 )
 ```
 
@@ -377,9 +390,10 @@ update_fcst_run(
 - `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
 - `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--save_state_dir` - (optional) Directory to save model state at end of run. Defaults to `<work_dir>/state_save/` if not provided
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
-- `--use_checkpoint` - (optional) Enable period checkpoint state saving during run (default: `False`)
-- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps
+- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--checkpoint_dir` - (optional) Directory to save checkpoint states. Defaults to `<work_dir>/checkpoint/` if not provided
 
 #### Examples
 **Forecast with new state load and checkpoint interval**
