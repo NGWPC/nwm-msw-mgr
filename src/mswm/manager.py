@@ -11,16 +11,16 @@ from mswm.utils.input_configuration import InputConfig
 
 def build_default(input_path: str, use_cold_start: bool = False, use_lagged_ens: bool = False,
                   lagged_ens_mem: str | None = None, forcing_lag: int | None = None,
-                  load_state_from: str | None = None, save_state: bool = False,
-                  checkpoint_interval: int | None = None,
+                  load_state_from: str | None = None, save_state: bool = False, save_state_dir: str | None = None,
+                  checkpoint_interval: int | None = None, checkpoint_dir: str | None = None,
                   config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate realization and config files with default parameters
     """
     rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, use_lagged_ens=use_lagged_ens,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
-                            load_state_from=load_state_from, save_state=save_state,
-                            checkpoint_interval=checkpoint_interval,
+                            load_state_from=load_state_from, save_state=save_state, save_state_dir=save_state_dir,
+                            checkpoint_interval=checkpoint_interval, checkpoint_dir=checkpoint_dir,
                             config_overrides=config_overrides)
     real_path = rb.build_default_realization()
     return real_path
@@ -38,6 +38,7 @@ def build_calib(input_path: str, config_overrides: InputConfig = None):
 def build_fcst(input_path: str | None, valid_yaml: str, fcst_run_name: str, use_cold_start: bool = False, use_warm_start: bool = False,
                use_hindcast: bool = False, use_lagged_ens: bool = False, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
                lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str = None, save_state: bool = False,
+               save_state_dir: str | None = None,
                config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate forecast realization and config files
@@ -47,7 +48,7 @@ def build_fcst(input_path: str | None, valid_yaml: str, fcst_run_name: str, use_
                             use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
                             use_hindcast=use_hindcast, hind_cycle=hind_cycle, prev_hind_cycle=prev_hind_cycle,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
-                            load_state_from=load_state_from, save_state=save_state,
+                            load_state_from=load_state_from, save_state=save_state, save_state_dir=save_state_dir,
                             config_overrides=config_overrides)
     real_path = rb.build_fcst_realization()
     return real_path
@@ -55,16 +56,16 @@ def build_fcst(input_path: str | None, valid_yaml: str, fcst_run_name: str, use_
 
 def build_region(input_path: str, use_cold_start: bool = False, use_lagged_ens: bool = False,
                  lagged_ens_mem: str | None = None, forcing_lag: int | None = None,
-                 load_state_from: str | None = None, save_state: bool = False,
-                 checkpoint_interval: int | None = None,
+                 load_state_from: str | None = None, save_state: bool = False, save_state_dir: str | None = None,
+                 checkpoint_interval: int | None = None, checkpoint_dir: str | None = None,
                  config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate realization and config files for regionalization
     """
     rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, use_lagged_ens=use_lagged_ens,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
-                            load_state_from=load_state_from, save_state=save_state,
-                            checkpoint_interval=checkpoint_interval,
+                            load_state_from=load_state_from, save_state=save_state, save_state_dir=save_state_dir,
+                            checkpoint_interval=checkpoint_interval, checkpoint_dir=checkpoint_dir,
                             config_overrides=config_overrides)
     real_path = rb.build_region_realization()
     return real_path
@@ -73,7 +74,7 @@ def build_region(input_path: str, use_cold_start: bool = False, use_lagged_ens: 
 def update_fcst_run(input_path: str, src_run_path: str, dst_run_path: str, use_cold_start: bool = False, use_warm_start: bool = False,
                     use_hindcast: bool = False, use_lagged_ens: bool = False, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
                     lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False,
-                    checkpoint_interval: int | None = None, config_overrides: InputConfig = None):
+                    save_state_dir: str | None = None, checkpoint_interval: int | None = None, checkpoint_dir: str | None = None, config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to copy an existing forecast run to a new path
     and update forcing engine config, realization, and troute config
@@ -82,8 +83,8 @@ def update_fcst_run(input_path: str, src_run_path: str, dst_run_path: str, use_c
                             use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
                             use_hindcast=use_hindcast, hind_cycle=hind_cycle, prev_hind_cycle=prev_hind_cycle,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
-                            load_state_from=load_state_from, save_state=save_state,
-                            checkpoint_interval=checkpoint_interval,
+                            load_state_from=load_state_from, save_state=save_state, save_state_dir=save_state_dir,
+                            checkpoint_interval=checkpoint_interval, checkpoint_dir=checkpoint_dir,
                             config_overrides=config_overrides)
     real_path = rb.update_fcst_run()
     return real_path
