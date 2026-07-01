@@ -563,7 +563,7 @@ class TestFcstNWMOutputBuild:
         assert nwm_provider_vars == nwm_required_provider_vars
 
     def test_nwm_outputs_in_realization(self):
-        assert len(self.rb.real_config['global']['formulations'][0]['params']['output_variables']) == 21
+        assert len(self.rb.real_config['global']['formulations'][0]['params']['output_variables']) == 27
 
     def test_adapters_in_realizaiton(self):
         assert len(self.rb.real_config['global']['formulations'][0]['params']['modules']) == 5
