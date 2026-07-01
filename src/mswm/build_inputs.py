@@ -1513,7 +1513,7 @@ class RealizationBuilder:
         self.output_dict = dict()
         for s1 in ['output_swe', 'output_sm', 'output_precip']:
             if self.output_nwm_vars:
-                self.output_dict[s1] = True
+                self.output_dict[s1] = True if s1 == 'output_precip' else False
             elif (s1 not in self.conf1.keys()) or (self.conf1[s1] is None) or (self.conf1[s1] == ''):
                 # Default output_precip to True if not specified
                 self.output_dict[s1] = True if s1 == 'output_precip' else False

@@ -139,7 +139,7 @@ NWM_OUTPUT_VARIABLES: List[NWMOutputVariable] = [
         provider_var=["Ps", "QSNOW", "atmosphere_water__snowfall_leq-volume_flux"],
     ),
     NWMOutputVariable(
-        nwm_name="SOIL_T",
+        nwm_name="SOIL_T, expanded to one entry per sm_profile_depth layer",
         nwm_units="K",
         description="Soil temperature",
         adapter="sft",
@@ -150,7 +150,7 @@ NWM_OUTPUT_VARIABLES: List[NWMOutputVariable] = [
     NWMOutputVariable(
         nwm_name="SOIL_M",
         nwm_units="m3/m3",
-        description="Volumetric soil moisture",
+        description="Volumetric soil moisture, expanded to one entry per sm_profile_depth layer",
         adapter="smp",
         adapter_var="soil_moisture_profile",
         provider=["smp"],

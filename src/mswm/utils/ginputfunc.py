@@ -3290,8 +3290,24 @@ def update_realization_nwm_output(
     # Update output variable section with NWM output variables
     output_keys = set(item['header'] for item in real_output)
     for nwm_dict in nwm_output_dicts:
-        if nwm_dict['nwm_name'] not in output_keys:
-            real_output.append({'name': nwm_dict['provider_var'], 'header': nwm_dict['nwm_name'], 'units': nwm_dict['nwm_units']})
+        # Expand SOIL_M and SOIL_T to soil depth layers
+        if nwm_dict['nwm_name'] in ('SOIL_M', 'SOIL_T'):
+            for i, depth in enumerate(output_dict['sm_profile_depth']):
+                layer_header = f"{nwm_dict['nwm_name']}_{float(depth):g}m"
+                if layer_header not in output_keys:
+                    real_output.append({
+                        'name': nwm_dict['provider_var'],
+                        'header': layer_header,
+                        'units': nwm_dict['nwm_units'],
+                        'index': str(i),
+                    })
+        else:
+            if nwm_dict['nwm_name'] not in output_keys:
+                real_output.append({
+                    'name': nwm_dict['provider_var'],
+                    'header': nwm_dict['nwm_name'],
+                    'units': nwm_dict['nwm_units']
+                })
 
     # Combine modules and adapters
     mod_adapters = base_modules + adapters
