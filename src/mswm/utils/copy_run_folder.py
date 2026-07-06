@@ -38,7 +38,7 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
         raise FileExistsError(f"Destination directory already exists: {dst}")
 
     # Build ignore patterns
-    ignore_patterns = ['*.log', 'Output', 'state_save']
+    ignore_patterns = ['*.log', 'Output']
     if ignore_forcing_config:
         ignore_patterns.append('forcing_config')
 
