@@ -172,7 +172,7 @@ def call_icefabric_gpkg(
     if environment == 'test':
         url = f"http://edfs.test.nextgenwaterprediction.com/api/v1/hydrofabric/{basin}/gpkg"
     elif environment == 'oe':
-        url = f"https://edfs.oe.nextgenwaterprediction.com/api/v1/hydrofabric/{basin}/gpkg"
+        url = f"http://edfs.oe.nextgenwaterprediction.com/api/v1/hydrofabric/{basin}/gpkg"
 
     # Build query parameters
     params = {"id_type": id_type,
