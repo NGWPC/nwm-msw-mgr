@@ -3,6 +3,7 @@ Module to copy a run folder to a new path, updating all internal path references
 from the original run folder to the destination path
 """
 import os
+import re
 import shutil
 import argparse
 from pathlib import Path
@@ -54,6 +55,10 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
     src_str = str(src)
     dst_str = str(dst)
 
+    # Only replace src_str when it's follwed by a path separator or end-of-string
+    # This prevents accidental path replacements that share src_str as a prefix
+    pattern = re.compile(re.escape(src_str) + r'(?=[/\\]|$)')
+
     for root, dirs, files in os.walk(dst):
         for filename in files:
             filepath = Path(root) / filename
@@ -71,8 +76,8 @@ def copy_run_folder(src_path: str, dst_path: str, ignore_forcing_config: bool = 
                 raise PermissionError(f"Permission error reading file: {filepath}") from e
 
             # Update file path if contained within file
-            if src_str in content:
-                updated_content = content.replace(src_str, dst_str)
+            if pattern.search(content):
+                updated_content = pattern.sub(dst_str, content)
                 filepath.write_text(updated_content, encoding='utf-8')
 
 
