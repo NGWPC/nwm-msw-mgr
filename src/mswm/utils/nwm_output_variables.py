@@ -141,7 +141,7 @@ NWM_OUTPUT_VARIABLES: List[NWMOutputVariable] = [
     NWMOutputVariable(
         nwm_name="SOIL_T",
         nwm_units="K",
-        description="Soil temperature",
+        description="Soil temperature, expanded to one entry per sm_profile_depth layer",
         adapter="sft",
         adapter_var="soil_temperature_profile",
         provider=["sft"],
@@ -150,7 +150,7 @@ NWM_OUTPUT_VARIABLES: List[NWMOutputVariable] = [
     NWMOutputVariable(
         nwm_name="SOIL_M",
         nwm_units="m3/m3",
-        description="Volumetric soil moisture",
+        description="Volumetric soil moisture, expanded to one entry per sm_profile_depth layer",
         adapter="smp",
         adapter_var="soil_moisture_profile",
         provider=["smp"],
