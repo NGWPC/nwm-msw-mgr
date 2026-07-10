@@ -1946,7 +1946,10 @@ class RealizationBuilder:
         save_output_iter = self.conf2.get('save_output_iter') or 0
         save_plot_iter = self.conf2.get('save_plot_iter') or 0
         save_plot_iter_freq = self.conf2.get('save_plot_iter_freq') or 0
-        streamflow_threshold = self.conf2.get('streamflow_threshold') or 0.0
+        threshold_categorical = self.conf2.get('threshold_categorical') or 0.9
+        threshold_event = self.conf2.get('threshold_event') or 0.9
+        threshold_categorical_type = self.conf2.get('threshold_categorical_type') or 'quantile'
+        threshold_event_type = self.conf2.get('threshold_event_type') or 'quantile'
         user_email = self.conf2.get('user_email') or ''
         strategy = 'grouped' if 'topoflow-glacier' in self.modules else 'uniform'
 
@@ -1973,7 +1976,8 @@ class RealizationBuilder:
                                            'save_plot_iteration': save_plot_iter,
                                            'save_plot_iter_freq': save_plot_iter_freq,
                                            'basinID': self.conf1['basin'],
-                                           'threshold': streamflow_threshold,
+                                           'threshold_categorical': {"value": threshold_categorical,"type": threshold_categorical_type},
+                                           'threshold_event': {"value": threshold_event,"type": threshold_event_type},
                                            'site_name': site_name,
                                            'user': user_email},
                            }

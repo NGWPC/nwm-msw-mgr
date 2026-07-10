@@ -53,3 +53,6 @@ markers = [
     "slow: marks tests as slow running (>1s)",
     "requires_ngen: requires ngen binary for true E2E tests",
 ]
+
+[tool.ruff]
+exclude = ["src/"]

@@ -218,7 +218,10 @@ class CalibConfig(StrictBaseModel):
     save_output_iter: Optional[int] = None
     save_plot_iter: Optional[int] = None
     save_plot_iter_freq: Optional[int] = None
-    streamflow_threshold: Optional[float] = None
+    threshold_categorical: Optional[float] = None
+    threshold_categorical_type: Optional[Literal["quantile", "absolute"]] = "quantile"
+    threshold_event: Optional[float] = None
+    threshold_event_type: Optional[Literal["quantile", "absolute"]] = "quantile"
     station_name: Optional[str] = None
     ngen_cerf: bool
     calibration_run_id: Optional[int] = None
