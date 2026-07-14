@@ -394,7 +394,7 @@ class InputConfig(StrictBaseModel):
     Calibration: Optional[CalibConfig] = None
     Forcing: Optional[ForcingConfig] = None
     DataFile: Optional[DataFileConfig] = None
-    DataAssimiliation: Optional[DataAssimilationConfig] = None
+    DataAssimilation: Optional[DataAssimilationConfig] = None
     Parallel: Optional[ParallelConfig] = None
 
     # Check optional sections are present
