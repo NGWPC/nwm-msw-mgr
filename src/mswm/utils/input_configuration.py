@@ -357,6 +357,23 @@ class DataFileConfig(StrictBaseModel):
     ueb_lib: Optional[str] = None
 
 
+class DataAssimilationConfig(StrictBaseModel):
+    """
+    Input.config DataAssimilation section requirement
+    """
+    reservoir_da: bool = False
+    reservoir_rfc_dir: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_reservoir_rfc_dir(self):
+        if self.reservoir_da:
+            if not self.reservoir_rfc_dir:
+                raise ValueError("reservoir_da is True, but reservoir_rfc_dir was not provided")
+            if not self.reservoir_rfc_dir.exists():
+                raise ValueError(f"reservoir_rfc_dir does not exist: {self.reservoir_rfc_dir}")
+        return self
+
+
 class ParallelConfig(StrictBaseModel):
     """
     Input.config Parallel section requirement
@@ -377,6 +394,7 @@ class InputConfig(StrictBaseModel):
     Calibration: Optional[CalibConfig] = None
     Forcing: Optional[ForcingConfig] = None
     DataFile: Optional[DataFileConfig] = None
+    DataAssimiliation: Optional[DataAssimilationConfig] = None
     Parallel: Optional[ParallelConfig] = None
 
     # Check optional sections are present
