@@ -53,6 +53,7 @@ ARG EWTS_REF
 ARG MSW_MGR_INSTALL_EWTS
 ARG EWTS_CACHE_BUST
 ARG NGEN_IMAGE
+ARG APP_DIR
 
 # OCI Metadata Arguments
 #
@@ -87,7 +88,7 @@ SHELL ["/bin/bash", "-c"]
 
 # Optional development-only EWTS Python override.
 #
-# Production images should inherit EWTS from ngen. Set FCST_MGR_INSTALL_EWTS=ON
+# Production images should inherit EWTS from ngen. Set MSW_MGR_INSTALL_EWTS=ON
 # only when testing a new EWTS Python package without rebuilding forcing/ngen.
 #
 # To specify EWTS for development only:
@@ -95,7 +96,7 @@ SHELL ["/bin/bash", "-c"]
 #  --build-arg MSW_MGR_INSTALL_EWTS=ON \
 #  --build-arg EWTS_REF=my-ewts-branch \
 #  --build-arg EWTS_CACHE_BUST=$(date +%s) \
-#  -t nwm-fcst-mgr .
+#  -t nwm-msw-mgr .
 RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
     set -eux; \
     MSW_MGR_INSTALL_EWTS="${MSW_MGR_INSTALL_EWTS:-OFF}"; \
