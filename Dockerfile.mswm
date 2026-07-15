@@ -1,16 +1,147 @@
 # syntax=docker/dockerfile:1.4
 
-ARG ORG=ngwpc
-ARG NGEN_IMAGE_TAG=latest
-ARG NGEN_IMAGE=ghcr.io/${ORG}/ngen:${NGEN_IMAGE_TAG}
+############################################################################
+# Change/Verify these values when adopting this Dockerfile into another org:
+#   GH_ORG, GHCR_ORG, IMAGE_NAMESPACE, APP_DIR,
+#   MSW_MGR_ORG, MSW_MGR_REF, EWTS_ORG, EWTS_REF
+############################################################################
 
-#FROM ngen-int:${NGEN_IMAGE_TAG}
+# Ownership / branding overrides
+ARG GH_ORG=NGWPC
+ARG GHCR_ORG=ngwpc
+ARG IMAGE_NAMESPACE=ngwpc
+
+# Configurable application working directory. Defaults to /ngen-app, but
+# can be overriden for environments where creating directories off root is restricted
+ARG APP_DIR=/ngen-app
+
+# External repository sources
+ARG EWTS_ORG=${GH_ORG}
+ARG EWTS_REF=development
+
+ARG USE_EWTS=ON
+ARG EWTS_CACHE_BUST=0
+
+############################################################################
+# Image selection
+############################################################################
+
+# Use the ngen image as the base.
+#
+# Default build:
+#   docker build -t nwm-msw-mgr .
+#
+# Build from a different published ngen image:
+#   docker build \
+#     --build-arg NGEN_IMAGE=ghcr.io/ngwpc/ngen:development \
+#     -t nwm-msw-mgr .
+#
+# Build from a locally built ngen image:
+#   docker build \
+#     --build-arg NGEN_IMAGE=ngen \
+#     -t nwm-msw-mgr .
+ARG NGEN_IMAGE=ghcr.io/${GHCR_ORG}/ngen:latest
+
 FROM ${NGEN_IMAGE}
 
-WORKDIR /ngen-app/mswm/
+# Re-expose args after FROM for the remaining build stage
+ARG GH_ORG
+ARG GHCR_ORG
+ARG IMAGE_NAMESPACE
+ARG EWTS_ORG
+ARG EWTS_REF
+ARG USE_EWTS
+ARG EWTS_CACHE_BUST
+ARG NGEN_IMAGE
+ARG APP_DIR
 
-COPY pyproject.toml ./
+# OCI Metadata Arguments
+#
+# BASE_IMAGE_* refers to the ngen image this image is built FROM.
+ARG BASE_IMAGE_DIGEST="unknown"
+ARG BASE_IMAGE_REVISION="unknown"
+ARG IMAGE_SOURCE="unknown"
+ARG IMAGE_VENDOR="unknown"
+ARG IMAGE_VERSION="unknown"
+ARG IMAGE_REVISION="unknown"
 
-COPY src/ ./src/
+# Image Labels: OCI-spec annotations followed by custom source-repo metadata.
+LABEL org.opencontainers.image.base.name="${NGEN_IMAGE}" \
+    org.opencontainers.image.base.digest="${BASE_IMAGE_DIGEST}" \
+    org.opencontainers.image.source="${IMAGE_SOURCE}" \
+    org.opencontainers.image.vendor="${IMAGE_VENDOR}" \
+    org.opencontainers.image.version="${IMAGE_VERSION}" \
+    org.opencontainers.image.revision="${IMAGE_REVISION}" \
+    org.opencontainers.image.title="NGEN Model Setup Workflow Manager" \
+    org.opencontainers.image.description="Docker image for the NGEN Model Setup Workflow Manager" \
+    io.${IMAGE_NAMESPACE}.image.base.revision="${BASE_IMAGE_REVISION}"
 
-RUN pip install -e .
+# Re-expose the Python virtual environment inherited from ngen.
+# The dependency image creates the venv and the unversioned `python` symlink.
+# ngen-bmi-forcing and ngen install their Python packages into that venv.
+# forecast should reuse it rather than recreating it.
+ENV VIRTUAL_ENV="/ngen-app/ngen-python" \
+    PATH="${VIRTUAL_ENV}/bin:${PATH}" \
+    PYTHONPATH="${VIRTUAL_ENV}/lib/python3.11/site-packages:/usr/local/lib64/python3.11/site-packages:${PYTHONPATH}"
+
+SHELL ["/bin/bash", "-c"]
+
+# Optional development-only EWTS Python override.
+#
+# Production images should inherit EWTS from ngen. Set USE_EWTS=ON
+# only when testing a new EWTS Python package without rebuilding forcing/ngen.
+#
+# To specify EWTS for development only:
+# docker build \
+#  --build-arg USE_EWTS=ON \
+#  --build-arg EWTS_REF=my-ewts-branch \
+#  --build-arg EWTS_CACHE_BUST=$(date +%s) \
+#  -t nwm-msw-mgr .
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
+    set -eux; \
+    USE_EWTS="${USE_EWTS:-ON}"; \
+    echo "USE_EWTS=${USE_EWTS}; EWTS ref: ${EWTS_REF}; cache bust: ${EWTS_CACHE_BUST}"; \
+    USE_EWTS_NORMALIZED="$(echo "${USE_EWTS}" | tr '[:lower:]' '[:upper:]')"; \
+    if [[ "${USE_EWTS_NORMALIZED}" =~ ^(ON|YES|TRUE|1)$ ]]; then \
+        echo "Installing development EWTS Python override"; \
+        rm -rf /tmp/nwm-ewts; \
+        (git clone --depth 1 -b "${EWTS_REF}" \
+            "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts \
+         || (git clone "https://github.com/${EWTS_ORG}/nwm-ewts.git" /tmp/nwm-ewts && \
+             cd /tmp/nwm-ewts && git checkout "${EWTS_REF}")); \
+        python -m pip install --force-reinstall --no-deps /tmp/nwm-ewts/runtime/python/ewts; \
+        rm -rf /tmp/nwm-ewts; \
+    else \
+        echo "Using EWTS inherited from ngen"; \
+    fi
+
+COPY . ${APP_DIR}/mswm
+WORKDIR ${APP_DIR}/mswm
+
+RUN --mount=type=cache,target=/root/.cache/pip,id=pip-cache-rocky \
+    set -eux; \
+    python -m pip install -e .; \
+    python -m pip cache purge
+
+ARG CI_COMMIT_REF_NAME
+
+RUN set -eux; \
+    # Get the remote URL from Git configuration
+    repo_url=$(git config --get remote.origin.url); \
+    # Extract the repo name (everything after the last slash) and remove any trailing .git
+    key=${repo_url##*/}; \
+    key=${key%.git}; \
+    # Construct the file path using the derived key
+    GIT_INFO_PATH="/ngen-app/${key}_git_info.json"; \
+    # Determine branch name: use CI_COMMIT_REF_NAME if set; otherwise, use git's current branch
+    branch=$( [ -n "${CI_COMMIT_REF_NAME:-}" ] && echo "${CI_COMMIT_REF_NAME}" || git rev-parse --abbrev-ref HEAD ); \
+    jq -n \
+      --arg commit_hash "$(git rev-parse HEAD)" \
+      --arg branch "$branch" \
+      --arg tags "$(git tag --points-at HEAD | tr '\n' ' ')" \
+      --arg author "$(git log -1 --pretty=format:'%an')" \
+      --arg commit_date "$(date -u -d @$(git log -1 --pretty=format:'%ct') +'%Y-%m-%d %H:%M:%S UTC')" \
+      --arg message "$(git log -1 --pretty=format:'%s' | tr '\n' ';')" \
+      --arg build_date "$(date -u +'%Y-%m-%d %H:%M:%S UTC')" \
+      "{\"$key\": {commit_hash: \$commit_hash, branch: \$branch, tags: \$tags, author: \$author, commit_date: \$commit_date, message: \$message, build_date: \$build_date}}" \
+      > $GIT_INFO_PATH
