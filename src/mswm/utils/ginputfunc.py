@@ -1635,7 +1635,7 @@ def update_troute(
 
     # update reservoir data assimilation parameters if supplied
     reservoir_da = da_sec.get('reservoir_da', False) if da_sec else False
-    reservoir_rfc_dir = da_sec('reservoir_rfc_dir') if da_sec else False
+    reservoir_rfc_dir = da_sec.get('reservoir_rfc_dir') if da_sec else None
 
     if reservoir_da:
         rt_config.setdefault('compute_parameters', {}).setdefault('data_assimilation_parameters', {})
@@ -1714,6 +1714,8 @@ def create_troute_config(
     reservoir_da = da_sec.get('reservoir_da', False) if da_sec else False
     reservoir_rfc_dir = da_sec.get('reservoir_rfc_dir') if da_sec else None
 
+    logger.warning(f"reservoir_da: {reservoir_da}")
+
     # Set base log parameters
     log_param = {
         "showtiming": True,
@@ -1762,6 +1764,8 @@ def create_troute_config(
                 "reservoir_rfc_forecasts": False,
             },
         }
+
+    logger.warning(f"res_da: {res_da}")
 
     for file_name, run_name in zip(run_configs, run_names):
         if not len(time_period['run_time_period'][run_name][0]) != 0 & len(time_period['run_time_period'][run_name][0]):

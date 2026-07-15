@@ -369,7 +369,7 @@ class DataAssimilationConfig(StrictBaseModel):
         if self.reservoir_da:
             if not self.reservoir_rfc_dir:
                 raise ValueError("reservoir_da is True, but reservoir_rfc_dir was not provided")
-            if not self.reservoir_rfc_dir.exists():
+            if not Path(self.reservoir_rfc_dir).exists():
                 raise ValueError(f"reservoir_rfc_dir does not exist: {self.reservoir_rfc_dir}")
         return self
 
