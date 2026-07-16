@@ -1802,6 +1802,7 @@ def create_troute_config(
 
         # Set output_parameters
         output_param = {
+            'lakeout_output': ".",
             'stream_output': {
                 'stream_output_directory': ".",
                 'stream_output_time': max_loop_size,
