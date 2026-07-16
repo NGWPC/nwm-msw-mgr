@@ -178,7 +178,6 @@ def call_icefabric_gpkg(
     params = {"id_type": id_type,
               "source": source,
               "domain": domain,
-              "layers": ["divides", "flowpaths", "network", "nexus", "virtual_nexus", "virtual_flowpaths", "waterbodies", "gages", "reference_flowpaths", "hydrolocations"],
               }
 
     # Set output file path
