@@ -1642,9 +1642,9 @@ def update_troute(
         rt_config['compute_parameters']['data_assimilation_parameters']['reservoir_da'] = {
             "reservoir_persistence_da": {
                 "reservoir_persistence_greatLake": False,
-                "reservoir_persistence_usace": True,
-                "reservoir_persistence_usbr": True,
-                "reservoir_persistence_usgs": True,
+                "reservoir_persistence_usace": False,
+                "reservoir_persistence_usbr": False,
+                "reservoir_persistence_usgs": False,
             },
             "reservoir_rfc_da": {
                 "reservoir_rfc_forecast_persist_days": 11,
@@ -1743,9 +1743,9 @@ def create_troute_config(
         res_da = {
             "reservoir_persistence_da": {
                 "reservoir_persistence_greatLake": False,
-                "reservoir_persistence_usace": True,
-                "reservoir_persistence_usbr": True,
-                "reservoir_persistence_usgs": True,
+                "reservoir_persistence_usace": False,
+                "reservoir_persistence_usbr": False,
+                "reservoir_persistence_usgs": False,
             },
             "reservoir_rfc_da": {
                 "reservoir_rfc_forecast_persist_days": 11,
