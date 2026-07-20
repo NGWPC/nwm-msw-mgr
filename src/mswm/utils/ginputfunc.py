@@ -1654,6 +1654,7 @@ def update_troute(
                 "reservoir_rfc_forecasts_time_series_path": str(reservoir_rfc_dir),
             }
         }
+        logger.info("RFC reservoir data assimilation activated.")
 
     # write to new t-route config file
     new_basename = os.path.basename(src).replace("valid_best", basename_opt)
@@ -1714,8 +1715,6 @@ def create_troute_config(
     reservoir_da = da_sec.get('reservoir_da', False) if da_sec else False
     reservoir_rfc_dir = da_sec.get('reservoir_rfc_dir') if da_sec else None
 
-    logger.warning(f"reservoir_da: {reservoir_da}")
-
     # Set base log parameters
     log_param = {
         "showtiming": True,
@@ -1755,6 +1754,7 @@ def create_troute_config(
                 "reservoir_rfc_forecasts_time_series_path": str(reservoir_rfc_dir),
             }
         }
+        logger.info("RFC reservoir data assimilation activated.")
     else:
         res_da = {
             "reservoir_persistence_da": {
@@ -1764,8 +1764,6 @@ def create_troute_config(
                 "reservoir_rfc_forecasts": False,
             },
         }
-
-    logger.warning(f"res_da: {res_da}")
 
     for file_name, run_name in zip(run_configs, run_names):
         if not len(time_period['run_time_period'][run_name][0]) != 0 & len(time_period['run_time_period'][run_name][0]):
