@@ -82,6 +82,15 @@ def checkpoint_restart(
         logger.critical(msg)
         raise ValueError(msg) from e
 
+    # Check that run used NetCDF catchment output writing
+    output_format = real_config.get("output_format", [])
+    if output_format == ["CSV"]:
+        msg = "output_format is set to ['CSV'] in realization file. Run cannot be restarted as catchment outputs will be incomplete."
+        logger.critical(msg)
+        raise ValueError(msg)
+    elif "NetCDF" in output_format and "CSV" in output_format:
+        logger.warning("output_format includes both 'NetCDF' and 'CSV' in realization file. CSV catchment outputs will be incomplete for restarted run./")
+
     # Build checkpoint state loading configuration
     load_config = {
         "direction": "load",
