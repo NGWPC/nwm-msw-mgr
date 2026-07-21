@@ -63,18 +63,14 @@ def checkpoint_restart(
         logger.critical(msg)
         raise FileNotFoundError(msg)
 
-    # Validate checkpoint state path exists
-    if not checkpoint_state.exists():
-        msg = f"Checkpoint state path does not exist: {checkpoint_state}"
-        logger.critical(msg)
-        raise FileNotFoundError(msg)
-
     # Fild realization file in the destination folder
     realization_files = list(dst.rglob("*realization*.json"))
     if not realization_files:
         msg = f"No realization file found in destination folder: {dst}"
         logger.critical(msg)
         raise FileNotFoundError(msg)
+    if len(realization_files) > 1:
+        logger.warning("More than one realization file found in source folder")
     realization_file = realization_files[0]
 
     # Read realization file
@@ -84,7 +80,16 @@ def checkpoint_restart(
     except json.JSONDecodeError as e:
         msg = f"Error parsing realization file: {realization_file}\n{e}"
         logger.critical(msg)
-        raise json.JSONDecodeError(msg) from e
+        raise ValueError(msg) from e
+
+    # Check that run used NetCDF catchment output writing
+    output_format = real_config.get("output_format", [])
+    if output_format == ["CSV"]:
+        msg = "output_format is set to ['CSV'] in realization file. Run cannot be restarted as catchment outputs will be incomplete."
+        logger.critical(msg)
+        raise ValueError(msg)
+    elif "NetCDF" in output_format and "CSV" in output_format:
+        logger.warning("output_format includes both 'NetCDF' and 'CSV' in realization file. CSV catchment outputs will be incomplete for restarted run.")
 
     # Build checkpoint state loading configuration
     load_config = {
