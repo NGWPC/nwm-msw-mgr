@@ -59,6 +59,14 @@ def checkpoint_run_folder(region_build, tmp_path):
     state.mkdir(exist_ok=True)
     (state / "cat-1_state").write_text("{}")
 
+    # Ensure output_format doesn't trigger CSV-only validation error
+    real_file = Path(region_build.realization_file)
+    with open(real_file) as f:
+        data = json.load(f)
+    data["output_format"] = ["NetCDF"]
+    with open(real_file, "w") as f:
+        json.dump(data, f)
+
     checkpoint_restart(str(src), str(dst))
     real_file = list(dst.rglob("*realization*.json"))[0]
     with open(real_file) as f:
@@ -188,4 +196,24 @@ class TestCheckpointRestart:
             checkpoint_restart(
                 str(empty_src),
                 str(tmp_path / "dst2")
+            )
+
+    def test_csv_output_format_raises(self, region_build, tmp_path):
+        real_file = Path(region_build.realization_file)
+        with open(real_file) as f:
+            data = json.load(f)
+        data["output_format"] = ["CSV"]
+        with open(real_file, "w") as f:
+            json.dump(data, f)
+
+        src = Path(region_build.work_dir)
+        state = src / "checkpoint"
+        state.mkdir(exist_ok=True)
+        (state / "cat-1_state").write_text("{}")
+
+        dst = tmp_path / "dst_csv_only"
+
+        with pytest.raises(ValueError):
+            checkpoint_restart(
+                str(src), str(dst)
             )
