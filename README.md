@@ -532,6 +532,14 @@ Parameters for configuring NWM output variables.
 | `nwm_output_variables` | bool | No | Boolean flag to activate output of full set of NWM output variables |
 | `output_format` | bool | No | Output format(s) for model outputs. Accepts 'CSV', 'NetCDF', or both |
 
+## Data Assimilation Section `[DataAssimilation]`
+Parameters for reservoir RFC and streamflow data assimilation. This section is optional and only supported for **default**, **forecast**, and **regionalization** run types.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `reservoir_da` | bool | No | Boolean flag to enable reservoir RRC data assimilation in t-route |
+| `reservoir_rfc_dir` | str | No | Directory containing reservoir RFC forecast files. Required if `reservoir_da` is `True`. |
+
 
 ## Forcing Section: `[Forcing]`
 Parameters for forcing engine configuration. Required for all run types, including forecast.
@@ -609,6 +617,7 @@ Parameters for parallel processing configuration.
 - **Calibration runs** require all parameters in the General, Calibration, Forcing, and DataFile sections
 - **Regionalization runs** require parameters in the General, Calibration, Forcing, Regionalization, DataFile section
 - **Default runs** require all parameters in the General, Forcing, and DataFile sections
+-  The **`[DataAssimilation]` section** is optional and only applies to **default**, **forecast**, and **regionalization** run types.
 - Parameters for unused run types can be left blank
 
 ### Datetime Format

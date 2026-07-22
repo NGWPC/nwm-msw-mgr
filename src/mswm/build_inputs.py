@@ -529,6 +529,7 @@ class RealizationBuilder:
         # Retrieve input.config sections
         self.conf3 = self.input_configs.get('DataFile')
         self.forcingSec = self.input_configs.get('Forcing')
+        self.daSec = self.input_configs.get('DataAssimilation')
         self.parallelSec = self.input_configs.get('Parallel')
 
     def _load_realization(self):
@@ -1553,7 +1554,7 @@ class RealizationBuilder:
         """
         Update BMI config files for t-route for forecast period
         """
-        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt)
+        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt, self.daSec)
         logger.info("Updated t-route file for forecast")
 
     def _create_bmi_configs(self, is_regionalization: bool = False):
@@ -1702,7 +1703,7 @@ class RealizationBuilder:
                     gfun.create_topoflow_glacier_input(cat_mod, self.divides_df, mod_input_dir)
                 elif m1 == 'troute':
                     routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
-                    gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
+                    gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.daSec, self.run_type)
 
                     if m1 != 'troute':
                         logger.info(f'{m1}: input config files created at: {mod_input_dir}')
