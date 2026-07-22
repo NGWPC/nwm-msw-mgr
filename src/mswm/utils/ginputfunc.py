@@ -1578,7 +1578,8 @@ def create_topmodel_input(
 def update_troute(
         real_config: dict,
         run_dir: Path,
-        basename_opt: str
+        basename_opt: str,
+        da_sec: dict,
 ) -> dict:
     """
     For t-route, create new BMI config file with adjusted start/end times, and then
@@ -1589,6 +1590,7 @@ def update_troute(
     real_config: dictionary containing the realization configuration
     run_dir: folder for the new troute output file
     basename_opt: new file basename for forecast or cold start
+    da_sec: dictionary containing data assimilation inputs
 
     Returns
     -------
@@ -1631,6 +1633,29 @@ def update_troute(
     rt_config['compute_parameters']['forcing_parameters']['max_loop_size'] = max_loop_size
     rt_config['output_parameters']['stream_output']['stream_output_time'] = max_loop_size
 
+    # update reservoir data assimilation parameters if supplied
+    reservoir_da = da_sec.get('reservoir_da', False) if da_sec else False
+    reservoir_rfc_dir = da_sec.get('reservoir_rfc_dir') if da_sec else None
+
+    if reservoir_da:
+        rt_config.setdefault('compute_parameters', {}).setdefault('data_assimilation_parameters', {})
+        rt_config['compute_parameters']['data_assimilation_parameters']['reservoir_da'] = {
+            "reservoir_persistence_da": {
+                "reservoir_persistence_greatLake": False,
+                "reservoir_persistence_usace": False,
+                "reservoir_persistence_usbr": False,
+                "reservoir_persistence_usgs": False,
+            },
+            "reservoir_rfc_da": {
+                "reservoir_rfc_forecast_persist_days": 11,
+                "reservoir_rfc_forecasts": True,
+                "reservoir_rfc_forecasts_lookback_hours": 28,
+                "reservoir_rfc_forecasts_offset_hours": 0,
+                "reservoir_rfc_forecasts_time_series_path": str(reservoir_rfc_dir),
+            }
+        }
+        logger.info("RFC reservoir data assimilation activated.")
+
     # write to new t-route config file
     new_basename = os.path.basename(src).replace("valid_best", basename_opt)
 
@@ -1659,6 +1684,7 @@ def create_troute_config(
         time_period: dict,
         rt_cfg_file: Union[str, Path],
         run_configs: List[str],
+        da_sec: dict,
         run_type: str
 ) -> None:
     """ Create routing configuration YAML file
@@ -1669,6 +1695,7 @@ def create_troute_config(
     time_period: simulation time period
     rt_cfg_file : t-route configuration YAML file
     run_configs: list of file name suffixes for varying run types
+    da_sec: dictionary containing data assimilation inputs
     run_type: type of run (calib, regionalization, or default)
 
     Returns
@@ -1683,6 +1710,10 @@ def create_troute_config(
         'default': ['default'],
     }
     run_names = run_type_map.get(run_type)
+
+    # Retrieve reservoir da parameters
+    reservoir_da = da_sec.get('reservoir_da', False) if da_sec else False
+    reservoir_rfc_dir = da_sec.get('reservoir_rfc_dir') if da_sec else None
 
     # Set base log parameters
     log_param = {
@@ -1707,14 +1738,32 @@ def create_troute_config(
         "diffusive_streamflow_nudging": False,
     }
 
-    res_da = {
-        "reservoir_persistence_da": {
-            "reservoir_persistence_usgs": False,
-        },
-        "reservoir_rfc_da": {
-            "reservoir_rfc_forecasts": False,
-        },
-    }
+    if reservoir_da and run_type != "calibration":
+        res_da = {
+            "reservoir_persistence_da": {
+                "reservoir_persistence_greatLake": False,
+                "reservoir_persistence_usace": False,
+                "reservoir_persistence_usbr": False,
+                "reservoir_persistence_usgs": False,
+            },
+            "reservoir_rfc_da": {
+                "reservoir_rfc_forecast_persist_days": 11,
+                "reservoir_rfc_forecasts": True,
+                "reservoir_rfc_forecasts_lookback_hours": 28,
+                "reservoir_rfc_forecasts_offset_hours": 0,
+                "reservoir_rfc_forecasts_time_series_path": str(reservoir_rfc_dir),
+            }
+        }
+        logger.info("RFC reservoir data assimilation activated.")
+    else:
+        res_da = {
+            "reservoir_persistence_da": {
+                "reservoir_persistence_usgs": False,
+            },
+            "reservoir_rfc_da": {
+                "reservoir_rfc_forecasts": False,
+            },
+        }
 
     for file_name, run_name in zip(run_configs, run_names):
         if not len(time_period['run_time_period'][run_name][0]) != 0 & len(time_period['run_time_period'][run_name][0]):
@@ -1751,6 +1800,7 @@ def create_troute_config(
 
         # Set output_parameters
         output_param = {
+            'lakeout_output': ".",
             'stream_output': {
                 'stream_output_directory': ".",
                 'stream_output_time': max_loop_size,
