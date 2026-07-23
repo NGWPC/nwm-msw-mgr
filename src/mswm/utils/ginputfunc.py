@@ -2630,8 +2630,8 @@ def get_smp_var_map(modules: List) -> dict:
         }
     elif 'sac' in modules:
         return {
-            "soil_storage": "uzsmc",
-            "soil_storage_change": "uzsmc_ch"
+            "soil_storage": "totsmc",
+            "soil_storage_change": "totsmc_ch"
         }
     return base_map
 
