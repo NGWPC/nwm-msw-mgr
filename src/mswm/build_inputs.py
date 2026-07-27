@@ -1703,7 +1703,12 @@ class RealizationBuilder:
                     gfun.create_topoflow_glacier_input(cat_mod, self.divides_df, mod_input_dir)
                 elif m1 == 'troute':
                     routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
-                    gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.daSec, self.run_type)
+                    # Shift troute start back one hour for realtime forecast forcing so that troute and ngen produce outputs at the same timestep
+                    shift_troute_start = (
+                        self.run_type in ('default', 'regionalization')
+                        and getattr(self, 'fcst_start', None) is not None
+                    )
+                    gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.daSec, self.run_type, shift_troute_start)
 
                     if m1 != 'troute':
                         logger.info(f'{m1}: input config files created at: {mod_input_dir}')

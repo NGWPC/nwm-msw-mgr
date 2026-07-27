@@ -1685,7 +1685,8 @@ def create_troute_config(
         rt_cfg_file: Union[str, Path],
         run_configs: List[str],
         da_sec: dict,
-        run_type: str
+        run_type: str,
+        shift_troute_start: bool = False,
 ) -> None:
     """ Create routing configuration YAML file
 
@@ -1697,6 +1698,10 @@ def create_troute_config(
     run_configs: list of file name suffixes for varying run types
     da_sec: dictionary containing data assimilation inputs
     run_type: type of run (calib, regionalization, or default)
+    shift_troute_start: if True, subtract 1 hour from ngen's start time to set troute's start time. Set to
+        True only for default/regionalization rns using realtime forcing, where ngen's start time is shifted forward 1 hour
+        by create_fcst_times. False for calibration and for default/regionalization runs using nwm/aorc forcing, where ngen
+        and troute share the same unshifted start time.
 
     Returns
     ----------
@@ -1774,6 +1779,13 @@ def create_troute_config(
         nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
         max_loop_size = divmod(nts * 300, 3600)[0] + 1
 
+        # Troute's output timestamp trails ngen's output time by a fixed hour. For calibration and
+        # default/regionalization runs using historical forcing (nwm/aorc), ngen's own start time is
+        # unshifted, so troute starts at that same time. For default/regionalization runs on realtime forcing,
+        # ngen's start time is shifted +1h (create_fcst_times), but troute must start 1h before it so that states
+        # can be transferred between runs.
+        troute_start_time = run_range[0] - pd.Timedelta(hours=1) if shift_troute_start else run_range[0]
+
         # Set compute parameters
         comp_param = {
             "parallel_compute_method": "by-subnetwork-jit-clustered",
@@ -1782,7 +1794,7 @@ def create_troute_config(
             "subnetwork_target_size": 10000,
             "cpu_pool": 16,  # TODO: Should this be set from info in the Parallel section?
             "restart_parameters": {
-                "start_datetime": time_period['run_time_period'][run_name][0]
+                "start_datetime": str(troute_start_time),
             },
             "forcing_parameters": {
                 "qts_subdivisions": 12,
