@@ -1704,9 +1704,12 @@ class RealizationBuilder:
                 elif m1 == 'troute':
                     routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
                     # Shift troute start back one hour for realtime forecast forcing so that troute and ngen produce outputs at the same timestep
+                    # Don't shift troute start for AnA runs
+                    ana_flag = self.forcing_template.get('AnAFlag', 0) if hasattr(self, 'forcing_templates') else 0
                     shift_troute_start = (
-                        self.run_type in ('default', 'regionalization')
-                        and getattr(self, 'fcst_start', None) is not None
+                        self.run_type in ('default', 'regionalization') and
+                        getattr(self, 'fcst_start', None) is not None and
+                        ana_flag == 0
                     )
                     gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.daSec, self.run_type, shift_troute_start)
 
