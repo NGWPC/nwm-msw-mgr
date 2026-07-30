@@ -1695,7 +1695,7 @@ class RealizationBuilder:
                     else:
                         gfun.create_sft_smp_input(cat_mod, mods_to_pass, self.divides_df, sft_dir, smp_dir, self.run_type,
                                                   self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
-                elif m1 == 'smp':
+                elif m1 == 'smp':f
                     pass
                 elif m1 == 'lasam':
                     gfun.create_lasam_input(cat_mod, mods_to_pass, self.divides_df, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
@@ -1704,9 +1704,12 @@ class RealizationBuilder:
                 elif m1 == 'troute':
                     routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
                     # Shift troute start back one hour for realtime forecast forcing so that troute and ngen produce outputs at the same timestep
+                    # Don't shift troute start for AnA runs
+                    ana_flag = self.forcing_template.get('AnAFlag', 0) if hasattr(self, 'forcing_templates') else 0
                     shift_troute_start = (
-                        self.run_type in ('default', 'regionalization')
-                        and getattr(self, 'fcst_start', None) is not None
+                        self.run_type in ('default', 'regionalization') and
+                        getattr(self, 'fcst_start', None) is not None and
+                        ana_flag == 0
                     )
                     gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.daSec, self.run_type, shift_troute_start)
 
