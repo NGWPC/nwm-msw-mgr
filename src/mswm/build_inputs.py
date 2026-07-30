@@ -1695,7 +1695,7 @@ class RealizationBuilder:
                     else:
                         gfun.create_sft_smp_input(cat_mod, mods_to_pass, self.divides_df, sft_dir, smp_dir, self.run_type,
                                                   self.output_dict['sm_frac_depth'], self.output_dict['sm_profile_depth'])
-                elif m1 == 'smp':f
+                elif m1 == 'smp':
                     pass
                 elif m1 == 'lasam':
                     gfun.create_lasam_input(cat_mod, mods_to_pass, self.divides_df, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
