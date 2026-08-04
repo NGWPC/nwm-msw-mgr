@@ -5,23 +5,23 @@ This module contains a variety of functions to create different input files.
 """
 
 import copy
-import logging
 import datetime
 import ewts
+import geopandas as gpd
+import httpx
 import json
-import os
+import logging
 import math
+import os
+import pandas as pd
+import pyogrio
+import shapely
 import subprocess
+import yaml
 from ambiance import Atmosphere
+from collections import OrderedDict
 from pathlib import Path
 from typing import List, Union, Dict, Any, Tuple
-from collections import OrderedDict
-import geopandas as gpd
-import shapely
-import pyogrio
-import pandas as pd
-import yaml
-import httpx
 
 from mswm.utils import settings
 from mswm.utils.default_attrs import DEFAULT_ATTRS
@@ -134,20 +134,44 @@ def call_icefabric_gpkg(
         environment: str,
         source: str,
 ) -> str:
-    """ Query icefabric API for geopackage
+    """
+    Retrieve a GeoPackage from the Icefabric API and save it locally.
 
     Parameters
     ----------
-    basin: basin name string
-    subset_type: subset type string ('gage' or 'vpu')
-    domain: domain name string (conus, ak, hi, prvi)
-    output_dir: location to save gpkg
-    environment: environment for icefabric API ('test' or 'oe')
-    source: hydrofabric version ('hf' or 'nhf')
+    basin
+        Basin identifier.
+    subset_type
+        Subset type: ``gage`` or ``vpu``.
+    domain
+        Domain name, such as ``conus``, ``ak``, ``hi``, or ``prvi``.
+    output_dir
+        Directory in which to save the downloaded GeoPackage.
+    environment
+        Icefabric API environment: ``test`` or ``oe``.
+    source
+        Hydrofabric source: ``hf`` or ``nhf``.
 
     Returns
-    ----------
-    dictionary of initial parameter estimates
+    -------
+    str
+        Path to the downloaded GeoPackage.
+
+    Raises
+    ------
+    ValueError
+        If ``subset_type``, ``source``, or ``environment`` is invalid.
+    httpx.ConnectTimeout
+        If a connection to the Icefabric API cannot be established within
+        the configured timeout.
+    httpx.TimeoutException
+        If another HTTP timeout occurs while making the request.
+    httpx.HTTPStatusError
+        If the Icefabric API returns an unsuccessful HTTP status.
+    httpx.RequestError
+        If another HTTP transport error occurs.
+    OSError
+        If the GeoPackage cannot be written to disk.
     """
 
     # Check for VPU or gage subset_type
@@ -158,50 +182,144 @@ def call_icefabric_gpkg(
         id_type = 'gage_id'
         file_prefix = 'gauge_'
     else:
-        raise ValueError(f"Invalid subset_type: '{subset_type}'. Valid options are 'gage' and 'vpu'")
+        raise ValueError(
+            f"Invalid subset_type: '{subset_type}'. "
+            "Valid options are 'gage' and 'vpu'"
+        )
 
-    # Check source value
+    # Validate the hydrofabric source before making the request.
     if source not in ('hf', 'nhf'):
-        raise ValueError(f"Invalid source: '{source}'. Valid options are 'hf' and 'nhf'")
+        raise ValueError(
+            f"Invalid source: '{source}'. "
+            "Valid options are 'hf' and 'nhf'"
+        )
 
-    # Check environment value
-    if environment not in ('test', 'oe'):
-        raise ValueError(f"Invalid environment: '{environment}'. Valid options are 'test' and 'oe'")
-
-    # Set base endpoint
+    # Select the Icefabric endpoint for the configured environment.
     if environment == 'test':
-        url = f"http://edfs.test.nextgenwaterprediction.com/api/v1/hydrofabric/{basin}/gpkg"
+        url = (
+            "http://edfs.test.nextgenwaterprediction.com"
+            f"/api/v1/hydrofabric/{basin}/gpkg"
+        )
     elif environment == 'oe':
-        url = f"https://edfs.oe.nextgenwaterprediction.com/api/v1/hydrofabric/{basin}/gpkg"
+        url = (
+            "https://edfs.oe.nextgenwaterprediction.com"
+            f"/api/v1/hydrofabric/{basin}/gpkg"
+        )
+    else:
+        raise ValueError(
+            f"Invalid environment: '{environment}'. "
+            "Valid options are 'test' and 'oe'"
+        )
 
     # Build query parameters
-    params = {"id_type": id_type,
-              "source": source,
-              "domain": domain,
-              }
+    params = {
+        "id_type": id_type,
+        "source": source,
+        "domain": domain,
+    }
 
     # Set output file path
     gpkg_fp = os.path.join(output_dir, f"{file_prefix}{basin}.gpkg")
 
-    # Call icefabric API endpoint to save geopackage
+    # Call Icefabric API endpoint and save the returned geopackage.
     try:
+        # Log the destination before making the request so connection
+        # failures identify the exact service and parameters involved.
+        print(
+            "Requesting Icefabric geopackage: "
+            f"basin={basin} "
+            f"subset_type={subset_type} "
+            f"domain={domain} "
+            f"source={source} "
+            f"environment={environment} "
+            f"url={url} "
+            f"params={params}"
+        )
+
+        # httpx.get() reads the complete response body before returning.
+        # The client can therefore be closed before the content is written.
         with httpx.Client(timeout=60.0) as client:
             resp = client.get(url, params=params)
             resp.raise_for_status()
-            with open(gpkg_fp, "wb") as f:
-                f.write(resp.content)
-            print(f"Saved geopackage file from Icefabric API to {gpkg_fp}")
-    except httpx.TimeoutException as e:
-        print(f"Icefabric API call timed out for {basin} gpkg. Request URL: {url}, params: {params}, {e}")
+
+        with open(gpkg_fp, "wb") as f:
+            f.write(resp.content)
+
+        print(
+            "Saved Icefabric geopackage: "
+            f"basin={basin} "
+            f"path={gpkg_fp} "
+            f"bytes={len(resp.content)}"
+        )
+
+    except httpx.ConnectTimeout as exc:
+        # A connection to the service could not be established within the configured imeout.
+        print(
+            "Timed out connecting to Icefabric API: "
+            f"basin={basin} "
+            f"environment={environment} "
+            f"url={url} "
+            f"params={params} "
+            f"timeout=60s "
+            f"error={exc}"
+        )
         raise
-    except httpx.HTTPStatusError as e:
-        print(f"Icefabric API call {basin} gpkg failed. Request URL: {url}, params: {params}, {e}")
+
+    except httpx.TimeoutException as exc:
+        # Catch other timeout types, such as read, write, or pool timeouts.
+        # ConnectTimeout is handled separately above because it usually
+        # indicates a DNS, routing, security-group, or service-access issue.
+        print(
+            "Icefabric API request timed out: "
+            f"basin={basin} "
+            f"environment={environment} "
+            f"url={url} "
+            f"params={params} "
+            f"timeout_type={type(exc).__name__} "
+            f"timeout=60s "
+            f"error={exc}"
+        )
         raise
-    except ValueError:
-        print(f"Icefabric API call did not return valid results for gpkg: {basin}.")
+
+    except httpx.HTTPStatusError as exc:
+        # The service was reached but returned a non-successful HTTP status.
+        response = exc.response
+
+        print(
+            "Icefabric API returned an HTTP error: "
+            f"basin={basin} "
+            f"environment={environment} "
+            f"url={url} "
+            f"params={params} "
+            f"status_code={response.status_code} "
+            f"response={response.text[:1000]!r}"
+        )
         raise
-    except (OSError, IOError) as e:
-        print(f"Failed to write gpkg file: {e}")
+
+    except httpx.RequestError as exc:
+        # Catch remaining HTTPX transport failures, including DNS,
+        # protocol, proxy, and connection errors other than timeouts.
+        print(
+            "Icefabric API request failed: "
+            f"basin={basin} "
+            f"environment={environment} "
+            f"url={url} "
+            f"params={params} "
+            f"error_type={type(exc).__name__} "
+            f"error={exc}"
+        )
+        raise
+
+    except OSError as exc:
+        # This normally indicates a local filesystem problem while writing
+        # the downloaded GeoPackage.
+        print(
+            "Failed to write Icefabric geopackage: "
+            f"basin={basin} "
+            f"path={gpkg_fp} "
+            f"error_type={type(exc).__name__} "
+            f"error={exc}"
+        )
         raise
 
     # Return output gpkg path
@@ -756,7 +874,6 @@ def create_snow17_input(
     ]
 
     for catID in catids:
-
         # Get catchment attributes
         cat_attrs = divides_df.loc[catID]
 
@@ -1019,12 +1136,11 @@ def create_sac_input(
 
 
 def update_lstm_parameters(
-    input_config_path: str,
-    output_dir: str,
-    params_to_remove=None,
-    params_to_update=None
+        input_config_path: str,
+        output_dir: str,
+        params_to_remove=None,
+        params_to_update=None
 ) -> None:
-
     """
     Reads a YAML config file, removes specified parameters, updates others,
     and writes the result to a new config.yaml in a given output directory.
@@ -1087,7 +1203,6 @@ def update_lstm_parameters(
 
 
 def create_symlinks(src_file_list, src_dir, dst_dir):
-
     missing_input_files = list()
 
     for data_file in src_file_list:
@@ -1186,7 +1301,6 @@ def create_lstm_input(
         param_dir_source: Union[str, Path],
         lstm_input_dir: Union[str, Path],
 ) -> None:
-
     """
     Create BMI configuration file for LSTM from existing EDFS files
     Parameters
@@ -1298,7 +1412,6 @@ def create_pet_input(
                    'shortwave_radiation_provided=1']
 
     for catID in catids:
-
         # Get catchment attributes
         cat_attrs = divides_df.loc[catID]
 
@@ -1954,8 +2067,8 @@ class NoForcingProductVersionMatchError(Exception):
 
 
 def get_forcing_dir_path_override(
-    forcing_dir_path_provided: str,
-    forcing_product_versions: dict[str, list[str, str]],
+        forcing_dir_path_provided: str,
+        forcing_product_versions: dict[str, list[str, str]],
 ) -> tuple[str | None, Exception | None]:
     """
     Inspect the provided forcing directory path and return a copy of it
@@ -2002,9 +2115,9 @@ def get_forcing_dir_path_override(
 
 
 def adjust_forcing_config_for_wcoss(
-    forcing_template: dict[str, str],
-    scratch_dir_override: str | None = None,
-    forcing_product_versions: dict[str, str] | None = None,
+        forcing_template: dict[str, str],
+        scratch_dir_override: str | None = None,
+        forcing_product_versions: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Adjust the forcing config dictionary for WCOSS use case, if the optional parameters are provided.
 
