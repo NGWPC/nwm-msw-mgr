@@ -2113,6 +2113,7 @@ def update_fcst_forcing_config(
         fcst_lookback: int = None,
         scratch_dir_override: str | None = None,
         forcing_product_versions: dict[str, str] | None = None,
+        forcing_configuration: str | None = None,
 ) -> None:
     """ update bmi forcing engine config yaml file for forecast forcing
 
@@ -2134,6 +2135,7 @@ def update_fcst_forcing_config(
     fcst_lookback : lookback time in hours of forecast configuration following cold start
     scratch_dir_override (optional) : if provided, replaces entire value of key ScratchDir
     forcing_product_versions (optional) : see function update_fcst_config_for_wcoss
+    forcing_configuration: name of forecast forcing configuration. Used to detected Alaska short range cycles
 
     Returns
     ----------
@@ -2148,7 +2150,6 @@ def update_fcst_forcing_config(
     # Format cycle_date and hour for config file
     initial_cycle_dt = datetime.datetime.strptime(cycle_date, "%Y-%m-%d").replace(hour=int(cycle_hour.replace("z", "")))
     cycle_dt = initial_cycle_dt + datetime.timedelta(hours=hind_cycle) - datetime.timedelta(hours=forcing_lag)
-    cycle_str = cycle_dt.strftime('%Y%m%d%H%M')
 
     # Set lookback minutes for cold start period
     if use_cold_start:
@@ -2173,7 +2174,18 @@ def update_fcst_forcing_config(
     if ana_flag:
         forcing_template['RefcstBDateProc'] = (cycle_dt - datetime.timedelta(hours=fcst_lookback) - datetime.timedelta(hours=1)).strftime('%Y%m%d%H%M')
     else:
-        forcing_template['RefcstBDateProc'] = cycle_str
+        # Alaska short range / short range extended must be offset by 3 hours due to spin-up issues in HRRR-AK forcing source
+        # A 03z AK SR forecast will use forcing from 00z instead
+        is_alaska_sr = (
+            forcing_configuration is not None and 'alaska' in forcing_configuration and 'short_range' in forcing_configuration
+        )
+        refcst_cycle_dt = cycle_dt - datetime.timedelta(hours=3) if is_alaska_sr else cycle_dt
+        if is_alaska_sr:
+            logger.info(
+                f"Alaska short range forcing configuration '{forcing_configuration}' detected. "
+                f"Shifting forcing start time back 3 hours: {cycle_dt} -> {refcst_cycle_dt}."
+            )
+        forcing_template['RefcstBDateProc'] = refcst_cycle_dt.strftime('%Y%m%d%H%M')
     forcing_template['Geopackage'] = gpkg_file
 
     forcing_template = adjust_forcing_config_for_wcoss(

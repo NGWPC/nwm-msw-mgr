@@ -1474,6 +1474,7 @@ class RealizationBuilder:
                                                 self.forcing_lag, self.cold_start_datetime, self.fcst_lookback,
                                                 scratch_dir_override=self.scratch_dir_override,
                                                 forcing_product_versions=self.forcing_product_versions,
+                                                forcing_configuration=self.forcing_configuration,
                                                 )
             else:
                 # Update historical dynamic parameters in forcing engine configuration file
