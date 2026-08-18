@@ -7,7 +7,7 @@ This module contains Pydantic classes to validate input.config files for the MSW
 from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
 from pydantic_core.core_schema import ValidationInfo
 from pathlib import Path
-from typing import Optional, Literal, Union, ClassVar
+from typing import Optional, Literal, Union, ClassVar, List
 
 
 class StrictBaseModel(BaseModel):
@@ -151,6 +151,7 @@ class NWMOutputConfig(StrictBaseModel):
     Input.config NWM output variables section requirement
     """
     nwm_output_variables: Optional[Union[int, bool, str]] = None
+    output_format: Optional[Union[str, List[str]]] = Field(default=["CSV"])
 
     # Normalize nwm_output_variables values
     @field_validator('nwm_output_variables')
@@ -162,6 +163,21 @@ class NWMOutputConfig(StrictBaseModel):
         if val in ('0', 0, False, "false", "False"):
             return False
         raise ValueError(f"Invalid value set for nwm_output_variables: {val}")
+
+    @field_validator('output_format')
+    def norm_output_format(cls, val):
+        if val is None:
+            return None
+        valid = {"csv": "CSV", "netcdf": "NetCDF"}
+        if isinstance(val, str):
+            values = [v.strip() for v in val.split(",")]
+        else:
+            values = val
+        normalized = [v.lower() for v in values]
+        invalid = [v for v in normalized if v not in valid]
+        if invalid:
+            raise ValueError(f"Invalid output_format value(s): {invalid}. Must be 'CSV' or 'NetCDF'")
+        return [valid[v] for v in normalized]
 
 
 class RegionConfig(StrictBaseModel):
@@ -202,11 +218,15 @@ class CalibConfig(StrictBaseModel):
     save_output_iter: Optional[int] = None
     save_plot_iter: Optional[int] = None
     save_plot_iter_freq: Optional[int] = None
-    streamflow_threshold: Optional[float] = None
+    threshold_categorical: Optional[float] = None
+    threshold_categorical_type: Optional[Literal["quantile", "absolute"]] = "quantile"
+    threshold_event: Optional[float] = None
+    threshold_event_type: Optional[Literal["quantile", "absolute"]] = "quantile"
     station_name: Optional[str] = None
     ngen_cerf: bool
     calibration_run_id: Optional[int] = None
     auth_token: Optional[str] = None
+    ngencerf_base_url: Optional[str] = None
     user_email: Optional[str] = None
     calib_parameter_file: Optional[str] = None
 
@@ -275,6 +295,10 @@ class ForcingConfig(StrictBaseModel):
     # For WCOSS paths
     scratch_dir_override: Optional[str] = None
     forcing_product_versions: Optional[dict[str, list[str]]] = None
+    # Optional override of the forcing template `LookBack` (minutes). When set,
+    # replaces the `LookBack` value read from the forcing template yaml, which
+    # controls the analysis (AnA) simulation window. Ignored when None.
+    lookback: Optional[int] = None
 
     # Check optional fields that depend on forcing_provider
     @model_validator(mode="after")
@@ -319,7 +343,6 @@ class DataFileConfig(StrictBaseModel):
     ueb_parameter_dir: Optional[str] = None
     lasam_parameter_dir: Optional[str] = None
     lstm_parameter_dir: Optional[str] = None
-    attributes_file: Optional[str] = None
     ngen_exe_file: Optional[str] = None
     sloth_lib: Optional[str] = None
     cfe_lib: Optional[str] = None
@@ -332,6 +355,23 @@ class DataFileConfig(StrictBaseModel):
     snow_17_lib: Optional[str] = None
     topmodel_lib: Optional[str] = None
     ueb_lib: Optional[str] = None
+
+
+class DataAssimilationConfig(StrictBaseModel):
+    """
+    Input.config DataAssimilation section requirement
+    """
+    reservoir_da: bool = False
+    reservoir_rfc_dir: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_reservoir_rfc_dir(self):
+        if self.reservoir_da:
+            if not self.reservoir_rfc_dir:
+                raise ValueError("reservoir_da is True, but reservoir_rfc_dir was not provided")
+            if not Path(self.reservoir_rfc_dir).exists():
+                raise ValueError(f"reservoir_rfc_dir does not exist: {self.reservoir_rfc_dir}")
+        return self
 
 
 class ParallelConfig(StrictBaseModel):
@@ -354,6 +394,7 @@ class InputConfig(StrictBaseModel):
     Calibration: Optional[CalibConfig] = None
     Forcing: Optional[ForcingConfig] = None
     DataFile: Optional[DataFileConfig] = None
+    DataAssimilation: Optional[DataAssimilationConfig] = None
     Parallel: Optional[ParallelConfig] = None
 
     # Check optional sections are present

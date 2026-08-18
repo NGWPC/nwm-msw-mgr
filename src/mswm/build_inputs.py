@@ -19,11 +19,14 @@ import yaml
 from collections import defaultdict
 from pydantic import ValidationError, validate_call
 
+from ewts.modules import ModuleKey
+
 from mswm.utils import ginputfunc as gfun
 from mswm.utils import settings
 from mswm.utils.input_configuration import InputConfig
 from mswm.utils.nwm_output_variables import get_providers_for_formulation
 
+MODNM = ModuleKey.MSW_MGR.value
 
 # Initialize MSWM setup logger
 main_logger = logging.getLogger()
@@ -60,8 +63,8 @@ class RealizationBuilder:
 
     def __init__(self, input_path: str | None = None, valid_yaml: str | None = None, use_cold_start: bool = False, use_warm_start: bool = False,
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
-                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False,
-                 config_overrides: InputConfig | None = None):
+                 lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, save_state_dir: str | None = None, checkpoint_dir: str | None = None,
+                 checkpoint_interval: int | None = None, src_run_path: str | None = None, dst_run_path: str | None = None, config_overrides: InputConfig | None = None):
 
         # Private attributes controlled by public properties.
         self._config_overrides: InputConfig | None
@@ -95,8 +98,13 @@ class RealizationBuilder:
         self.prev_hind_cycle = prev_hind_cycle if prev_hind_cycle else 0
         self.load_state_from = Path(load_state_from) if load_state_from else None
         self.save_state = save_state
+        self.checkpoint_interval = checkpoint_interval if checkpoint_interval else None
         self.lagged_ens_mem = lagged_ens_mem if lagged_ens_mem else None
         self.forcing_lag = forcing_lag if forcing_lag else 0
+        self.src_run_path = Path(src_run_path) if src_run_path else None
+        self.dst_run_path = Path(dst_run_path) if dst_run_path else None
+        self.save_state_dir = Path(save_state_dir) if save_state_dir else None
+        self.checkpoint_dir = Path(checkpoint_dir) if checkpoint_dir else None
 
         # Validate optional forecast flags
         fcst_modes = sum([self.use_cold_start, self.use_warm_start, self.use_hindcast, self.use_lagged_ens])
@@ -406,7 +414,7 @@ class RealizationBuilder:
         if not cat_req_columns.issubset(self.cat_grp_df.columns):
             missing_cols = cat_req_columns - set(self.cat_grp_df.columns)
             try:
-                raise ValueError(f"Regionalization formulation file is missing required columns: {missing_cols}")
+                raise ValueError(f"Regionalization catchment group file is missing required columns: {missing_cols}")
             except ValueError as e:
                 logger.critical(e)
                 raise
@@ -438,10 +446,10 @@ class RealizationBuilder:
         params_dict = {
             'cfes': ['b', 'satdk', 'satpsi', 'slope',
                      'maxsmc', 'wltsmc', 'max_gw_storage', 'Cgw', 'expon',
-                     'refkdt', 'Kn', 'Klf', 'is_aet_rootzone'],
+                     'refkdt', 'Kn', 'Klf'],
             'cfex': ['b', 'satdk', 'satpsi', 'slope',
                      'maxsmc', 'wltsmc', 'max_gw_storage', 'Cgw', 'expon',
-                     'refkdt', 'Kn', 'Klf', 'is_aet_rootzone', 'a_Xinanjiang_inflection_point_parameter',
+                     'refkdt', 'Kn', 'Klf', 'a_Xinanjiang_inflection_point_parameter',
                      'b_Xinanjiang_shape_parameter', 'x_Xinanjiang_shape_parameter'],
             'lasam': ['ponded_depth_max', 'field_capacity', 'smcmin', 'smcmax', 'van_genuchten_alpha', 'van_genuchten_n', 'hydraulic_conductivity'],
             'noah': ['RSURF_EXP', 'CWP', 'VCMX25', 'MP', 'MFSNO', 'RSURF_SNOW', 'SCAMAX'],
@@ -511,6 +519,7 @@ class RealizationBuilder:
         # Retrieve NWM output variable inputs
         self.nwm_output_sec = self.input_configs.get("NWMOutput")
         self.output_nwm_vars = self.nwm_output_sec.get('nwm_output_variables') if self.nwm_output_sec else False
+        self.output_format = self.nwm_output_sec.get('output_format') if self.nwm_output_sec else ['CSV']
 
         # Load run_type specific config section or empty dict for default
         run_key = (self.run_type or "").capitalize()
@@ -520,11 +529,8 @@ class RealizationBuilder:
         # Retrieve input.config sections
         self.conf3 = self.input_configs.get('DataFile')
         self.forcingSec = self.input_configs.get('Forcing')
+        self.daSec = self.input_configs.get('DataAssimilation')
         self.parallelSec = self.input_configs.get('Parallel')
-
-        # Use parallel ngen only when the number of processors is greater than 1
-        if not self.parallelSec or self.parallelSec.get("nprocs", 0) < 2:
-            self.parallelSec = None
 
     def _load_realization(self):
         """
@@ -651,7 +657,12 @@ class RealizationBuilder:
             run_dir = os.path.join(self.conf1['main_dir'], 'default')
 
         # Form input directory paths
-        self.work_dir = os.path.join(run_dir, self.conf1['formulation'] + '/' + self.basin)
+        self.work_dir = os.path.join(run_dir, self.conf1['formulation'], self.basin)
+
+        # Adjust work_dir for default/regionalization lagged ensemble runs
+        if self.use_lagged_ens and self.lagged_ens_mem:
+            self.work_dir = os.path.join(self.work_dir, f"lagged_ens_{self.lagged_ens_mem}")
+
         self.input_dir = os.path.join(self.work_dir, 'Input/')
 
         # Create directory
@@ -663,29 +674,79 @@ class RealizationBuilder:
 
         main_logger.info(f"Input directory created at: {self.input_dir}")
 
+    @property
+    def safe_run_type(self) -> str:
+        """Run type string sanitized for building a log file name"""
+        run_type = getattr(self, 'run_type', None)
+        if not run_type:
+            return None
+        return re.sub(r"[^A-Za-z0-9._-]", "_", self.run_type)
+
+    @property
+    def log_file_path(self) -> str:
+        """Log file path"""
+        log_path = os.path.join(self.work_dir, "logs")
+        run_type = self.safe_run_type
+        log_file_name = f"msw_mgr_{run_type}.log" if run_type else "msw_mgr.log"
+        return os.path.join(log_path, log_file_name)
+
     def _init_log(self):
         """
         Initialize logging depending on run type
         """
-        # Set location for msw-mgr log
-        log_path = os.path.join(self.work_dir, 'logs')
-        safe_run_type = re.sub(r"[^A-Za-z0-9._-]", "_", self.run_type)
+        log_dir, log_file_name = os.path.split(self.log_file_path)
+
+        # Create logs directory if it does not exist
+        os.makedirs(log_dir, exist_ok=True)
 
         # Initialize logging
         global logger
-        ewts.logger.reset_logger(ewts.MSW_MGR_ID)
         logger = ewts.logger.setup_logger(
             ewts.MSW_MGR_ID,
             level="INFO",
-            log_dir=log_path,
-            log_file_name=f"msw_mgr_{safe_run_type}.log",
+            log_dir=log_dir,
+            log_file_name=log_file_name,
             running_in_ngen=False,
             enabled=True,
-            bind_now=True,
         )
 
         gfun.init_ginput_logger()
-        logger.info(f"Building {self.run_type} realization from: {self.input_path}")
+        logger.status(ewts.Payload(ewts.Status.INITTED, modnm=MODNM))
+        logger.info(f"Building realization from: {self.input_path}")
+
+    def _parse_gpkg_from_input(self):
+        """
+        Find geopackage file in input directory and set gpkg_cats and gpkg_nexus paths
+        This assumes the run folder has a gpkg in the /Input/ directory
+        """
+        gpkg_files = list(Path(self.input_dir).glob("*.gpkg"))
+        if not gpkg_files:
+            err = f"No geopackage file found in the input directory: {self.input_dir}"
+            logger.critical(err)
+            raise FileNotFoundError(err)
+        if len(gpkg_files) > 1:
+            err = f"Multiple geopackage files found in the input directory: {self.input_dir}"
+            logger.critical(err)
+            raise ValueError(err)
+        self.gpkg_cats = str(gpkg_files[0])
+        self.gpkg_nexus = str(gpkg_files[0])
+        logger.info(f"Geopackage file found: {self.gpkg_cats}")
+
+    def _find_realization_file(self):
+        """
+        Find realization file in work directory and set real_input_file path
+        """
+        realization_files = list(self.work_dir.rglob("*realization*.json"))
+        if not realization_files:
+            err = f"No realization file found in destination folder: {self.work_dir}"
+            logger.critical(err)
+            raise FileNotFoundError(err)
+        if len(realization_files) > 1:
+            err = f"Multiple realization files found in the destination directory: {self.work_dir}"
+            logger.critical(err)
+            raise ValueError(err)
+        self.real_input_file = realization_files[0]
+        logger.info(f"Realization file found: {self.real_input_file}")
 
     def _parse_forcing_engine(self):
         """
@@ -701,6 +762,9 @@ class RealizationBuilder:
         self.forcing_product_versions = self.forcingSec.get(
             "forcing_product_versions", None
         )
+        # Optional override of forcing template `LookBack` (minutes). Applied
+        # after the template is loaded, below. None means use the template value.
+        self.lookback = self.forcingSec.get("lookback", None)
 
         # Raise error if forecast or cold start is run with CSV provider
         if self.forcing_provider == 'csv' and self.run_type in ('forecast', 'cold_start'):
@@ -735,7 +799,7 @@ class RealizationBuilder:
                 elif self.use_lagged_ens:
                     # Check that use_lagged_ens is only used with medium_range configuration
                     if self.forcing_configuration != "medium_range":
-                        msg = f"Lagged ensemble run must use medium range forcing configuration. {self.forcing_configuration} configuration cannot be used for a lagged ensemble."
+                        msg = f"Lagged ensemble run must use `medium_range` forcing configuration. {self.forcing_configuration} configuration cannot be used for a lagged ensemble."
                         logger.critical(msg)
                         raise ValueError(msg)
                     self.forcing_configuration_str = f"{self.forcing_configuration}_{self.lagged_ens_mem}_config.yml"
@@ -789,6 +853,12 @@ class RealizationBuilder:
             except Exception as e:
                 logger.critical(f"Unexpected error loading config at: {self.forcing_template_file}\n{e}")
                 raise
+
+            # Apply optional LookBack override (minutes) from the [Forcing] config.
+            # Overrides the template value used to compute the AnA simulation window.
+            if self.lookback is not None:
+                logger.info(f"Overriding forcing template LookBack: {self.forcing_template.get('LookBack')} -> {self.lookback} (minutes)")
+                self.forcing_template['LookBack'] = self.lookback
 
             if self.forcing_configuration not in ['nwm', 'aorc']:
                 # Retrieve ngen start and end time based on forecast cycle date, hour and configuration
@@ -948,11 +1018,33 @@ class RealizationBuilder:
             logger.critical(f"Error while reading geopackage file: {e}")
             raise
 
-        # Modify divides_df to set values of b, smcmax, satpsi values and set to defaults if they equal 0
-        # Remove code after EDFS fixes NHF attributes
-        self.divides_df.loc[self.divides_df['smcmax_mean'] == 0, 'smcmax_mean'] = 0.48
-        self.divides_df.loc[self.divides_df['psisat_geomean'] == 0, 'psisat_geomean'] = 0.163
-        self.divides_df.loc[self.divides_df['bexp_mode'] == 0, 'bexp_mode'] = 7.272
+        # Fill NaN attribute values in divides layer with default values
+        self.divides_df = gfun.fill_divides_nan(self.divides_df)
+
+    def _adjust_parallel_procs(self):
+        """
+        Adjust the number of parallel processes based on catchment count.
+        Disables parallel if nprocs < 2, ncatchments == 1, or parallelSec not set.
+        Reduces nprocs to ncatchments if nprocs > ncatchments.
+        """
+        # Use parallel ngen only when the number of processors is greater than 1
+        if not self.parallelSec or self.parallelSec.get("nprocs", 0) < 2:
+            self.parallelSec = None
+            return
+
+        nprocs = int(self.parallelSec.get("nprocs", 1))
+        ncats = len(self.catids)
+
+        if ncats == 1:
+            logger.warning("Only 1 catchment in gpkg; disabling parallel ngen.")
+            self.parallelSec = None
+        elif nprocs > ncats:
+            logger.warning(f"Number of processors {nprocs} exceeds the number of divides; reducing nprocs to {ncats}.")
+            self.parallelSec["nprocs"] = ncats
+
+        # Relay nprocs change back to input_configs
+        if self.input_configs.get("Parallel"):
+            self.input_configs["Parallel"]["nprocs"] = self.parallelSec["nprocs"] if self.parallelSec else 1
 
     def _parse_modules(self):
         """
@@ -1026,6 +1118,16 @@ class RealizationBuilder:
 
             # Retrieve list of catchments where glaciated percent >= 50
             glacier_thresh = 50
+
+            if 'glacier_percent' not in self.divides_df.columns:
+                try:
+                    raise ValueError("'glacier_percent' column not found in geopackage divides layer. Cannot safely assign Topoflow-Glacier.")
+                except ValueError as e:
+                    logger.critical(e)
+                    raise
+
+            self.divides_df['glacier_percent'] = self.divides_df['glacier_percent'].fillna(0)
+
             topo_cats = self.divides_df[self.divides_df['glacier_percent'] >= glacier_thresh].index.tolist()
             nontopo_cats = self.divides_df[self.divides_df['glacier_percent'] < glacier_thresh].index.tolist()
 
@@ -1039,19 +1141,30 @@ class RealizationBuilder:
                 # Create grouped realizations if glaciated catchments exist
                 mod_notopo = self.modules.copy()
                 mod_notopo.remove('topoflow-glacier')
-                self.grp_to_form = {}
-                self.grp_to_form['group_1'] = mod_notopo
-                self.grp_to_form['group_2'] = ['topoflow-glacier']
+                self.grp_to_form = {
+                    'group_1': mod_notopo,
+                    'group_2': ['topoflow-glacier']
+                }
 
-                self.grp_to_cat = {'group_1': topo_cats,
-                                   'group_2': nontopo_cats}
+                self.grp_to_cat = {'group_1': nontopo_cats,
+                                   'group_2': topo_cats}
 
                 # If CFE in modules, retrieve is_aet_rootzone flag
-                self.grp_aet_rootzone = {}
-                self.grp_aet_rootzone['group_1'] = self.aet_rootzone
-                self.grp_aet_rootzone['group_2'] = 0
+                self.grp_aet_rootzone = {
+                    'group_1': self.aet_rootzone,
+                    'group_2': 0
+                }
 
-                logger.info(f"Final list of modules in formulation: 'group1': {mod_notopo}, 'group2': ['topoflow-glacier']")
+                # Check for unassigned catchments
+                unassigned_cats = set(self.catids) - set(topo_cats) - set(nontopo_cats)
+                if unassigned_cats:
+                    try:
+                        raise ValueError(f"{len(unassigned_cats)} catchment(s) not assigned to any group: {unassigned_cats}")
+                    except ValueError as e:
+                        logger.critical(e)
+                        raise
+
+                logger.info(f"Final list of modules in formulation: 'group_1': {mod_notopo}, 'group_2': ['topoflow-glacier']")
 
     def _parse_reg_modules(self):
         """
@@ -1401,7 +1514,7 @@ class RealizationBuilder:
         self.output_dict = dict()
         for s1 in ['output_swe', 'output_sm', 'output_precip']:
             if self.output_nwm_vars:
-                self.output_dict[s1] = True
+                self.output_dict[s1] = True if s1 == 'output_precip' else False
             elif (s1 not in self.conf1.keys()) or (self.conf1[s1] is None) or (self.conf1[s1] == ''):
                 # Default output_precip to True if not specified
                 self.output_dict[s1] = True if s1 == 'output_precip' else False
@@ -1425,6 +1538,24 @@ class RealizationBuilder:
         self.valid_output_vars = True if self.valid_output_vars is None else self.valid_output_vars
 
         logger.info("Set output variables")
+
+    def _update_fcst_realization(self):
+        """
+        Update forcing and time related info in realization file
+        Add NWM Output variable sections to realization if requested
+        """
+        self.real_config = gfun.update_realization_fcst(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.output_format)
+        logger.info("Updated forecast realization file forcing and output format")
+
+        if self.output_nwm_vars:
+            self._apply_nwm_output_vars()
+
+    def _update_fcst_troute(self):
+        """
+        Update BMI config files for t-route for forecast period
+        """
+        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt, self.daSec)
+        logger.info("Updated t-route file for forecast")
 
     def _create_bmi_configs(self, is_regionalization: bool = False):
         """
@@ -1527,7 +1658,7 @@ class RealizationBuilder:
                 elif m1 == 'topmodel':
                     gfun.create_topmodel_input(cat_mod, self.divides_df, self.flowpaths_df, mod_input_dir)
                 elif m1 == 'ueb':
-                    gfun.create_ueb_input(cat_mod, self.time_period, self.divides_df, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
+                    gfun.create_ueb_input(cat_mod, self.divides_df, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
                 elif m1 == 'snow17':
                     gfun.create_snow17_input(cat_mod, self.divides_df, mod_input_dir)
                 elif m1 == "pet":
@@ -1535,7 +1666,7 @@ class RealizationBuilder:
                 elif m1 == "sac":
                     gfun.create_sac_input(cat_mod, self.divides_df, mod_input_dir)
                 elif m1 == 'noah':
-                    gfun.create_noah_input(cat_mod, self.time_period, self.divides_df, self.conf3[m1 + '_parameter_dir'], mod_input_dir, self.run_type)
+                    gfun.create_noah_input(cat_mod, self.divides_df, self.conf3[m1 + '_parameter_dir'], mod_input_dir)
                 elif m1 == 'lstm':
                     gfun.create_lstm_input(cat_mod, self.divides_df, self.conf3['lstm_parameter_dir'], mod_input_dir)
                 elif m1 == 'sft':
@@ -1569,10 +1700,18 @@ class RealizationBuilder:
                 elif m1 == 'lasam':
                     gfun.create_lasam_input(cat_mod, mods_to_pass, self.divides_df, mod_input_dir, self.conf3['lasam_parameter_dir'], self.run_type)
                 elif m1 == 'topoflow-glacier':
-                    gfun.create_topoflow_glacier_input(cat_mod, self.divides_df, self.time_period, mod_input_dir, self.run_type)
+                    gfun.create_topoflow_glacier_input(cat_mod, self.divides_df, mod_input_dir)
                 elif m1 == 'troute':
                     routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin))
-                    gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.run_type)
+                    # Shift troute start back one hour for realtime forecast forcing so that troute and ngen produce outputs at the same timestep
+                    # Don't shift troute start for AnA runs
+                    ana_flag = self.forcing_template.get('AnAFlag', 0) if hasattr(self, 'forcing_templates') else 0
+                    shift_troute_start = (
+                        self.run_type in ('default', 'regionalization') and
+                        getattr(self, 'fcst_start', None) is not None and
+                        ana_flag == 0
+                    )
+                    gfun.create_troute_config(self.cat_file, self.time_period, routing_config_file, self.run_configs, self.daSec, self.run_type, shift_troute_start)
 
                     if m1 != 'troute':
                         logger.info(f'{m1}: input config files created at: {mod_input_dir}')
@@ -1583,16 +1722,24 @@ class RealizationBuilder:
     def _configure_model_states(self):
         """
         Configure state saving configuration in state saving and loading realization sections
+
+        If `load_state_from` is set, validates the path exists and inserts a `direction=load / when=StartOfRun` entry, replacing any existing state load
+        If ``save_state` is set, creates `<work_dir>/state_save/` sets `self.save_state_to`, and inserts a `direction=save / when=EndOfRun` entry, replacing any existing state save.
+        All other `state_saving` entries are preserverd, such as checkpointing state saves
         """
         if not self.load_state_from and not self.save_state:
             logger.info("No model state management configured.")
 
-        # Ensure model state directories exist
+        if self.save_state_dir and not self.save_state:
+            logger.warning("save_state_dir is set by save_state is False; state will not be saved.")
+
+        # Create model state saving directories if state saving is set
         if self.save_state:
-            self.save_state_to = Path(self.work_dir) / "state_save"
+            self.save_state_to = self.save_state_dir if self.save_state_dir else Path(self.work_dir) / "state_save"
             self.save_state_to.mkdir(parents=True, exist_ok=True)
             logger.info(f"State save directory: {self.save_state_to}")
 
+        # Ensure state load directory exists
         if self.load_state_from:
             if not self.load_state_from.exists():
                 msg = f"State load directory does not exist: {self.load_state_from}"
@@ -1600,8 +1747,29 @@ class RealizationBuilder:
                 raise FileNotFoundError(msg)
             logger.info(f"State load directory: {self.load_state_from}")
 
-        # Initialize state saving array
-        state_saving = []
+        # Preserve existing state_saving entries that are not being replaced
+        state_saving = self.real_config.get('state_saving', [])
+
+        # If updating an existing run, ensure state_save directory exists for any existig save configs
+        for s in state_saving:
+            if s.get("direction") == "save" and s.get("when") == "EndOfRun":
+                existing_state_save = Path(self.work_dir) / "state_save"
+                existing_state_save.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Recreated state save directory in new run folder: {existing_state_save}")
+
+        # If loading from new state, remove existing load/StartOfRun entry
+        if self.load_state_from:
+            state_saving = [
+                s for s in state_saving
+                if not (s.get("direction") == "load" and s.get("when") == "StartOfRun")
+            ]
+
+        # If saving new state, remove existing save/EndOfRun entry
+        if self.save_state:
+            state_saving = [
+                s for s in state_saving
+                if not (s.get("direction") == "save" and s.get("when") == "EndOfRun")
+            ]
 
         # Add state loading configuration if specified
         if self.load_state_from:
@@ -1632,6 +1800,55 @@ class RealizationBuilder:
             self.real_config['state_saving'] = state_saving
             logger.info("Model state configuration set in realization file")
 
+    def _configure_checkpointing(self):
+        """"
+        Configure checkpoint state saving configuration in state saving section
+        """
+
+        if self.checkpoint_dir and self.checkpoint_interval is None:
+            logger.warning("checkpoint_dir is set but checkpoint_interval is None; checkpoints will not be saved.")
+
+        if self.checkpoint_interval is not None:
+            # Create directory for checkpoints
+            self.save_checkpoint_to = self.checkpoint_dir if self.checkpoint_dir else Path(self.work_dir) / "checkpoint"
+            self.save_checkpoint_to.mkdir(parents=True, exist_ok=True)
+
+            # Validate checkpoint_interval value
+            try:
+                checkpoint_int = int(round(self.checkpoint_interval))
+            except TypeError:
+                msg = f"checkpoint_interval must be a numeric value, got {type(self.checkpoint_interval).__name__}: {self.checkpoint_interval}"
+                logger.critical(msg)
+                raise TypeError(msg)
+
+            # Remove existing checkpoint save entry if present
+            if "state_saving" in self.real_config:
+                self.real_config["state_saving"] = [
+                    s for s in self.real_config["state_saving"]
+                    if not (s.get("direction") == "save" and s.get("when") == "Checkpoint")
+                ]
+
+            # Initialize state saving array
+            save_config = {
+                "direction": "save",
+                "label": "Save at checkpoint",
+                "path": str(self.save_checkpoint_to),
+                "type": "FilePerUnit",
+                "when": "Checkpoint",
+                "frequency": checkpoint_int
+            }
+
+            # Add to state saving section
+            if "state_saving" in self.real_config:
+                self.real_config["state_saving"].append(save_config)
+            else:
+                self.real_config["state_saving"] = [save_config]
+
+            logger.info(f"Checkpointing configured with an interval of {self.checkpoint_interval} timesteps.")
+
+        else:
+            logger.info("Checkpointing not configured.")
+
     def _set_bmi_config_dir(self):
         """
         Set directories of BMI config files
@@ -1650,32 +1867,11 @@ class RealizationBuilder:
             m2 = settings.modules_all.loc[settings.modules_all['module'] == m1, 'name_ui'].iloc[0]
             self.bmi_dir[m1] = os.path.join(self.input_dir, m2 + '_input')
 
-    def _update_fcst_noah_ueb_topo(self):
-        """
-        For UEB, TopoFlow-Glacier, and Noah-OWP-Modular, create new BMI config files with new time info, and
-        update path to BMI configs in realization file accordingly
-        """
-        self.real_config = gfun.update_noah_ueb_topo_times(self.real_config, self.input_dir, self.basename_opt)
-        logger.info("Updated noah and ueb config files for forecast if used")
-
-    def _update_fcst_realization(self):
-        """
-        Update forcing and time related info in realization file
-        Add NWM Output variable sections to realization if requested
-        """
-        self.real_config = gfun.update_forcing_in_realization(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.basename_opt)
-        logger.info("Updated forecast realization file forcing and time information")
-
-        # Update troute config file for forecast period
-        self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt)
-
-        if self.output_nwm_vars:
-            self._apply_nwm_output_vars()
-
     def _assemble_realization(self):
         """
         Assemble realization file for calibration and default runs
         """
+
         # Set file paths
         routing_config_file = os.path.join(self.work_dir + '/Input', '{}'.format(self.basin) + self.run_configs[0])
         rt_dict = {"routing": {"t_route_config_file_with_path": routing_config_file}}
@@ -1683,11 +1879,11 @@ class RealizationBuilder:
         # Assemble realization file
         if hasattr(self, 'grp_to_form') and self.grp_to_form:
             self.real_config, self.output_config = gfun.create_reg_realization_file(self.work_dir, self.lib_file, self.bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file,
-                                                                                    self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.run_type, self.cat_to_grp, self.grp_to_form,
+                                                                                    self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.output_format, self.run_type, self.cat_to_grp, self.grp_to_form,
                                                                                     getattr(self, 'grp_params', {}))
         else:
             self.real_config, self.output_config = gfun.create_realization_file(self.work_dir, self.lib_file, self.bmi_dir, self.forcing_provider, self.forcing_path, self.forcing_config_file,
-                                                                                self.modules, self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.run_type)
+                                                                                self.modules, self.time_period, rt_dict, self.output_dict, self.calib_output_vars, self.output_format, self.run_type)
 
         # Update realization with NWM output variables if needed
         if self.output_nwm_vars:
@@ -1701,11 +1897,11 @@ class RealizationBuilder:
             for grp in self.grp_to_form:
                 self.real_config = gfun.update_realization_nwm_output(self.work_dir, self.lib_file, self.bmi_dir, self.forcing_provider,
                                                                       self.grp_to_adapters[grp], self.grp_to_form[grp], self.grp_to_nwm_output_dicts[grp], self.output_dict,
-                                                                      self.real_config, self.run_type, grp=grp)
+                                                                      self.real_config, grp=grp)
         else:
             self.real_config = gfun.update_realization_nwm_output(self.work_dir, self.lib_file, self.bmi_dir, self.forcing_provider,
                                                                   self.adapters, self.modules, self.nwm_output_dicts, self.output_dict,
-                                                                  self.real_config, self.run_type)
+                                                                  self.real_config)
         logger.info("Updated forecast realization file with NWM output variables and adapter modules")
 
     def _write_realization(self):
@@ -1746,7 +1942,8 @@ class RealizationBuilder:
                                                     partition_config_basename_prefix,
                                                     sub_dir_name) if self.parallelSec else None
 
-        logger.info(f"Partition file is created at: {self.part_file}")
+        if self.part_file is not None:
+            logger.info(f"Partition file is created at: {self.part_file}")
 
     def _create_calib_model_dict(self):
         """
@@ -1758,7 +1955,10 @@ class RealizationBuilder:
         save_output_iter = self.conf2.get('save_output_iter') or 0
         save_plot_iter = self.conf2.get('save_plot_iter') or 0
         save_plot_iter_freq = self.conf2.get('save_plot_iter_freq') or 0
-        streamflow_threshold = self.conf2.get('streamflow_threshold') or 0.0
+        threshold_categorical = self.conf2.get('threshold_categorical') or 0.9
+        threshold_event = self.conf2.get('threshold_event') or 0.9
+        threshold_categorical_type = self.conf2.get('threshold_categorical_type') or 'quantile'
+        threshold_event_type = self.conf2.get('threshold_event_type') or 'quantile'
         user_email = self.conf2.get('user_email') or ''
         strategy = 'grouped' if 'topoflow-glacier' in self.modules else 'uniform'
 
@@ -1785,7 +1985,8 @@ class RealizationBuilder:
                                            'save_plot_iteration': save_plot_iter,
                                            'save_plot_iter_freq': save_plot_iter_freq,
                                            'basinID': self.conf1['basin'],
-                                           'threshold': streamflow_threshold,
+                                           'threshold_categorical': {"value": threshold_categorical,"type": threshold_categorical_type},
+                                           'threshold_event': {"value": threshold_event,"type": threshold_event_type},
                                            'site_name': site_name,
                                            'user': user_email},
                            }
@@ -1812,7 +2013,7 @@ class RealizationBuilder:
         general_dict['yaml_file'] = self.calib_config_file
 
         # items related to running from GUI
-        for s1 in ['calibration_run_id', 'ngen_cerf', 'auth_token']:
+        for s1 in ['calibration_run_id', 'ngen_cerf', 'auth_token', 'ngencerf_base_url']:
             general_dict[s1] = self.conf2[s1]
 
         # Set output variables
@@ -1855,6 +2056,13 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
+        logger.status(
+            ewts.Payload(
+                ewts.Status.STARTING,
+                msg="Building calibration realization",
+                modnm=MODNM,
+            )
+        )
         if self.run_type != 'calibration':
             try:
                 raise ValueError(f"Unexpected run_type {self.run_type} for build_calib_realization. Must be `calibration`.")
@@ -1862,11 +2070,17 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
+        logger.status(
+            ewts.Payload(
+                ewts.Status.INPROG, msg="Building calibration realization", modnm=MODNM
+            )
+        )
         self._parse_forcing_engine()
         self._parse_time()
         self._parse_calib_settings()
         self._extract_hydrofabric()
         self._read_hydrofabric()
+        self._adjust_parallel_procs()
         self._parse_modules()
         self._validate_processes()
         self._map_cat_to_grp()
@@ -1885,7 +2099,13 @@ class RealizationBuilder:
         self._create_calib_model_dict()
         self._write_calib_configuration()
 
-        logger.info("Calibration run set up successfully")
+        logger.status(
+            ewts.Payload(
+                ewts.Status.COMPLETE,
+                msg="Calibration run set up successfully",
+                modnm=MODNM,
+            )
+        )
 
         return self.realization_file
 
@@ -1898,6 +2118,13 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
+        logger.status(
+            ewts.Payload(
+                ewts.Status.STARTING,
+                msg="Building regionalization realization",
+                modnm=MODNM,
+            )
+        )
         if self.run_type != 'regionalization':
             try:
                 raise ValueError(f"Unexpected run_type {self.run_type} for build_region_realization. Must be `regionalization`.")
@@ -1905,12 +2132,20 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
+        logger.status(
+            ewts.Payload(
+                ewts.Status.INPROG,
+                msg="Building regionalization realization",
+                modnm=MODNM,
+            )
+        )
         self._parse_forcing_engine()
         self._load_reg_formulation()
         self._load_reg_catchments()
         self._parse_time()
         self._extract_hydrofabric()
         self._read_hydrofabric()
+        self._adjust_parallel_procs()
         self._parse_reg_params()
         self._parse_reg_modules()
         self._validate_processes()
@@ -1927,10 +2162,18 @@ class RealizationBuilder:
         self._create_bmi_configs(is_regionalization=True)
         self._set_bmi_config_dir()
         self._assemble_realization()
+        self._configure_model_states()
+        self._configure_checkpointing()
         self._write_realization()
         self._write_partition()
 
-        logger.info("Regionalization run set up successfully")
+        logger.status(
+            ewts.Payload(
+                ewts.Status.COMPLETE,
+                msg="Regionalization run set up successfully",
+                modnm=MODNM,
+            )
+        )
 
         return self.realization_file
 
@@ -1954,13 +2197,26 @@ class RealizationBuilder:
         self._parse_config()
         self._create_fcst_dir()
         self._init_log()
+
+        logger.status(
+            ewts.Payload(
+                ewts.Status.STARTING, msg="Building forecast realization", modnm=MODNM
+            )
+        )
+
+        logger.status(
+            ewts.Payload(
+                ewts.Status.INPROG, msg="Building forecast realization", modnm=MODNM
+            )
+        )
         self._parse_yaml()
         self._load_realization()
         self._parse_forcing_engine()
-        self._configure_forcing_engine()
+        self._configure_forcing_engine()   
+        self._read_hydrofabric()
+        self._adjust_parallel_procs()
         if self.output_nwm_vars:
             self._parse_realization()
-            self._read_hydrofabric()
             self._map_cat_to_grp()
             self._map_cat_to_form()
             self._map_mod_to_cat()
@@ -1970,23 +2226,26 @@ class RealizationBuilder:
             self._create_bmi_configs()
             self._set_bmi_config_dir()
         self._configure_model_states()
-        self._update_fcst_noah_ueb_topo()
         self._update_fcst_realization()
+        self._update_fcst_troute()
         self._write_partition()
         self._write_realization()
 
-        if self.use_cold_start:
-            logger.info("Cold start run set up successfully")
-        else:
-            logger.info("Forecast run set up successfully")
-        self._building_fcst_realization = False
+        adjective = "Cold start" if self.use_cold_start else "Forecast"
+        logger.status(
+            ewts.Payload(
+                ewts.Status.COMPLETE,
+                msg=f"{adjective} run set up successfully",
+                modnm=MODNM,
+            )
+        )
 
         self._building_fcst_realization = False
 
         if self.save_state:
             return self.realization_file, self.save_state_to
         else:
-            return self.realization_file
+            return self.realization_file, None
 
     def build_default_realization(self):
         """
@@ -1997,6 +2256,12 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
+        logger.status(
+            ewts.Payload(
+                ewts.Status.STARTING, msg="Building default realization", modnm=MODNM
+            )
+        )
+
         if self.run_type != 'default':
             try:
                 raise ValueError(f"Unexpected run_type {self.run_type} for build_default_realization. Must be `default`.")
@@ -2004,10 +2269,16 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
+        logger.status(
+            ewts.Payload(
+                ewts.Status.INPROG, msg="Building default realization", modnm=MODNM
+            )
+        )
         self._parse_forcing_engine()
         self._parse_time()
         self._extract_hydrofabric()
         self._read_hydrofabric()
+        self._adjust_parallel_procs()
         self._parse_modules()
         self._validate_processes()
         self._map_cat_to_grp()
@@ -2023,11 +2294,73 @@ class RealizationBuilder:
         self._create_bmi_configs()
         self._set_bmi_config_dir()
         self._assemble_realization()
+        self._configure_model_states()
+        self._configure_checkpointing()
         self._write_realization()
         self._write_partition()
 
-        logger.info("Default run set up successfully")
+        logger.status(
+            ewts.Payload(
+                ewts.Status.COMPLETE, msg="Default run set up successfully", modnm=MODNM
+            )
+        )
 
+        return self.realization_file
+
+    def update_fcst_run(self) -> str:
+        """
+        Copy an existing forecast or regionalization run to a new path and update forcing engine config, realization, and troute config based
+        on new cycle_datetime and forcing_configuration from the input.config [Forcing] section
+
+        Returns
+        -------
+        Path to the updated realization file
+        """
+        from mswm.utils.copy_run_folder import copy_run_folder
+        self._building_fcst_realization = True
+
+        # Validate src and dst paths provided
+        if not self.src_run_path:
+            err = "src_run_path_must be provided to call update_fcst_run"
+            logger.critical(err)
+            raise ValueError(err)
+
+        if not self.dst_run_path:
+            err = "dst_run_path_must be provided to call update_fcst_run"
+            logger.critical(err)
+            raise ValueError(err)
+
+        # Copy existing run folder to new path
+        copy_run_folder(str(self.src_run_path), str(self.dst_run_path), ignore_forcing_config=True)
+
+        # Set work_dir and input_dir from dst_run_path
+        self.work_dir = self.dst_run_path
+        self.input_dir = self.work_dir / 'Input'
+        self.basename_opt = ''
+
+        # Initialize logging
+        self._init_log()
+
+        # Load and parse config, and locate gpkg file
+        self.load_config_apply_overrides()
+        self._parse_config()
+        self._parse_gpkg_from_input()
+
+        # Load existing realization file from dst
+        self._find_realization_file()
+        self._load_realization()
+
+        # Update config files and realization for new forcing configuration
+        # TODO: This assumes we are copying the partition generator from the previous run
+        self._parse_forcing_engine()
+        self._configure_forcing_engine()
+        self._update_fcst_realization()
+        self._configure_model_states()
+        self._configure_checkpointing()
+        self._write_realization()
+
+        logger.info(f"Run successfully updated to: {self.dst_run_path}")
+        self._building_fcst_realization = False
         return self.realization_file
 
 

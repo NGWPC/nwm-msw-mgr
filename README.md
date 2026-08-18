@@ -5,13 +5,21 @@
 ## Description
 The Model Setup Workflow Manager generates realization and configuration files for running ngen in calibration, validation, forecast, and regionalization modes. mswm can either be run from the command line or called directly from Python scripts.
 
+## Usage Modes
+The `nwm-msw-mgr` is used in two ways:
+
+1. **Standalone Package** - installed via `pip` and run directly, either from the CLI or as a Python import. A Dockerfile is also provided to build `nwm-msw-mgr` as a standalone container image.
+2. **As a dependency** - `nwm-cal-mgr` (and other repos) installs the `nwm-msw-mgr` as a Python package. You don't need to clone this repository separately when the `nwm-msw-mgr` is acting as a dependency.
+
 ## Installation
 
 ### Clone mswm
 
+This repository is the NGWPC fork of `nwm-msw-mgr`, maintained ahead of eventual merge to [NOAA-OWP/nwm-msw-mgr](https://github.com/NOAA-OWP/nwm-msw-mgr). Clone instructions below reference the NGWPC fork, as it is the current active development source.
+
 ```bash
 cd [NGEN_REG_ROOT]
-git clone -b development --recurse-submodules https://github.com/NGWPC/nwm-msw-mgr.git
+git clone --recurse-submodules https://github.com/NGWPC/nwm-msw-mgr.git
 ```
 
 ### Build the environment
@@ -80,6 +88,9 @@ build_calib(input_path="/path/to/input.config")
 
 Modify the realization and configuration files from an existing calibration run for a forecast run of ngen. If executing a Hindcast or Lagged Ensemble run through the nwm-fcst-mgr, the fcst-mgr will orchestrate these calls to the mswm.
 
+Medium range lagged ensembles cycles are run with with forcing inputs lagged at 6 hour intervals, with open and closed loop AnA start up states. Members 1 and no_da have no forcing time lags, while Members 2-6 have sequential 6 hour time lags. All lagged ensemble ngen runs are orchestrated to begin at the same time and run for either 10 days (Members 1 and no_da) or 8.5 days (Members 2-6). The no_da member should be initialized with a state load from an open loop cycle. Members 1-6 should be initialized with
+a state load from a closed loop cycle. The lagged ensemble workflow can only be executed with a medium range configuration.
+
 #### CLI
 
 ```bash
@@ -110,7 +121,8 @@ build_fcst(
     lagged_ens_mem=None,
     forcing_lag=None,
     save_state=True,
-    load_state_from="/path/to/saved_state/"
+    save_state_dir="/path/to/saved_state/",
+    load_state_from="/path/to/prev_saved_state/",
 )
 ```
 
@@ -124,15 +136,16 @@ build_fcst(
 - `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
 - `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
 - `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
-- `--lagged_ens_member` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
 - `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
 - `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--save_state_dir` - (optional) Directory to save model state at end of run. Defaults to `<work_dir>/state_save/` if not provided
 - `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
 
-#### Example
+#### Example:
 **Cold start:**
 ```bash
-python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --use_cold_start --save_state
+python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --use_cold_start --save_state --state_save_dir /path/to/saved_state/
 ```
 
 **Forecast:**
@@ -142,7 +155,7 @@ python -m mswm.manager build_fcst input.config valid.yaml fcst_run1 --load_state
 
 **Warm start:**
 ```bash
-python -m mswm.manager build_fcst input.config valid_yaml hind_run1 --use_warm_start --save_state
+python -m mswm.manager build_fcst input.config valid_yaml hind_run1 --use_warm_start --save_state --state_save_dir /path/to/saved_state/
 ```
 
 **Hindcast (cycle 0):**
@@ -165,26 +178,75 @@ python -m mswm.manager build_fcst input.config valid.yaml lagged_ens_no_da--use_
 python -m mswm.manager build_fcst input.config valid.yaml lagged_ens_mem1--use_lagged_ens --lagged_ens_mem mem1 --load_state_from /path/to/closed_loop_saved_state/
 ```
 
+#### Lagged Ensemble Time Handling:
+Each lagged ensemble member uses forcing data from different lagged forecast cycle times, offset by a member-specific lag time. Members 1 to 6 have lag times of 0, 6, 12, 18, 24, and 30 hours respectively. The no DA member uses the same time handling as Member 1, but loads from a different saved state state during operational use. Member 1 is a 10 day medium range forecast that uses forcing inputs that are valid at the user-supplied cycle datetime with no time lag. Members 2-6 are each 8.5 day ngen runs that begin at the same time as Member 1, but use forcing inputs from sequentially older cycles. The 6 hours difference in RefcstBDateProc values in the Forcing Engine configuration templates across members describes which past cycle each member is using. The ForecastInputHorizon values in the Forcing Engine configuration templates describe the time in hours from the RefcstBDateProc to the end of each members ngen run. The time handling to align the ngen run times is handled by the nwm-msw-mgr. 
+
+When a user requests lagged ensemble runs at 2015-10-03 00:00:
+ 
+Member 1: 10 day forecast beginning at 2015-10-02 00:00, using 10-03 00z forcing (14400 hrs)
+Member 2: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-02 18z forcing (12600 hrs)
+Member 3: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-02 12z forcing (12960 hrs)
+Member 4: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-02 06z forcing (13320 hrs)
+Member 5: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-02 00z forcing (13680 hrs)
+Member 6: 8.5 day forecast beginning at 2015-10-02 00:00, using 10-01 18z forcing (14040 hrs)
+
 ---
 
 ### Regionalization Workflow
 
 Generate model realization and configuration files for a regionalization run of ngen using grouped catchment formulations and parameters.
+The default parameter workflow can also be used to set up cold start, forecast, and hindcast runs.
 
 #### CLI
+**Regionalization run:**
 ```bash
 python -m mswm.manager build_region /path/to/input_realization.config
+```
+
+**Cold start with state save:**
+```bash
+python -m mswm.manager build_region /path/to/input_realization.config --use_cold_start --save_state --save_state_dir /path/to/state_saving/
+```
+
+**Forecast with state load and checkpointing:**
+```bash
+python -m mswm.manager build_region /path/to/input_realization.config --load_state_From /path/to/state_saving/ --checkpoint_interval 100 --checkpoint_dir /path/to/checkpoint/
+```
+
+** Lagged ensemble with state load and checkpoint:**
+```bash
+python -m mswm.manager build_region /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --use_checkpoint --checkpoint_interval 100 --checkpoint_dir /path/to/checkpoint/
 ```
 
 #### Python
 ```python
 from mswm.manager import build_region
 
-real_path = build_region(input_path='/path/to/input_realization.config')
+real_path = build_region(
+    input_path='/path/to/input_realization.config',
+    use_cold_start=False,
+    use_lagged_ens=False,
+    lagged_ens_mem=None,
+    forcing_lag=None,
+    save_state=False,
+    save_state_dir=None,
+    load_state_from=None,
+    checkpoint_interval=None,
+    checkpoint_dir=None,
+)
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated regionaliztion configuration file
+- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
+- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--save_state_dir` - (optional) Directory to save model state at end of run. Defaults to `<work_dir>/state_save/` if not provided
+- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
+- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--checkpoint_dir` - (optional) Directory to save checkpoint states. Defaults to `<work_dir>/checkpoint/` if not provided
 
 ### Required Files
 Regionalization mode requires additional files in your input directory, which are referenced in the input.config file.
@@ -198,10 +260,27 @@ See `/example_inputs/regionalization/` for example files.
 
 ### Default Parameter Workflow
 Generate model realization and configuration files for a run of ngen with default catchment parameters.
+The default parameter workflow can also be used to set up cold start, forecast, and hindcast runs.
 
 #### CLI
+** Default run:**
 ```bash
 python -m mswm.manager build_default /path/to/input.config
+```
+
+** Cold start with state save:**
+```bash
+python -m mswm.manager build_default /path/to/input.config --use_cold_start --save_state --save_state_dir /path/to/state_saving/
+```
+
+** Forecast with state load and checkpointing:**
+```bash
+python -m mswm.manager build_default /path/to/input.config --load_state_from /path/to/state_saving/ --checkpoint_interval 10 --checkpoint_dir /path/to/checkpoint/
+```
+
+** Lagged ensemble with state load and checkpoint:**
+```bash
+python -m mswm.manager build_default /path/to/input.config --use_lagged_ens --lagged_ens_mem mem2 --forcing_lag 6 --load_state_from /path/to/state_saving/ --checkpoint_interval 100 --checkpoint_dir /path/to/checkpoint/
 ```
 
 #### Python
@@ -209,30 +288,163 @@ python -m mswm.manager build_default /path/to/input.config
 from mswm.manager import build_default
 
 build_default(
-    input_path='/path/to/input.config'
+    input_path='/path/to/input.config',
+    use_cold_start=False,
+    use_lagged_ens=False,
+    lagged_ens_mem=None,
+    forcing_lag=None,
+    save_state=False,
+    save_state_dir=None,
+    load_state_from=None,
+    checkpoint_interval=None,
+    checkpoint_dir=None,
 )
 ```
 
 #### Arguments
 - `input_path` - Path to user-generated configuration file
+- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
+- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--save_state_dir` - (optional) Directory to save model state at end of run. Defaults to `<work_dir>/state_save/` if not provided
+- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
+- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--checkpoint_dir` - (optional) Directory to save checkpoint states. Defaults to `<work_dir>/checkpoint/` if not provided
+---
 
+### Checkpoint Restart Workflow
+Copy an existing run folder to a new path and configure it to resume form a saved checkpoint state.
+This is used when a run was interrupted mid-execution and saved checkpoint states are available, allowing the run to continue from the last checkpoint.
+The checkpoint state copied to the new run folder and is inferred from the destination path at <dst_path>/checkpoint/.
+
+#### CLI
+```bash
+python -m mswm.utils.checkpoint_restart \
+    /path/to/existing_run/ \
+    /path/to/new_run/ \
+    --checkpoint_dir /path/to/checkpoint/
+```
+
+#### Python
+```python
+from mswm.utils.checkpoint_restart import checkpoint_restart
+
+checkpoint_restart(
+    src_path="/path/to/existing_run",
+    dst_path="/path/to/new_run",
+    checkpoint_dir="/path/to/checkpoint
+)
+```
+#### Arguments
+- `src_path` - Path to existing run folder to copy
+- `dst_path` - Path to the destination run folder
+- `checkpoint_dir` - (optional) Directory to save checkpoint states. Defaults to `<dst_dir>/checkpoint/` if not provided
+
+
+#### Example
+```bash
+python -m mswm.utils.checkpoint_restart \
+    /run_ngen/default/default_fcst/01123000/ \
+    /run_ngen/default/default_fcst_restart/01123000/ \
+    --checkpoint_dir /run_ngen/default/default_fcst/checkpoint/
+```
+
+#### Notes
+- The existing run folder is copied to the destination path before any modifications are made
+- Log files, the `/Output/` folder, `/state_save/` folder, and `/forcing_config/` folder are excluded from the copy
+- Any existing checkpoint load configuration in the realization file is replaced by the new one when checkpoint_restart is called
+- Checkpoint states are generated during a run when `--checkpoint_interval` is specified in `build_default` or `build_region`
+
+---
+
+### Update Forecast Run Workflow
+Copy an existing default or regionalization forecast run to a new run folder and update the forcing engine configuration, realization, and t-route config files based on a new forecast input.config file.
+This workflow is intended for operational forecast uses where an existing forecast is re-used with updated forcing inputs. This workflow is not intended to update forecast runs based off of an existing validation run.
+
+The update_fcst function can be supplemented with a range of optional arguments depending on the type of run being updated (cold start, warm start, hindcast, lagged ensemble). State saving and checkpointing optional 
+arguments can be used to update the relevant realization sections in the copied run.
+
+#### CLI
+```bash
+python -m mswm.manager update_fcst \
+    /path/to/input.config \
+    /path/to/existing_run/ \
+    /path/to/new_run/
+```
+
+#### Python
+```python
+from mswm.manager import update_fcst_run
+
+update_fcst_run(
+    input_path="/path/to/input.config",
+    src_run_path="/path/to/existing_run/",
+    dst_run_path="/path/to/new_run/"
+)
+```
+
+#### Arguments
+- `input_path` - Path to input configuration file containing an updated `[Forcing]` section
+- `src_run_path` - Path to the existing default or regionalization run folder (e.g., `/run_ngen/regionalization/reg_fcst/01123000/`)
+- `src_run_path` - Path to the destination run folder (e.g., `/run_ngen/regionalization/new_reg_fcst/01123000/`)
+- `--use_cold_start` - (optional) Generate files for cold start period (True) or forecast period (False)
+- `--use_warm_start` - (optional) Generate files for hindcasting warm start run
+- `--use_hindcast` - (optional) Generate files for hindcast run
+- `--use_lagged_ens` - (optional) Generate files for lagged ensemble run
+- `--hind_cycle` - (optional) Cycle interval in hours for hindcast run
+- `--prev_hind_cycle` - (optional) Cycle value in hours for previous hindcast cycle
+- `--lagged_ens_mem` - (optional) Name of medium range lagged ensemble member (mem1-mem6, no_da)
+- `--forcing_lag` - (optional) Number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+- `--save_state` - (optional) Save model state files at the end of a run (typically a cold start)
+- `--save_state_dir` - (optional) Directory to save model state at end of run. Defaults to `<work_dir>/state_save/` if not provided
+- `--load_save_state` - (optional) Path to directory containing model states to load at beginning of run (typically a forecast run)
+- `--checkpoint_interval` - (optional) Checkpointing interval in integer number of timesteps (checkpointing disabled if not provided)
+- `--checkpoint_dir` - (optional) Directory to save checkpoint states. Defaults to `<work_dir>/checkpoint/` if not provided
+
+#### Examples
+**Forecast with new state load and checkpoint interval**
+```bash
+python -m mswm.manager update_fcst \
+    /path/to/input.config \
+    /path/to/existing/run/ \
+    /path/to/new/run/ \
+    --load_state_from /path/to/saved/state \
+    --use_checkpoint \
+    --checkpoint_interval 6
+```
+
+---
 
 ### Topoflow-Glacier Validation
-To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called:
-1. python -m mswm.manager validate_topoflow 01123000 conus False
-
-The mswm.manager script in topoflow validation mode takes two command line arguments:
-1. Command for topoflow validation mode (validate_topoflow)
-2. Basin id
-3. Domain id (conus, prvi, ak, hi, gl)
-4. NgenCERF Flag (True = running inside NgenCERF, False = running outside NgenCERF)
-
+To validate whether catchments in a given basin have sufficient glacier coverage to apply Topoflow-Glacier, the validate_topoflow function can be called.
 The validate_topoflow function will return a JSON with a status of True if there are catchments in the basin where Topoflow-Glacier can be applied (>=50% glacier coverage).
 The validate_topoflow function will return a JSON with a status of False if there are no catchments in the basin where Topoflow-Glacier can be applied.
 
-Within Python scripts, regionalization input files can be generated calling the build_region realization function:
-1. from mswm.build_inputs import validate_topoflow
-2. validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
+#### CLI
+```bash
+python -m mswm.manager validate_topoflow \
+    01123000 \
+    conus \
+    False
+```
+
+#### Python
+```python
+from mswm.build_inputs import validate_topoflow
+
+validate_topoflow(basin_id='01123000', domain='conus', ngen_cerf=False)
+```
+
+#### Arguments
+- `basin_id` - String identifier of the basin
+- `domain` - String identifier of the region (conus, prvi, ak, hi, gl)
+- `ngen_cerf` - Boolean flag indicating the runtime environment
+
+---
+
+---
 
 # nwm-msw-mgr Input Configuration File Reference
 This section describes all configuration parameters in the `input.config` file used by the nwm-msw-mgr. Full example files for each run type are available in `/example_inputs/`
@@ -278,45 +490,55 @@ Parameters required only for regionalization runs. Section does not need to be s
 ## Calibration Section: `[Calibration]`
 Parameters required only for calibration runs. Section does not need to be supplied for other run types.
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `optimization_algorithm` | string | Calibration | Optimization algorithm: `dds`, `pso`, or `gwo`. |
-| `swarm_size` | integer | Calibration | Population size for PSO or GWO algorithms. |
-| `c1` | float | No | PSO cognitive parameter (default: `2.0`) |
-| `c2` | float | No | PSO social parameter (default: `2.0`) |
-| `w` | float | No | PSO intertia weight (default: `0.7`) |
-| `objective_function` | string | Calibration | Objective function for optimization: `kge`, `nse`, `nnse`, `nselog`, `corr`, `csi`, `pod`, `rmse`, `mae`, `rsr`, `far`, `pkbias`, `pkte`, `evbias`, `bpias`, `lseg_fdc`, `hseg_fdc`. |
-| `start_iteration` | integer | No | Starting iteration number (default: `0`) |
-| `number_iteration` | integer | Calibration | Number of iterations to run. |
-| `restart` | integer | No | Restart from stopped iteration: `0` = no restart (default), `1` = restart (currently only 0 supported) |
-| `calib_output_vars` | boolean | No | Write output variables during calibration iterations (default: `False`) |
-| `valid_output_vars` | boolean | No | Write output variables during validation runs (default: `True`) |
-| `calib_start_period` | datetime | Calibration | Calibration simulation start time (format: `YYYY-MM-DD HH:MM:SS`). |
-| `calib_end_period` | datetime | Calibration | Calibration simulation end time (format: `YYYY-MM-DD HH:MM:SS`). |
-| `calib_eval_start_period` | datetime | Calibration | Calibration evaluation start time, excludes warm up period (format: `YYYY-MM-DD HH:MM:SS`). |
-| `calib_eval_end_period` | datetime | Calibration | Calibration evaluation end time, excludes warm up period (format: `YYYY-MM-DD HH:MM:SS`). |
-| `valid_start_period` | datetime | Calibration | Validation simulation start time (format: `YYYY-MM-DD HH:MM:SS`). |
-| `valid_end_period` | datetime | Calibration | Validation simulation end time (format: `YYYY-MM-DD HH:MM:SS`). |
-| `valid_eval_start_period` | datetime | Calibration | Validation evaluation start time(format: `YYYY-MM-DD HH:MM:SS`). |
-| `valid_eval_end_period` | datetime | Calibration | Validation evaluation end time(format: `YYYY-MM-DD HH:MM:SS`). |
-| `full_eval_start_period` | datetime | Calibration | Full evluation period start (calibration + validation) (format: `YYYY-MM-DD HH:MM:SS`). |
-| `full_eval_end_period` | datetime | Calibration | Full evluation period end (calibration + validation)(format: `YYYY-MM-DD HH:MM:SS`). |
-| `save_plot_iter` | integer | No | Save plots at iterations: `0` = no (default), `1` = yes with iteration number in filename |
-| `save_plot_iter_freq` | integer | No | Iteration interval for saving plots default: `1` |
-| `streamflow_threshold` | float | No | Streamflow threshold in cms for categorical scores (optional: if not specified, categorical metrics skipped) |
-| `station_name` | string | No | Streamflow station name for plot titles (optional) |
-| `ngen_cerf` | boolean | No | Whether running from ngenCERF server (default: `false`) |
-| `calibration_run_id` | integer | No | Calibration run ID from ngenCERF (only needed when `ngen_cerf = true`) |
-| `auth_token` | string | No | Authentication token from ngenCERF (only needed when `ngen_cerf = true`) |
-| `user_email` | string | No |Email address to receive run completion notification (optional) |
-| `calib_parameter_file` | path | Calibration | Path to calibration parameter files. Can be: (1) folder with tab-delimited CSV files per module, (2) folder with comma-delimited CSV files per module, (3) single file with all parameters in fixed-width format. |
+| Parameter                 | Type | Required | Description                                                                                                                                                                                                       |
+|---------------------------|------|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `optimization_algorithm`  | string | Calibration | Optimization algorithm: `dds`, `pso`, or `gwo`.                                                                                                                                                                   |
+| `swarm_size`              | integer | Calibration | Population size for PSO or GWO algorithms.                                                                                                                                                                        |
+| `c1`                      | float | No | PSO cognitive parameter (default: `2.0`)                                                                                                                                                                          |
+| `c2`                      | float | No | PSO social parameter (default: `2.0`)                                                                                                                                                                             |
+| `w`                       | float | No | PSO intertia weight (default: `0.7`)                                                                                                                                                                              |
+| `objective_function`      | string | Calibration | Objective function for optimization: `kge`, `nse`, `nnse`, `nselog`, `corr`, `csi`, `pod`, `rmse`, `mae`, `rsr`, `far`, `pkbias`, `pkte`, `evbias`, `bpias`, `lseg_fdc`, `hseg_fdc`.                              |
+| `start_iteration`         | integer | No | Starting iteration number (default: `0`)                                                                                                                                                                          |
+| `number_iteration`        | integer | Calibration | Number of iterations to run.                                                                                                                                                                                      |
+| `restart`                 | integer | No | Restart from stopped iteration: `0` = no restart (default), `1` = restart (currently only 0 supported)                                                                                                            |
+| `calib_output_vars`       | boolean | No | Write output variables during calibration iterations (default: `False`)                                                                                                                                           |
+| `valid_output_vars`       | boolean | No | Write output variables during validation runs (default: `True`)                                                                                                                                                   |
+| `calib_start_period`      | datetime | Calibration | Calibration simulation start time (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                |
+| `calib_end_period`        | datetime | Calibration | Calibration simulation end time (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                  |
+| `calib_eval_start_period` | datetime | Calibration | Calibration evaluation start time, excludes warm up period (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                       |
+| `calib_eval_end_period`   | datetime | Calibration | Calibration evaluation end time, excludes warm up period (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                         |
+| `valid_start_period`      | datetime | Calibration | Validation simulation start time (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                 |
+| `valid_end_period`        | datetime | Calibration | Validation simulation end time (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                   |
+| `valid_eval_start_period` | datetime | Calibration | Validation evaluation start time(format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                  |
+| `valid_eval_end_period`   | datetime | Calibration | Validation evaluation end time(format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                                                    |
+| `full_eval_start_period`  | datetime | Calibration | Full evluation period start (calibration + validation) (format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                           |
+| `full_eval_end_period`    | datetime | Calibration | Full evluation period end (calibration + validation)(format: `YYYY-MM-DD HH:MM:SS`).                                                                                                                              |
+| `save_plot_iter`          | integer | No | Save plots at iterations: `0` = no (default), `1` = yes with iteration number in filename                                                                                                                         |
+| `save_plot_iter_freq`     | integer | No | Iteration interval for saving plots default: `1`                                                                                                                                                                  |
+| `streamflow_threshold`    | float | No | Streamflow threshold in cms for categorical scores (optional: if not specified, categorical metrics skipped)                                                                                                      |
+| `station_name`            | string | No | Streamflow station name for plot titles (optional)                                                                                                                                                                |
+| `ngen_cerf`               | boolean | No | Whether running from ngenCERF server (default: `false`)                                                                                                                                                           |
+| `calibration_run_id`      | integer | No | Calibration run ID from ngenCERF (only needed when `ngen_cerf = true`)                                                                                                                                            |
+| `auth_token`              | string | No | Authentication token from ngenCERF (only needed when `ngen_cerf = true`)                                                                                                                                          |
+| `ngencerf_base_url`       | string | No | Base url for the ngenCERF server (only needed when `ngen_cerf = true`)                                                                                                                                              |
+| `user_email`              | string | No | Email address to receive run completion notification (optional)                                                                                                                                                   |
+| `calib_parameter_file`    | path | Calibration | Path to calibration parameter files. Can be: (1) folder with tab-delimited CSV files per module, (2) folder with comma-delimited CSV files per module, (3) single file with all parameters in fixed-width format. |
 
 ## NWM Output Variable Section `[NWMOuput]`
-Parameters for activating full set of NWM output variables. Only used for forecast, default, and regionalization runs.
+Parameters for configuring NWM output variables.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `nwm_output_variables` | bool | No | Boolean flag to activate output of full set of NWM output variables |
+| `output_format` | bool | No | Output format(s) for model outputs. Accepts 'CSV', 'NetCDF', or both |
+
+## Data Assimilation Section `[DataAssimilation]`
+Parameters for reservoir RFC and streamflow data assimilation. This section is optional and only supported for **default**, **forecast**, and **regionalization** run types.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `reservoir_da` | bool | No | Boolean flag to enable reservoir RRC data assimilation in t-route |
+| `reservoir_rfc_dir` | str | No | Directory containing reservoir RFC forecast files. Required if `reservoir_da` is `True`. |
 
 
 ## Forcing Section: `[Forcing]`
@@ -332,6 +554,7 @@ Parameters for forcing engine configuration. Required for all run types, includi
 | `forcing_static_dir` | string | BMI provider | Path to forcing engine static geogrid files (only used for NWM retrospective) |
 | `cycle_datetime` | datetime | No | Cycle start time for forecast (format: `YYYY-MM-DD HH:MM:SS`). Only used for forecast runs with BMI forcing. |
 | `cold_start_datetime` | datetime | No | Cold start period end time (format: `YYYY-MM-DD HH:MM:SS`). Only used for forecast runs with BMI forcing. |
+| `lookback` | int | No | Override the lookback period in minutes in the template file. The lookback period equals simulation window length plus one timestep. For example, for T0=12z with hourly timesteps, if the simulation window is 3 hours, the lookback period is 3\*60 + 60 = 240 |
 
 ## DataFile Section: `[DataFile]`
 Parameters for data files and library paths. Required for all run types, excluding forecast.
@@ -394,6 +617,7 @@ Parameters for parallel processing configuration.
 - **Calibration runs** require all parameters in the General, Calibration, Forcing, and DataFile sections
 - **Regionalization runs** require parameters in the General, Calibration, Forcing, Regionalization, DataFile section
 - **Default runs** require all parameters in the General, Forcing, and DataFile sections
+-  The **`[DataAssimilation]` section** is optional and only applies to **default**, **forecast**, and **regionalization** run types.
 - Parameters for unused run types can be left blank
 
 ### Datetime Format
