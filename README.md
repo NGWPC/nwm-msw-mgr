@@ -539,6 +539,8 @@ Parameters for reservoir RFC and streamflow data assimilation. This section is o
 |-----------|------|----------|-------------|
 | `reservoir_da` | bool | No | Boolean flag to enable reservoir RRC data assimilation in t-route |
 | `reservoir_rfc_dir` | str | No | Directory containing reservoir RFC forecast files. Required if `reservoir_da` is `True`. |
+| `streamflow_da` | bool | No | Boolean flag to enable USGS streamflow data assimilation in t-route |
+| `usgs_timeslice_dir` | str | No | Directory containing USGS timeslice files. Required if `streamflow_da` is `True`. |
 
 
 ## Forcing Section: `[Forcing]`

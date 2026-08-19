@@ -1656,6 +1656,31 @@ def update_troute(
         }
         logger.info("RFC reservoir data assimilation activated.")
 
+    # update streamflow data assimilation parameters if supplied
+    streamflow_da = da_sec.get('streamflow_da', False) if da_sec else False
+    usgs_timeslice_dir = da_sec.get('usgs_timeslice_dir') if da_sec else None
+
+    if streamflow_da:
+        rt_config.setdefault('compute_parameters', {}).setdefault('data_assimilation_parameters', {})
+        rt_config['compute_parameters']['data_assimilation_parameters']['usgs_timeslices_folder'] = str(usgs_timeslice_dir)
+        rt_config['compute_parameters']['data_assimilation_parameters']['streamflow_da'] = {
+            "streamflow_da": {
+                "streamflow_nudging": False,
+                "streamflow_scaling": True,
+                "streamflow_scaling_parameters": {
+                    "theta": {
+                        "default": 0.77,         # Ogden and Dawdy Exponent
+                    },
+                    "max_reach_km": 200.0,       # upstream propagation limit, network distance
+                    "innovation_spread_h": 0.0,  # forward averaging window; 0 = raw innovation
+                    "travel_time_lag": False,    # traced upstream timing
+                    "lag_window_h": 48.0,        # trace span; longest resolvable travel time
+                    "min_flow_cms": 1.0e-6,      # confluence split denominator floor
+                }
+            }
+        }
+        logger.info("USGS streamflow data assimilation activated.")
+
     # write to new t-route config file
     new_basename = os.path.basename(src).replace("valid_best", basename_opt)
 
@@ -1716,9 +1741,11 @@ def create_troute_config(
     }
     run_names = run_type_map.get(run_type)
 
-    # Retrieve reservoir da parameters
+    # Retrieve data assimilation parameters
     reservoir_da = da_sec.get('reservoir_da', False) if da_sec else False
     reservoir_rfc_dir = da_sec.get('reservoir_rfc_dir') if da_sec else None
+    streamflow_da = da_sec.get('streamflow_da', False) if da_sec else False
+    usgs_timeslice_dir = da_sec.get('usgs_timeslice_dir') if da_sec else None
 
     # Set base log parameters
     log_param = {
@@ -1738,13 +1765,33 @@ def create_troute_config(
     }
 
     # Set base data assimilation parameters
-    stream_da = {
-        "streamflow_nudging": False,
-        "diffusive_streamflow_nudging": False,
-    }
+    da_params = {}
+    if streamflow_da and run_type != "calibration":
+        da_params["usgs_timeslices_folder"] = str(usgs_timeslice_dir)
+        da_params["streamflow_da"] = {
+            "streamflow_nudging": False,
+            "streamflow_scaling": True,
+            "streamflow_scaling_parameters": {
+                "theta": {
+                    "default": 0.77,         # Ogden and Dawdy Exponent
+                },
+                "max_reach_km": 200.0,       # upstream propagation limit, network distance
+                "innovation_spread_h": 0.0,  # forward averaging window; 0 = raw innovation
+                "travel_time_lag": False,    # traced upstream timing
+                "lag_window_h": 48.0,        # trace span; longest resolvable travel time
+                "min_flow_cms": 1.0e-6,      # confluence split denominator floor
+            }
+        }
+        logger.info("USGS streamflow data assimilation activated.")
+    else:
+        da_params["streamflow_da"] = {
+            "streamflow_nudging": False,
+            "streamflow_scaling": False,
+            "diffusive_streamflow_nudging": False,
+        }
 
     if reservoir_da and run_type != "calibration":
-        res_da = {
+        da_params["reservoir_da"] = {
             "reservoir_persistence_da": {
                 "reservoir_persistence_greatLake": False,
                 "reservoir_persistence_usace": False,
@@ -1761,7 +1808,7 @@ def create_troute_config(
         }
         logger.info("RFC reservoir data assimilation activated.")
     else:
-        res_da = {
+        da_params["reservoir_da"] = {
             "reservoir_persistence_da": {
                 "reservoir_persistence_usgs": False,
             },
@@ -1804,10 +1851,7 @@ def create_troute_config(
                 "nts": nts,
                 "max_loop_size": max_loop_size
             },
-            "data_assimilation_parameters": {
-                "streamflow_da": stream_da,
-                "reservoir_da": res_da
-            },
+            "data_assimilation_parameters": da_params,
         }
 
         # Set output_parameters

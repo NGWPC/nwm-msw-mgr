@@ -1985,8 +1985,8 @@ class RealizationBuilder:
                                            'save_plot_iteration': save_plot_iter,
                                            'save_plot_iter_freq': save_plot_iter_freq,
                                            'basinID': self.conf1['basin'],
-                                           'threshold_categorical': {"value": threshold_categorical,"type": threshold_categorical_type},
-                                           'threshold_event': {"value": threshold_event,"type": threshold_event_type},
+                                           'threshold_categorical': {"value": threshold_categorical, "type": threshold_categorical_type},
+                                           'threshold_event': {"value": threshold_event, "type": threshold_event_type},
                                            'site_name': site_name,
                                            'user': user_email},
                            }
@@ -2212,7 +2212,7 @@ class RealizationBuilder:
         self._parse_yaml()
         self._load_realization()
         self._parse_forcing_engine()
-        self._configure_forcing_engine()   
+        self._configure_forcing_engine()
         self._read_hydrofabric()
         self._adjust_parallel_procs()
         if self.output_nwm_vars:
