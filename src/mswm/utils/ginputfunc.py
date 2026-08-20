@@ -1622,7 +1622,7 @@ def update_troute(
         start_time = pd.to_datetime(real_config['time']['start_time'], format="%Y-%m-%d %H:%M:%S") - pd.Timedelta(hours=1)
         end_time = pd.to_datetime(real_config['time']['end_time'], format="%Y-%m-%d %H:%M:%S")
         nts = len(pd.date_range(start=start_time, end=end_time, freq='5min')) - 1
-        max_loop_size = divmod(nts * 300, 3600)[0] + 1
+        max_loop_size = 8
     except Exception as e:
         logger.critical(f"Error converting yaml config times: {real_config['time']}\n{e}")
         raise
@@ -1824,7 +1824,7 @@ def create_troute_config(
         # Parse time and compute time steps
         run_range = pd.to_datetime(time_period['run_time_period'][run_name])
         nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
-        max_loop_size = divmod(nts * 300, 3600)[0] + 1
+        max_loop_size = 8
 
         # Troute's output timestamp trails ngen's output time by a fixed hour. For calibration and
         # default/regionalization runs using historical forcing (nwm/aorc), ngen's own start time is
