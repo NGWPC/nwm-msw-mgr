@@ -1617,12 +1617,22 @@ def update_troute(
         logger.critical(f"Unexpected error loading config at: {src}\n{e}")
         raise
 
+    # Retrieve DA parameters
+    streamflow_da = da_sec.get('streamflow_da', False) if da_sec else False
+    usgs_timeslice_dir = da_sec.get('usgs_timeslice_dir') if da_sec else None
+
+    reservoir_da = da_sec.get('reservoir_da', False) if da_sec else False
+    reservoir_rfc_dir = da_sec.get('reservoir_rfc_dir') if da_sec else None
+
     # compute number of time steps and max_loop_size
     try:
         start_time = pd.to_datetime(real_config['time']['start_time'], format="%Y-%m-%d %H:%M:%S") - pd.Timedelta(hours=1)
         end_time = pd.to_datetime(real_config['time']['end_time'], format="%Y-%m-%d %H:%M:%S")
         nts = len(pd.date_range(start=start_time, end=end_time, freq='5min')) - 1
-        max_loop_size = 8
+        if streamflow_da:
+            max_loop_size = min(8, nts)
+        else:
+            max_loop_size = divmod(nts * 300, 3600)[0] + 1
     except Exception as e:
         logger.critical(f"Error converting yaml config times: {real_config['time']}\n{e}")
         raise
@@ -1634,9 +1644,6 @@ def update_troute(
     rt_config['output_parameters']['stream_output']['stream_output_time'] = max_loop_size
 
     # update reservoir data assimilation parameters if supplied
-    reservoir_da = da_sec.get('reservoir_da', False) if da_sec else False
-    reservoir_rfc_dir = da_sec.get('reservoir_rfc_dir') if da_sec else None
-
     if reservoir_da:
         rt_config.setdefault('compute_parameters', {}).setdefault('data_assimilation_parameters', {})
         rt_config['compute_parameters']['data_assimilation_parameters']['reservoir_da'] = {
@@ -1657,9 +1664,6 @@ def update_troute(
         logger.info("RFC reservoir data assimilation activated.")
 
     # update streamflow data assimilation parameters if supplied
-    streamflow_da = da_sec.get('streamflow_da', False) if da_sec else False
-    usgs_timeslice_dir = da_sec.get('usgs_timeslice_dir') if da_sec else None
-
     if streamflow_da:
         rt_config.setdefault('compute_parameters', {}).setdefault('data_assimilation_parameters', {})
         rt_config['compute_parameters']['data_assimilation_parameters']['usgs_timeslices_folder'] = str(usgs_timeslice_dir)
@@ -1824,7 +1828,10 @@ def create_troute_config(
         # Parse time and compute time steps
         run_range = pd.to_datetime(time_period['run_time_period'][run_name])
         nts = len(pd.date_range(start=run_range[0], end=run_range[1], freq='5min')) - 1
-        max_loop_size = 8
+        if streamflow_da and run_type != "calibration":
+            max_loop_size = min(8, nts)
+        else:
+            max_loop_size = divmod(nts * 300, 3600)[0] + 1
 
         # Troute's output timestamp trails ngen's output time by a fixed hour. For calibration and
         # default/regionalization runs using historical forcing (nwm/aorc), ngen's own start time is
