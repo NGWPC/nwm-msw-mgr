@@ -911,8 +911,8 @@ class RealizationBuilder:
                         time_vals.append(datetime.strptime(time_str.strip(), settings.DEFAULT_DATETIME_FORMAT))
                     except ValueError:
                         errors.append(f"Invalid datetime format: {outer_key}: {run_type}: {time_str}")
-                if time_vals[0] >= time_vals[1]:
-                    errors.append(f"Start time must be before end time: {outer_key}: {run_type}: {time_vals[0]} >= {time_vals[1]}")
+                if time_vals[0] > time_vals[1]:
+                    errors.append(f"Start time must not be after end time: {outer_key}: {run_type}: {time_vals[0]} > {time_vals[1]}")
 
         # Raise time format errors
         if errors:

@@ -1893,12 +1893,6 @@ def create_fcst_times(
         fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=prev_hind_cycle) - datetime.timedelta(hours=fcst_lookback) + datetime.timedelta(hours=1), "%Y-%m-%d %H:%M:%S")
         fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle) - datetime.timedelta(hours=fcst_lookback), "%Y-%m-%d %H:%M:%S")
 
-    # Construct start and end times for warm start period
-    elif use_warm_start:
-        # Warm start begins at the start of the previous hindcast cycle and ends at the start of the current hindcast cycle
-        fcst_start = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=prev_hind_cycle), "%Y-%m-%d %H:%M:%S")
-        fcst_end = datetime.datetime.strftime(cycle_dt + datetime.timedelta(hours=hind_cycle), "%Y-%m-%d %H:%M:%S")
-
     # Construct start and end times based on forecast cycle
     elif ana_flag == 0:
 
