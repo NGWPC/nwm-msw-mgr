@@ -363,6 +363,8 @@ class DataAssimilationConfig(StrictBaseModel):
     """
     reservoir_da: bool = False
     reservoir_rfc_dir: Optional[str] = None
+    streamflow_da: bool = False
+    usgs_timeslice_dir: Optional[str] = None
 
     @model_validator(mode="after")
     def validate_reservoir_rfc_dir(self):
@@ -371,6 +373,15 @@ class DataAssimilationConfig(StrictBaseModel):
                 raise ValueError("reservoir_da is True, but reservoir_rfc_dir was not provided")
             if not Path(self.reservoir_rfc_dir).exists():
                 raise ValueError(f"reservoir_rfc_dir does not exist: {self.reservoir_rfc_dir}")
+        return self
+
+    @model_validator(mode="after")
+    def validate_usgs_timeslice_dir(self):
+        if self.streamflow_da:
+            if not self.usgs_timeslice_dir:
+                raise ValueError("streamflow_da is True, but usgs_timeslice_dir was not provided")
+            if not Path(self.usgs_timeslice_dir).exists():
+                raise ValueError(f"usgs_timeslice_dir does not exist: {self.usgs_timeslice_dir}")
         return self
 
 
