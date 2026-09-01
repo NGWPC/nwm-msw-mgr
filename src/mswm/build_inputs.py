@@ -65,7 +65,31 @@ class RealizationBuilder:
                  use_hindcast: bool = False, use_lagged_ens: bool = False, forcing_path: str | None = None, fcst_run_name: str | None = None, hind_cycle: int | None = None, prev_hind_cycle: int | None = None,
                  lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, save_state_dir: str | None = None, checkpoint_dir: str | None = None,
                  checkpoint_interval: int | None = None, src_run_path: str | None = None, dst_run_path: str | None = None, config_overrides: InputConfig | None = None):
-
+        """Initialize RealizationBuilder with paths and run options
+        
+        Parameters
+        ----------
+        input_path: path to input.config file to read from disk
+        valid_yaml: path to yaml-based configuration file from a previous calibration run
+        use_cold_start: boolean flag for setting up a cold start run
+        use_warm_start: boolean flag for setting up a warm start run
+        use_hindcast: boolean flag for setting up a hindcast iteration run
+        use_lagged_ens: boolean flag for building a lagged ensemble member realization
+        forcing_path: path to /forcing/ folder, used only for csv forcing provider
+        fcst_run_name: name of the forecast run, used to construct the run directory path
+        hind_cycle: cycle (in hours) between first hindcast interation (00) and current hindcast iteration
+        prev_hind_cycle: cycle (in hours) from previous hindcast iteration, used to orchestrate warm start runs
+        lagged_ens_mem: lagged ensemble member identifier
+        forcing_lag: number of hours forcing valid time is lagged from ngen start time in lagged ensemble run
+        load_state_from: path to directory containing model state files to load at start of run
+        save_state: boolean flag for saving model state at end of run
+        save_state_dir: directory to save model state to; if None, defaults to `<work_dir>/state_save`
+        checkpoint_dir: directory to save checkpoint state to; if None defaults to `<work_dir>/checkpoint`
+        checkpoint_interval: interval (in timesteps) at which to save checkpoint state
+        src_run_path: source run folder path, used by `update_fcst_run` to copy an existing run
+        dst_run_path: destination run folder path, used by `update_fcst_run` to copy an existing run
+        config_overrides: InputConfig instance to use instead of reading input.config from disk
+        """
         # Private attributes controlled by public properties.
         self._config_overrides: InputConfig | None
         self._config_overrides_mode__amend: bool
@@ -124,10 +148,12 @@ class RealizationBuilder:
     @config_overrides.setter
     @validate_call
     def config_overrides(self, new: InputConfig | None):
+        """InputConfig instance used to override configuration read from disk, or None if not set"""
         self._config_overrides = new
 
     @property
     def config_overrides_mode__amend(self):
+        """Whether `config_overrides` amends (True) or fully replaces (False) configuration read from disk"""
         return self._config_overrides_mode__amend
 
     @config_overrides_mode__amend.setter
@@ -136,7 +162,9 @@ class RealizationBuilder:
 
     def _load_config(self):
         """
-        Read input.config file
+        Read input.config file from disk into `self.config`, then validate it into `self.input_configs`
+
+        Uses `self.input_path`. If `self.input_path is None, requires `self.config_overrides` to be set and returns without reading a file.
         """
         import configparser
 
@@ -184,6 +212,9 @@ class RealizationBuilder:
     def _validate_config(self):
         """
         Validate input.config file using Pydantic (input_configuration.py)
+
+        Converts `self.config` (a configparser.ConfigParser) into a nested dictionary, strips trailing whitespace from values,
+        and validates it against the InputConfig pydantic model. Sets `self.input_configs_class` (InputConfig instance) and `self.input_configs` (dict).
         """
         # Convert input.config to dictionary
         configs = {}
@@ -248,7 +279,7 @@ class RealizationBuilder:
 
     def _load_yaml(self):
         """
-        Read yaml-based configuration file from previous ngen calibration run
+        Read yaml-based configuration file from previous ngen calibration run into `self.valid_conf`. Uses `self.valid_yaml`.
         """
         # Confirm config yaml file exists
         self.valid_yaml = Path(self.valid_yaml).absolute()
@@ -277,7 +308,11 @@ class RealizationBuilder:
 
     def _create_fcst_dir(self):
         """
-        Create directory for forecast run
+        Create directory for forecast run and set run_type, work_dir, input_dir, and basename_opt.
+
+        Determines the run directory name and file basename option based on which of `self.use_cold_start`, 
+        `self.use_warm_start`, `self.use_hindcast`, `self.use_lagged_ens` is set (defaults to plain `Forecast_Run` otherwise). 
+        Uses `self.valid_conf` to locate the parent forecast directory.
         """
         # create fcst directory
         try:
@@ -334,7 +369,9 @@ class RealizationBuilder:
 
     def _parse_yaml(self):
         """
-        Read realization file, hydrofabric gpkg and ngen executable paths from yaml file
+        Read realization file, hydrofabric gpkg and ngen executable paths from yaml file.
+
+        Sets `self.real_input_file`, `self.gpkg_cats`, `self.gpkg_nexus`, and `self.ngen_exe` from `self.valid_conf['model']`.
         """
         # Set realization file path
         try:
@@ -431,7 +468,10 @@ class RealizationBuilder:
 
     def _load_reg_catchments(self):
         """"
-        Load grouped catchment files produced by regionalization and store grouped catchment ids
+        Load grouped catchment files produced by regionalization and store grouped catchment ids.
+
+        Builds `self.grp_to_cat`, a dictionary mapping each regionalization group (gage_id) to its list 
+        of catchment IDs div_id, from `self.cat_grp_df`.
         """
         # Relate formulation groups to catchment IDS
         self.grp_to_cat = (self.cat_grp_df.groupby("gage_id")["div_id"].apply(list).to_dict())
@@ -440,7 +480,11 @@ class RealizationBuilder:
 
     def _parse_reg_params(self):
         """
-        Extract regionalization parameters for each group and module
+        Extract regionalization parameters for each group and module.
+
+        Builds `self.grp_params`, a nested dictionary keyed by module then group gage_id, containing the calibratable parmeter 
+        values for that module/group from `self.reg_df`. Parameters with a NaN value are left out of the resulting dictory. Parameters with 
+        a non-numeric value raise an error. Also applies module specific parameter renaming (e.g. `maxsmc` -> `smcmax`)
         """
         # Set modules and associated calibratable parameters
         params_dict = {
@@ -501,7 +545,10 @@ class RealizationBuilder:
 
     def _parse_config(self):
         """
-        Parse sections from input.config file
+        Parse sections from input.config file into individual instance attributes for convenience
+
+        Reassigns `self.input_configs` sections (General, ModuleProperties, NWMOutput, run-type-specific section, DataFile, 
+        Forcing, DataAssimilation, Parallel) to corresponding variables.
         """
         # reassign config sections for convenience
         self.conf1 = self.input_configs.get('General')
@@ -534,7 +581,7 @@ class RealizationBuilder:
 
     def _load_realization(self):
         """
-        Load realization json file
+        Load realization json file into `self.real_config`.
         """
         # Confirm realization file exists
         if not self.real_input_file.exists():
@@ -559,7 +606,11 @@ class RealizationBuilder:
 
     def _parse_realization(self):
         """
-        Read existing formulation modules from realization file
+        Read existing formulation modules from realization file into `self.modules`. 
+    
+        Supports two realization file formats: a single global fomrulation (sets `self.modules directly) or 
+        `formulation_groups` (constructs `self.grp_to_form`, `self.grp_to_cat`, and `self.grp_aet_rootzone` per group, and sets `self.modules` to 
+        the union of modules across all groups)
         """
         # Read modules from global or grouped formulation
         if 'global' in self.real_config:
@@ -601,7 +652,12 @@ class RealizationBuilder:
 
     def _get_nwm_output_variables(self):
         """
-        Retrieve NWM output variables for a given formulation, including required adapter modules
+        Retrieve NWM output variables for a given formulation, including required adapter modules.
+
+        For grouped fomrulations (regionalization or `self.grp_to_form` set), queries NWM output variables and adapters 
+        per group, setting `self.grp_to_adapters`, `self.grp_to_nwm_output_dicts`, and `self.adapters` (union of adapters 
+        across all groups). For a single formulation, sets `self.nwm_output_dicts` and `self.adapters` directly. Adds `sloth` to the 
+        adapter list when required by the formulation.
         """
 
         logger.info("Run configured to produce full set of NWM output variables")
@@ -644,7 +700,9 @@ class RealizationBuilder:
 
     def _create_input_dir(self):
         """
-        Create input directory to store realization file and BMI config files
+        Create input directory to store realization file and BMI config files.
+
+        Sets `self.work_dir` and `self.input_dir` based on `self.run_type` and creates `self.input_dir` on disk.
         """
         # Set run directory based on run_type
         obj_fnc = self.conf2.get('objective_function') or "none"
@@ -693,6 +751,9 @@ class RealizationBuilder:
     def _init_log(self):
         """
         Initialize logging depending on run type
+
+        Creates the log directory if needed from `self.log_file_path`, initializes the global logger via `ewts.logger.setup_logger`, 
+        and initializes the `ginputfunc.py` module-level logger.
         """
         log_dir, log_file_name = os.path.split(self.log_file_path)
 
@@ -734,7 +795,8 @@ class RealizationBuilder:
 
     def _find_realization_file(self):
         """
-        Find realization file in work directory and set real_input_file path
+        Find realization file in work directory and set real_input_file path. Searches `self.work_dir` recursively for a file matching 
+        '*realization*.json'.
         """
         realization_files = list(self.work_dir.rglob("*realization*.json"))
         if not realization_files:
@@ -751,6 +813,10 @@ class RealizationBuilder:
     def _parse_forcing_engine(self):
         """
         Extract forcing engine parameters from input.config
+
+        Reads `self.forcingSec` and for BMI-provided forcing with a forecast `forcing_configuration` (not 'nwm'/'aorc'), 
+        determines the forcing template filename based on run type, reads that template, applies an optional `LookBack` override, 
+        and computes `self.fcst_start`/`self.fcst_end` via `gfun.create_fcst_times`.
         """
         # Retrieve forcing engine variables
         self.forcing_provider = self.forcingSec.get('forcing_provider', None)
@@ -875,7 +941,11 @@ class RealizationBuilder:
 
     def _parse_time(self):
         """
-        Set run time variables for calibration, regionalization, and default runs
+        Set run time variables for calibration, regionalization, and default runs.
+
+        For calibration runs, builds `self.time_period` from calib/valid start/end and evaluation period keys. For regionalization/defaults runs, 
+        uses `self.fcst_start`/`self.fcst_end` if already set by the forcing engine, otherwise falls back to `self.conf1['start_period'] / `self.conf1['end_period'].
+        Validates that all resulting times parse correctly and that each start time is before the corresponding end time.
         """
         # Retrieve time period for calibration
         if self.run_type == 'calibration':
@@ -926,6 +996,9 @@ class RealizationBuilder:
     def _parse_calib_settings(self):
         """
         Parse input.config settings for calibration run
+
+        Builds `self.general_cfg`, a dictionary of calibration strategy settings (algorith, swarm size, PSO/GWO-specific params, 
+        iteration counts, restart flag) derived from `self.conf2`.
         """
 
         # Retrieve general settings for calibration
@@ -951,6 +1024,9 @@ class RealizationBuilder:
 
     @staticmethod
     def file_crs_epsg(file_name: str) -> int:
+        """
+        Get the EPSG code of a geopackage's 'divides' layer.
+        """
         logger.debug(f"Getting EPSG code of: {file_name}")
         gdf = gpd.read_file(file_name, layer='divides')
         return gdf.crs.to_epsg()
@@ -958,6 +1034,10 @@ class RealizationBuilder:
     def _extract_hydrofabric(self):
         """
         Extract hydrofabric geopackage and form catchment, nexus, and crosswalk files
+
+        Retrieves the gpkg either from `self.conf3['hydrofab_file'] if user-provided or from the Icefabric API via `gfun.call_icefabric_gpkg`. 
+        If the gpkg CRS is already EPSG:4326 or 5070, symlinks file into `self.input_dir`; otherwise reprojects it to EPSG:4326 via `gfun.reproject_gpkg`. 
+        Sets `self.gpkg_file`, `self.cat_file`, and `self.nexus_file`.
         """
 
         # Retrieve gpkg from Icefabric API or symlink existing file if provided
@@ -1002,6 +1082,10 @@ class RealizationBuilder:
     def _read_hydrofabric(self):
         """
         Read catchment divides and flowpaths layers from hydrofabric
+
+        Reads the 'divides', 'flowpaths', and 'gages' layers from `self.gpkg_cats` (for cold start/warm start/lagged ens/forecast runs) or 
+        `self.gpkg_file` (otherwise) into `self.divides_df`, `self.flowpaths_df`, and `self.gages_df`. Sets `self.cat_ids` from the divides layer's 
+        'div_id' column and fills NaN divide attribute values with defaults via `gfun.fill_divides_nan`.
         """
         # Read catchment parameter values from geopackage divide-attributes
         gpkg_path = self.gpkg_cats if self.run_type in ('cold_start', 'warm_start', 'hindcast', 'lagged_ens', 'forecast') else self.gpkg_file
@@ -1049,6 +1133,12 @@ class RealizationBuilder:
     def _parse_modules(self):
         """
         Read modules from input.config file and ensure formulation is valid
+
+        Parses `self.conf1['models'] into `self.modules`, validating against `settings.modules_all`. 
+        Automatically adds required companion modules: SLOTH, SFT/SMP, and T-route. Reorders `self.modules` to
+        match hydrologic process order. If 'topoflow-glacier' is selected, validates glacier coverages in `self.divides_df` and 
+        if applicable catchments exist, splits the formulation into `self.grp_to_form`/`self.grp_to_cat`/`self.grp_aet_rootzone` groups;
+        if no catchments meet the glacier threshold, removes 'topoflow-glacier' from `self.modules`.
         """
 
         logger.info(f"Available module names: {settings.modules_all['name_ui'].tolist()}")
@@ -1170,6 +1260,9 @@ class RealizationBuilder:
         """
         Retrieve modules from regionalization formulation file and ensure formulation is valid
         This could potentially be combined with _parse_modules to not repeat code
+
+        For each row (group) in `self.reg_df`, parses the 'formulation' column into a validated module list, applying the 
+        same companion module rules as `_parse_modules`. Builds `self.grp_to_form` and `self.grp_aet_rootzone` per group.
         """
         logger.info(f"Available module names: {settings.modules_all['name_ui'].tolist()}")
         self.grp_to_form = {}
@@ -1250,6 +1343,9 @@ class RealizationBuilder:
     def _validate_processes(self):
         """
         Check that formulation has all required hydrological processes
+
+        For each hydrologic process, validates that at most one module is selected (except for Soil Moisture, Glacier Snow, and Evapotranspiration) and at least 
+        one module is selected for the required rainfall runoff process. Applies this check per group if `self.grp_to_form` is set.
         """
         # check modules selected for each process
         procs = []
@@ -1257,8 +1353,12 @@ class RealizationBuilder:
             procs = list(set(procs + p1))
 
         def validate_formulation(modules, label=None):
-            """Inner helper function to validate a single formulation or grouped formulations"""
-
+            """Inner helper function to validate a single formulation or grouped formulations
+            Parameters
+            ----------
+            modules: list of modules in the formulation to validate
+            label: optional label for readability at call site
+            """
             for p1 in procs:
                 mods = [m1 for m1 in modules if p1 in settings.modules_all.loc[settings.modules_all['module'] == m1, 'process'].values[0]]
 
@@ -1290,6 +1390,9 @@ class RealizationBuilder:
     def _map_cat_to_grp(self):
         """
         Map catchments to formulation groups and assign aet_rootzone flags for cfe
+
+        Builds `self.cat_to_grp` (catchment ID -> group name) and `self.cat_to_aet_rootzone` (catchment ID -> aet_rootzone flag) from
+        `self.grp_to_cat` and `self.grp_aet_rootzone`.
         """
         # Relate catchments and their groups
         if hasattr(self, 'grp_to_cat') and self.grp_to_cat:
@@ -1304,6 +1407,8 @@ class RealizationBuilder:
     def _map_cat_to_form(self):
         """
         Map catchments to grouped formulations
+
+        Builds `self.cat_to_form` (catchment ID -> module list) from `self.cat_to_grp` and `self.grp_to_form`.
         """
         # Relate catchments and their formulations
         if hasattr(self, 'grp_to_cat') and self.grp_to_cat:
@@ -1314,6 +1419,8 @@ class RealizationBuilder:
     def _map_mod_to_cat(self):
         """
         Map modules used in each catchment for regionalization
+
+        Builds `self.mod_to_cat` module -> list of catchment IDs using that module) from `self.cat_to_form`.
         """
         # Find the catchments that use each module
         if hasattr(self, 'grp_to_cat') and self.grp_to_cat:
@@ -1325,6 +1432,10 @@ class RealizationBuilder:
     def _set_lib_paths(self):
         """
         Set library files for all modules included in the formulation
+
+        Builds `self.lib_file` (module -> library_file_path) from `self.conf3`, using either `self.grp_to_form` or `self.modules`, excluding 
+        T-Route/LSTM/Topoflow-glacier. Includes adapter modules in NWM output variables were requested. Validateds that all library files exist on disk 
+        unless running via ngen_cerf.
         """
         # Set library files
         self.lib_file = {}
@@ -1369,6 +1480,9 @@ class RealizationBuilder:
     def _symlink_ngen(self):
         """
         Symlink ngen executable into Input run folder
+
+        Symlinks `self.conf3['ngen_exe_file'] to `<self.input_dir>/ngen`, removing any existing
+        symlink or file at that destination.
         """
         # Set Symlink ngen path
         try:
@@ -1396,7 +1510,11 @@ class RealizationBuilder:
 
     def _extract_forcing(self):
         """
-        Extract forcing files and symlink to input directory
+        Extract forcing files and symlink to input directory.
+
+        Only applies when `self.forcing_prider == 'csv'. Creates `<self.input_dir>/forcing` and for each 
+        catchment ID in `self.catids`, symlinks the corresponding `<catID>.csv` file from `self.forcing_dir` into that folder.
+        Sets `self.forcing_config_file` to an empty string placeholder.
         """
 
         # For csv provider
@@ -1454,6 +1572,10 @@ class RealizationBuilder:
     def _configure_forcing_engine(self):
         """
         Extract forcing engine parameters and configure forcing engine yml files
+
+        Only applies when `self.forcing_provider == 'bmi'`. Sets `self.forcing_config_dir` and `self.forcing_config_file`, then 
+        dispatches to `gfun.update_fcst_forcing_config` (for forecast configurations) or `gfun.update_hist_forcing_config` nwm/aorc historical 
+        forcing) to write the forcing engine yml file.
         """
         if self.forcing_provider == 'bmi':
 
@@ -1484,6 +1606,9 @@ class RealizationBuilder:
     def _extract_streamflow_obs(self):
         """
         Extract streamflow gage observations if provided
+
+        If `self.conf3['obs_dir']` is set, reads `<obs_dir>/<basin>_hourly_discharge.csv` renames its columns to match calibration expectations, and
+        writes it to `self.obsflow_file` in the input directory. Sets `self.obsflow_file` to None if no observation directory is supplied.
         """
         # Extract streamflow observation
         if 'obs_dir' in self.conf3.keys() and self.conf3['obs_dir'] is not None:
@@ -1508,7 +1633,10 @@ class RealizationBuilder:
 
     def _set_output_vars(self):
         """
-        Set SWE and Soil Moisture output variables
+        Set SWE and Soil Moisture output variables.
+
+        Builds `self.output_dict`, containing boolean flags for `output_swe`, `output_sm`, and `output_precip`, plus `sm_frac_depth` and
+        `sm_profile_depth`. Also sets `self.calib_output_vars` and `self.valid_output_vars` from `self.conf2`.
         """
         # whether to output SWE, soil moisture, or precip (default to False)
         self.output_dict = dict()
@@ -1543,6 +1671,9 @@ class RealizationBuilder:
         """
         Update forcing and time related info in realization file
         Add NWM Output variable sections to realization if requested
+
+        Calls `gfunupdate_realization_fcst to update `self.real_config`'s foricng configuration, start/end time, and output format. Then applies NWM
+        output variable sections via `self._apply_nwm_output_vars` if `self.output_nwm_vars` is set.
         """
         self.real_config = gfun.update_realization_fcst(self.real_config, self.forcing_path, self.forcing_config_file, self.fcst_start, self.fcst_end, self.output_format)
         logger.info("Updated forecast realization file forcing and output format")
@@ -1553,6 +1684,9 @@ class RealizationBuilder:
     def _update_fcst_troute(self):
         """
         Update BMI config files for t-route for forecast period
+
+        Calls `gfun.update_troute` to write a new t-route BMI config file with adjsuted start/end times and data assimilation parameters,
+        and updates the routing config path in `self.real_config`.
         """
         self.real_config = gfun.update_troute(self.real_config, self.input_dir, self.basename_opt, self.daSec)
         logger.info("Updated t-route file for forecast")
