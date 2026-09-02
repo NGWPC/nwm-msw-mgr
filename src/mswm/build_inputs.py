@@ -66,7 +66,7 @@ class RealizationBuilder:
                  lagged_ens_mem: str | None = None, forcing_lag: int | None = None, load_state_from: str | None = None, save_state: bool = False, save_state_dir: str | None = None, checkpoint_dir: str | None = None,
                  checkpoint_interval: int | None = None, src_run_path: str | None = None, dst_run_path: str | None = None, config_overrides: InputConfig | None = None):
         """Initialize RealizationBuilder with paths and run options
-        
+
         Parameters
         ----------
         input_path: path to input.config file to read from disk
@@ -310,8 +310,8 @@ class RealizationBuilder:
         """
         Create directory for forecast run and set run_type, work_dir, input_dir, and basename_opt.
 
-        Determines the run directory name and file basename option based on which of `self.use_cold_start`, 
-        `self.use_warm_start`, `self.use_hindcast`, `self.use_lagged_ens` is set (defaults to plain `Forecast_Run` otherwise). 
+        Determines the run directory name and file basename option based on which of `self.use_cold_start`,
+        `self.use_warm_start`, `self.use_hindcast`, `self.use_lagged_ens` is set (defaults to plain `Forecast_Run` otherwise).
         Uses `self.valid_conf` to locate the parent forecast directory.
         """
         # create fcst directory
@@ -470,7 +470,7 @@ class RealizationBuilder:
         """"
         Load grouped catchment files produced by regionalization and store grouped catchment ids.
 
-        Builds `self.grp_to_cat`, a dictionary mapping each regionalization group (gage_id) to its list 
+        Builds `self.grp_to_cat`, a dictionary mapping each regionalization group (gage_id) to its list
         of catchment IDs div_id, from `self.cat_grp_df`.
         """
         # Relate formulation groups to catchment IDS
@@ -482,8 +482,8 @@ class RealizationBuilder:
         """
         Extract regionalization parameters for each group and module.
 
-        Builds `self.grp_params`, a nested dictionary keyed by module then group gage_id, containing the calibratable parmeter 
-        values for that module/group from `self.reg_df`. Parameters with a NaN value are left out of the resulting dictory. Parameters with 
+        Builds `self.grp_params`, a nested dictionary keyed by module then group gage_id, containing the calibratable parmeter
+        values for that module/group from `self.reg_df`. Parameters with a NaN value are left out of the resulting dictory. Parameters with
         a non-numeric value raise an error. Also applies module specific parameter renaming (e.g. `maxsmc` -> `smcmax`)
         """
         # Set modules and associated calibratable parameters
@@ -547,7 +547,7 @@ class RealizationBuilder:
         """
         Parse sections from input.config file into individual instance attributes for convenience
 
-        Reassigns `self.input_configs` sections (General, ModuleProperties, NWMOutput, run-type-specific section, DataFile, 
+        Reassigns `self.input_configs` sections (General, ModuleProperties, NWMOutput, run-type-specific section, DataFile,
         Forcing, DataAssimilation, Parallel) to corresponding variables.
         """
         # reassign config sections for convenience
@@ -606,10 +606,10 @@ class RealizationBuilder:
 
     def _parse_realization(self):
         """
-        Read existing formulation modules from realization file into `self.modules`. 
-    
-        Supports two realization file formats: a single global fomrulation (sets `self.modules directly) or 
-        `formulation_groups` (constructs `self.grp_to_form`, `self.grp_to_cat`, and `self.grp_aet_rootzone` per group, and sets `self.modules` to 
+        Read existing formulation modules from realization file into `self.modules`.
+
+        Supports two realization file formats: a single global fomrulation (sets `self.modules directly) or
+        `formulation_groups` (constructs `self.grp_to_form`, `self.grp_to_cat`, and `self.grp_aet_rootzone` per group, and sets `self.modules` to
         the union of modules across all groups)
         """
         # Read modules from global or grouped formulation
@@ -654,9 +654,9 @@ class RealizationBuilder:
         """
         Retrieve NWM output variables for a given formulation, including required adapter modules.
 
-        For grouped fomrulations (regionalization or `self.grp_to_form` set), queries NWM output variables and adapters 
-        per group, setting `self.grp_to_adapters`, `self.grp_to_nwm_output_dicts`, and `self.adapters` (union of adapters 
-        across all groups). For a single formulation, sets `self.nwm_output_dicts` and `self.adapters` directly. Adds `sloth` to the 
+        For grouped fomrulations (regionalization or `self.grp_to_form` set), queries NWM output variables and adapters
+        per group, setting `self.grp_to_adapters`, `self.grp_to_nwm_output_dicts`, and `self.adapters` (union of adapters
+        across all groups). For a single formulation, sets `self.nwm_output_dicts` and `self.adapters` directly. Adds `sloth` to the
         adapter list when required by the formulation.
         """
 
@@ -752,7 +752,7 @@ class RealizationBuilder:
         """
         Initialize logging depending on run type
 
-        Creates the log directory if needed from `self.log_file_path`, initializes the global logger via `ewts.logger.setup_logger`, 
+        Creates the log directory if needed from `self.log_file_path`, initializes the global logger via `ewts.logger.setup_logger`,
         and initializes the `ginputfunc.py` module-level logger.
         """
         log_dir, log_file_name = os.path.split(self.log_file_path)
@@ -795,7 +795,7 @@ class RealizationBuilder:
 
     def _find_realization_file(self):
         """
-        Find realization file in work directory and set real_input_file path. Searches `self.work_dir` recursively for a file matching 
+        Find realization file in work directory and set real_input_file path. Searches `self.work_dir` recursively for a file matching
         '*realization*.json'.
         """
         realization_files = list(self.work_dir.rglob("*realization*.json"))
@@ -814,8 +814,8 @@ class RealizationBuilder:
         """
         Extract forcing engine parameters from input.config
 
-        Reads `self.forcingSec` and for BMI-provided forcing with a forecast `forcing_configuration` (not 'nwm'/'aorc'), 
-        determines the forcing template filename based on run type, reads that template, applies an optional `LookBack` override, 
+        Reads `self.forcingSec` and for BMI-provided forcing with a forecast `forcing_configuration` (not 'nwm'/'aorc'),
+        determines the forcing template filename based on run type, reads that template, applies an optional `LookBack` override,
         and computes `self.fcst_start`/`self.fcst_end` via `gfun.create_fcst_times`.
         """
         # Retrieve forcing engine variables
@@ -943,7 +943,7 @@ class RealizationBuilder:
         """
         Set run time variables for calibration, regionalization, and default runs.
 
-        For calibration runs, builds `self.time_period` from calib/valid start/end and evaluation period keys. For regionalization/defaults runs, 
+        For calibration runs, builds `self.time_period` from calib/valid start/end and evaluation period keys. For regionalization/defaults runs,
         uses `self.fcst_start`/`self.fcst_end` if already set by the forcing engine, otherwise falls back to `self.conf1['start_period'] / `self.conf1['end_period'].
         Validates that all resulting times parse correctly and that each start time is before the corresponding end time.
         """
@@ -997,7 +997,7 @@ class RealizationBuilder:
         """
         Parse input.config settings for calibration run
 
-        Builds `self.general_cfg`, a dictionary of calibration strategy settings (algorith, swarm size, PSO/GWO-specific params, 
+        Builds `self.general_cfg`, a dictionary of calibration strategy settings (algorith, swarm size, PSO/GWO-specific params,
         iteration counts, restart flag) derived from `self.conf2`.
         """
 
@@ -1035,8 +1035,8 @@ class RealizationBuilder:
         """
         Extract hydrofabric geopackage and form catchment, nexus, and crosswalk files
 
-        Retrieves the gpkg either from `self.conf3['hydrofab_file'] if user-provided or from the Icefabric API via `gfun.call_icefabric_gpkg`. 
-        If the gpkg CRS is already EPSG:4326 or 5070, symlinks file into `self.input_dir`; otherwise reprojects it to EPSG:4326 via `gfun.reproject_gpkg`. 
+        Retrieves the gpkg either from `self.conf3['hydrofab_file'] if user-provided or from the Icefabric API via `gfun.call_icefabric_gpkg`.
+        If the gpkg CRS is already EPSG:4326 or 5070, symlinks file into `self.input_dir`; otherwise reprojects it to EPSG:4326 via `gfun.reproject_gpkg`.
         Sets `self.gpkg_file`, `self.cat_file`, and `self.nexus_file`.
         """
 
@@ -1083,8 +1083,8 @@ class RealizationBuilder:
         """
         Read catchment divides and flowpaths layers from hydrofabric
 
-        Reads the 'divides', 'flowpaths', and 'gages' layers from `self.gpkg_cats` (for cold start/warm start/lagged ens/forecast runs) or 
-        `self.gpkg_file` (otherwise) into `self.divides_df`, `self.flowpaths_df`, and `self.gages_df`. Sets `self.cat_ids` from the divides layer's 
+        Reads the 'divides', 'flowpaths', and 'gages' layers from `self.gpkg_cats` (for cold start/warm start/lagged ens/forecast runs) or
+        `self.gpkg_file` (otherwise) into `self.divides_df`, `self.flowpaths_df`, and `self.gages_df`. Sets `self.cat_ids` from the divides layer's
         'div_id' column and fills NaN divide attribute values with defaults via `gfun.fill_divides_nan`.
         """
         # Read catchment parameter values from geopackage divide-attributes
@@ -1134,9 +1134,9 @@ class RealizationBuilder:
         """
         Read modules from input.config file and ensure formulation is valid
 
-        Parses `self.conf1['models'] into `self.modules`, validating against `settings.modules_all`. 
+        Parses `self.conf1['models'] into `self.modules`, validating against `settings.modules_all`.
         Automatically adds required companion modules: SLOTH, SFT/SMP, and T-route. Reorders `self.modules` to
-        match hydrologic process order. If 'topoflow-glacier' is selected, validates glacier coverages in `self.divides_df` and 
+        match hydrologic process order. If 'topoflow-glacier' is selected, validates glacier coverages in `self.divides_df` and
         if applicable catchments exist, splits the formulation into `self.grp_to_form`/`self.grp_to_cat`/`self.grp_aet_rootzone` groups;
         if no catchments meet the glacier threshold, removes 'topoflow-glacier' from `self.modules`.
         """
@@ -1261,7 +1261,7 @@ class RealizationBuilder:
         Retrieve modules from regionalization formulation file and ensure formulation is valid
         This could potentially be combined with _parse_modules to not repeat code
 
-        For each row (group) in `self.reg_df`, parses the 'formulation' column into a validated module list, applying the 
+        For each row (group) in `self.reg_df`, parses the 'formulation' column into a validated module list, applying the
         same companion module rules as `_parse_modules`. Builds `self.grp_to_form` and `self.grp_aet_rootzone` per group.
         """
         logger.info(f"Available module names: {settings.modules_all['name_ui'].tolist()}")
@@ -1344,7 +1344,7 @@ class RealizationBuilder:
         """
         Check that formulation has all required hydrological processes
 
-        For each hydrologic process, validates that at most one module is selected (except for Soil Moisture, Glacier Snow, and Evapotranspiration) and at least 
+        For each hydrologic process, validates that at most one module is selected (except for Soil Moisture, Glacier Snow, and Evapotranspiration) and at least
         one module is selected for the required rainfall runoff process. Applies this check per group if `self.grp_to_form` is set.
         """
         # check modules selected for each process
@@ -1433,8 +1433,8 @@ class RealizationBuilder:
         """
         Set library files for all modules included in the formulation
 
-        Builds `self.lib_file` (module -> library_file_path) from `self.conf3`, using either `self.grp_to_form` or `self.modules`, excluding 
-        T-Route/LSTM/Topoflow-glacier. Includes adapter modules in NWM output variables were requested. Validateds that all library files exist on disk 
+        Builds `self.lib_file` (module -> library_file_path) from `self.conf3`, using either `self.grp_to_form` or `self.modules`, excluding
+        T-Route/LSTM/Topoflow-glacier. Includes adapter modules in NWM output variables were requested. Validateds that all library files exist on disk
         unless running via ngen_cerf.
         """
         # Set library files
@@ -1512,7 +1512,7 @@ class RealizationBuilder:
         """
         Extract forcing files and symlink to input directory.
 
-        Only applies when `self.forcing_prider == 'csv'. Creates `<self.input_dir>/forcing` and for each 
+        Only applies when `self.forcing_prider == 'csv'. Creates `<self.input_dir>/forcing` and for each
         catchment ID in `self.catids`, symlinks the corresponding `<catID>.csv` file from `self.forcing_dir` into that folder.
         Sets `self.forcing_config_file` to an empty string placeholder.
         """
@@ -1573,8 +1573,8 @@ class RealizationBuilder:
         """
         Extract forcing engine parameters and configure forcing engine yml files
 
-        Only applies when `self.forcing_provider == 'bmi'`. Sets `self.forcing_config_dir` and `self.forcing_config_file`, then 
-        dispatches to `gfun.update_fcst_forcing_config` (for forecast configurations) or `gfun.update_hist_forcing_config` nwm/aorc historical 
+        Only applies when `self.forcing_provider == 'bmi'`. Sets `self.forcing_config_dir` and `self.forcing_config_file`, then
+        dispatches to `gfun.update_fcst_forcing_config` (for forecast configurations) or `gfun.update_hist_forcing_config` nwm/aorc historical
         forcing) to write the forcing engine yml file.
         """
         if self.forcing_provider == 'bmi':
@@ -1937,6 +1937,10 @@ class RealizationBuilder:
     def _configure_checkpointing(self):
         """"
         Configure checkpoint state saving configuration in state saving section
+
+        If `self.checkpoint_interval` is set, creates the checkpoint directory (`self.checkpoint_dir` or `<work_dir>/checkpoint`),
+        validates the interval is numeric, and inserts a `direction=save / when=Checkpoint / frequency=<interval>` entry into `self.real_config`'s
+        `state_saving` section, replacing any existing checkpoint entry.
         """
 
         if self.checkpoint_dir and self.checkpoint_interval is None:
@@ -1986,6 +1990,9 @@ class RealizationBuilder:
     def _set_bmi_config_dir(self):
         """
         Set directories of BMI config files
+
+        Builds `self.bmi_dir` (module -> <input_dir>/<name_ui>_input` path) from `self.grp_to_form` (grouped formulations) or
+        `self.modules` (single formulation), excluding T-Route, and including adapter modules if NWM output variables were requested.
         """
         if hasattr(self, '_building_fcst_realization') and self._building_fcst_realization:
             base_mods = []
@@ -2004,6 +2011,10 @@ class RealizationBuilder:
     def _assemble_realization(self):
         """
         Assemble realization file for calibration and default runs
+
+        Calls `gfun.create_reg_realization_file` (if `self.grp_to_form` is set) or `gfun.create_realization_file` (otherwise)
+        to build `self.real_config` and `self.output_config`, then applies NWM output variable sections via `self._apply_nwm_output_vars` if
+        `self.output_nwm_vars` is set.
         """
 
         # Set file paths
@@ -2026,6 +2037,9 @@ class RealizationBuilder:
     def _apply_nwm_output_vars(self):
         """
         Update realization config with NWM output variables for grouped or global formulations
+
+        Calls `gfun.update_realization_nwm_output` once per group (if `self.grp_to_form` is set) or once for the global
+        formulation, updating `self.real_config` with the required NWM output variable sections and adapter modules.
         """
         if hasattr(self, 'grp_to_form') and self.grp_to_form:
             for grp in self.grp_to_form:
@@ -2041,6 +2055,9 @@ class RealizationBuilder:
     def _write_realization(self):
         """
         Write realization to file for all run types
+
+        Determines `self.realization_file` path based on run type (forecast runs replace 'valid_best' with the run's basename option; calibration/regionalization/default runs
+        use a '<basin>_realization_config_bmi_<suffix>.json` naming pattern), then writes `self.real_config` to that path via `gfun.write_realization_to_file`.
         """
         # Set realization path based on run type
         if hasattr(self, '_building_fcst_realization') and self._building_fcst_realization:
@@ -2057,6 +2074,10 @@ class RealizationBuilder:
     def _write_partition(self):
         """
         Write parallel processing partition file
+
+        Calls `gfun.create_partition_file` to generate a partition file if `self.parallelSec` is set, using either the forecast geopackage/input directory or
+        the calibration/regionalization/default geopackage/work directory otherwise. Sets `self.part_file` to the resulting path, or None if `self.parallelSec`
+        is not set.
         """
         if getattr(self, "_building_fcst_realization", "") is True:
             cat_file = self.gpkg_cats
@@ -2082,6 +2103,9 @@ class RealizationBuilder:
     def _create_calib_model_dict(self):
         """
         Create calibration model dictionary used to create config yaml file
+
+        Builds `self.model_dict` (ngen binary, realization, catchment/nexus/crosswalk file paths, observation flow file,
+        evaluation parameters, thresholds, etc.) and `self.walk_file` (crosswalk JSON created via `gfun.create_walk_file`).
         """
         # Set site name
         site_name = (f"USGS {self.conf1['basin']}" + (f": {self.conf2['station_name']}" if self.conf2.get('station_name') else ""))
@@ -2140,6 +2164,9 @@ class RealizationBuilder:
     def _write_calib_configuration(self):
         """
         Create calibration configuration yaml file
+
+        Builds a config dictiory (merging `self.general_cfg` with GUI-related fileds and output variable definitions from `self.output_config`),
+        then writes the calibration config yaml file via `gfun.create_calib_config_file`.
         """
         # Create general config dictionary for output
         general_dict = self.general_cfg.copy()
@@ -2182,8 +2209,13 @@ class RealizationBuilder:
 
     def build_calib_realization(self):
         """
-        Replicate functionality of create_input.py, saving calibration realization file to output_path and formatting other input files
-        Returns output path to realization and calib_config files
+        Orchestrates the full calibration realization build pipeline: loads and validates config, parses  forcing engine/time/calibration settings,
+        extracts and reads the hydrofabric, parses and validates the module formulation, extracts forcing, configures the forcing engine and streamflow
+        observations, generates BMI config files, assembles and writes the realization file, writes the partition file, and writes the calibration config yaml.
+
+        Returns
+        --------
+        Path to created realization file
         """
         self.load_config_apply_overrides()
         self._parse_config()
@@ -2245,7 +2277,14 @@ class RealizationBuilder:
 
     def build_region_realization(self):
         """
-        Creating regionalization realization file from formulation_assignment file generated by regionalization
+        Orchestrates the full regionalization realization build pipeline: loads and validates config, parses forcing engine/formulation/time settings,
+        extracts and reads the hydrofabric, parses regionalization parameters and per-group modules, validates the formulation, maps catchments to
+        groups/formulations/modules, optionally queries NWM output variables, symlinks ngen, extracts and configures forcing, generates BMI config files
+        per group, assembles and writes the realization file, configures state saving/checkpointing, and writes the realization and partition files.
+
+        Returns
+        --------
+        Path to created realization file
         """
         self.load_config_apply_overrides()
         self._parse_config()
@@ -2312,8 +2351,11 @@ class RealizationBuilder:
         return self.realization_file
 
     def load_config_apply_overrides(self):
-        """Load the config file from disk and apply overrides.
-        If config overrides are applied with amend = False, then skip reading the config file."""
+        """
+        Load the config file from disk and apply overrides.
+
+        If config overrides are applied with amend = False, then skip reading the config file.
+        """
         if self.config_overrides and (not self.config_overrides_mode__amend):
             logging.info("Skipping load of config file since overrides will replace entire config (no amend)")
         else:
@@ -2322,7 +2364,15 @@ class RealizationBuilder:
 
     def build_fcst_realization(self):
         """
-        Creating realization file for cold start/warm start/forecast/hindcast/lagged ensemble runfrom validation yaml file and formatting other input files
+        Orcehstrates the full forecast-style realization build pipeline: loads and validates config and the calibration validation
+        yaml, parses forcinge engine settings and configures the forcing engine, reads the hydrofabric, optionally queries and applies NWM output
+        variables, configures model state loading, updates the realization's forcing/time/t-route sections for the forecast period, and writes
+        the partition and realization files
+
+        Returns
+        --------
+        Tuple of (realization_file, save_state_to) if `self.save_state` is set, otherwise (realization_file, None)
+
         """
         self._building_fcst_realization = True
 
@@ -2383,7 +2433,14 @@ class RealizationBuilder:
 
     def build_default_realization(self):
         """
-        Create realization and BMI config files using default parameter values for each catchment
+        Orchestrates the full default-run realization build pipeline: loads and validates config, parses forcing engine/time settings,
+        extracts and reads the hydrofabric, parses and validates the module formulation, maps catchments to groups/formulations/modules,
+        optionally quieres NWM output variables, symlinks ngen, extracts and configures forcing, generates BMI config files, assembles
+        and writes the realization file, configures state saving/checkpointing, and writes the realization and partition files
+
+        Returns
+        --------
+        Path to the created realization file
         """
         self.load_config_apply_overrides()
         self._parse_config()
@@ -2446,6 +2503,10 @@ class RealizationBuilder:
         Copy an existing forecast or regionalization run to a new path and update forcing engine config, realization, and troute config based
         on new cycle_datetime and forcing_configuration from the input.config [Forcing] section
 
+        Uses `self.src_run_path` and `self.dst_run_path` (both required). Copies the run folder via `copy_run_folder`, locates the existing realization
+        file at the destination, then parses and re-applies forcing engine configuration, realization updates, state configuration, and checkpointing
+        before rewriting the realization file.
+
         Returns
         -------
         Path to the updated realization file
@@ -2501,8 +2562,14 @@ class RealizationBuilder:
 def validate_topoflow_glacier(gpkg_file: str) -> dict:
     """Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
 
-    Args:
-        gpkg_file: path to geopackage file
+    Parameters
+    --------
+    gpkg_file: path to geopackage file
+
+    Returns
+    ----------
+    Dictionary with a 'result' boolean key indicating whether at least one catchment meets the glacier coverage
+    threshold and (if False) a 'message' key explaining why.
     """
 
     # Read attributes from provided geopackge

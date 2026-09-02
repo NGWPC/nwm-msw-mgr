@@ -1,4 +1,16 @@
-"""Default attributes values to fill NaN NHF attributes"""
+"""Default attributes values to fill NaN NHF attributes
+
+Some catchments in a hydrofabric geopackage's 'divides' layer may be missing values for attributes required by one of more hydrologic
+models (e.g. CFE, SMP, SFT, etc.). Rather than allowing a missing value into the BMI config as NaN, `gfun.fill_divides_nan` looks up
+each attribute in DEFAULT_ATTRS and substitutes the corresponding 'default' value fo r any catchment where that attribute is null.
+
+DEFAULT_ATTRS structure
+----------
+Keys are NHF divide-attribute column names (lowercase, matching the geopackage's 'divides' layer schema). Each value is a dict with:
+    modules: list of moudle names (as used in UI/settings, e.g. 'CFE', 'SFT', 'SMP') that consume this attribute. An attribute may be
+        shared by multiple modules.
+    default: the numeric value substituted for this attribute wherever it is NaN in the divides layer.
+"""
 
 DEFAULT_ATTRS = {
     'cgw': {
