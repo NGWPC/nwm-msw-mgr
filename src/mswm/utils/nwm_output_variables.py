@@ -10,7 +10,18 @@ from typing import List
 
 @dataclass
 class NWMOutputVariable:
-    """Represents an NWM output variable with associated metadata and provider"""
+    """Represents an NWM output variable with associated metadata and provider
+
+    Attributes
+    ----------
+    nwm_name: NWM output variable name
+    nwm_units: units of the NWM output variable
+    description: human-readable description of what the variable represents
+    adapter: name of the fallback adapter module that supplies this variable when no module in a formulation provides it
+    adapter_var: variable name used by the adapter module for this NWM output variable
+    provider: list of module names (in priority order) that can supply this variable
+    provider_var: list of module-specific variable names, positionally aligned with `provider`
+    """
     nwm_name: str
     nwm_units: str
     description: str
@@ -20,7 +31,16 @@ class NWMOutputVariable:
     provider_var: List[str] = field(default_factory=list)
 
     def get_provider_var(self, provider: str) -> str:
-        """Return the module variable name for a given provider"""
+        """Return the module variable name for a given provider
+
+        Parameters
+        ----------
+        provider: module name to look up
+
+        Returns
+        ---------
+        Module-specific variable name corresponding to `provider`
+        """
         try:
             idx = self.provider.index(provider)
             return self.provider_var[idx]

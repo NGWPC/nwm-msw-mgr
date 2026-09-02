@@ -16,6 +16,24 @@ def build_default(input_path: str, use_cold_start: bool = False, use_lagged_ens:
                   config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate realization and config files with default parameters
+
+    Parameters
+    ----------
+    input_path: path to input.config file
+    use_cold_start: boolean flag for building a cold start run
+    use_lagged_ens: boolean flag for building a lagged ensemble member run
+    lagged_ens_mem: lagged ensemble member identifier (e.g. mem1-mem6, no_da)
+    forcing_lag: number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+    load_state_from: path to directory containing model state files to load at start of run
+    save_state: boolean flag for saving model state at end of run
+    save_state_dir: directory to save model state to; if None, defaults to `<work_dir>/state_save`
+    checkpoint_interval: interval (in timesteps) at which to save checkpoint state
+    checkpoint_dir: directory to save checkpoint state to; if None, defaults to `<work_dir>/checkpoint`
+    config_overrides: InputConfig instance to use instead of reading input.config from disk
+
+    Returns
+    ----------
+    Path to the created realization file
     """
     rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, use_lagged_ens=use_lagged_ens,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
@@ -29,6 +47,15 @@ def build_default(input_path: str, use_cold_start: bool = False, use_lagged_ens:
 def build_calib(input_path: str, config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate initial calibration realization and config files
+
+    Parameters
+    ----------
+    input_path: path to input.config file
+    config_overrides: InputConfig instance to use instead of reading input.config from disk
+
+    Returns
+    ----------
+    Path to the created realization file
     """
     rb = RealizationBuilder(input_path=input_path, config_overrides=config_overrides)
     real_path = rb.build_calib_realization()
@@ -41,8 +68,29 @@ def build_fcst(input_path: str | None, valid_yaml: str, fcst_run_name: str, use_
                save_state_dir: str | None = None,
                config_overrides: InputConfig = None):
     """
-    Call RealizationBuilder class to generate forecast realization and config files
-    Returns tuple of realization path, and state save path (or None)
+    Parameters
+    ----------
+    input_path: path to input.config file
+    valid_yaml: path to the config yaml file from a previous calibration/validation run
+    fcst_run_name: name of the folder to be created for storing inputs/outputs from running ngen
+    use_cold_start: boolean flag for building a cold start run
+    use_warm_start: boolean flag for building a warm start run
+    use_hindcast: boolean flag for building a hindcast iteration run
+    use_lagged_ens: boolean flag for building a lagged ensemble member run
+    hind_cycle: cycle (in hours) between first hindcast iteration (00) and current hindcast iteration
+    prev_hind_cycle: cycle (in hours) from previous hindcast iteration used to orchestrate warm start runs
+    lagged_ens_mem: lagged ensemble member identifier (e.g. mem1-mem6, no_da)
+    forcing_lag: number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+    load_state_from: path to directory containing model state files to load at start of run
+    save_state: boolean flag for saving model state at end of run
+    save_state_dir: directory to save model state to; if None, defaults to `<work_dir>/state_save`
+    checkpoint_interval: interval (in timesteps) at which to save checkpoint state
+    checkpoint_dir: directory to save checkpoint state to; if None, defaults to `<work_dir>/checkpoint`
+    config_overrides: InputConfig instance to use instead of reading input.config from disk
+
+    Returns
+    ----------
+    Path to the created realization file
     """
     rb = RealizationBuilder(input_path=input_path, valid_yaml=valid_yaml, fcst_run_name=fcst_run_name,
                             use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
@@ -61,6 +109,24 @@ def build_region(input_path: str, use_cold_start: bool = False, use_lagged_ens: 
                  config_overrides: InputConfig = None):
     """
     Call RealizationBuilder class to generate realization and config files for regionalization
+
+    Parameters
+    ----------
+    input_path: path to input.config file
+    use_cold_start: boolean flag for building a cold start run
+    use_lagged_ens: boolean flag for building a lagged ensemble member run
+    lagged_ens_mem: lagged ensemble member identifier (e.g. mem1-mem6, no_da)
+    forcing_lag: number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+    load_state_from: path to directory containing model state files to load at start of run
+    save_state: boolean flag for saving model state at end of run
+    save_state_dir: directory to save model state to; if None, defaults to `<work_dir>/state_save`
+    checkpoint_interval: interval (in timesteps) at which to save checkpoint state
+    checkpoint_dir: directory to save checkpoint state to; if None, defaults to `<work_dir>/checkpoint`
+    config_overrides: InputConfig instance to use instead of reading input.config from disk
+
+    Returns
+    ----------
+    Path to the created realization file
     """
     rb = RealizationBuilder(input_path=input_path, use_cold_start=use_cold_start, use_lagged_ens=use_lagged_ens,
                             lagged_ens_mem=lagged_ens_mem, forcing_lag=forcing_lag,
@@ -78,6 +144,29 @@ def update_fcst_run(input_path: str, src_run_path: str, dst_run_path: str, use_c
     """
     Call RealizationBuilder class to copy an existing forecast run to a new path
     and update forcing engine config, realization, and troute config
+
+    Parameters
+    ----------
+    input_path: path to input.config file
+    src_run_path: path to the existing run folder to copy from
+    dst_run_path: path to the destination run folder to copy to
+    use_cold_start: boolean flag for building a cold start run
+    use_warm_star: boolean flag for buidling a warm start run
+    use_lagged_ens: boolean flag for building a lagged ensemble member run
+    hind_cycle: cycle (in hours) between first hindcast iteration (00) and current hindcast iteration
+    prev_hind_cycle: cycle (in hours) from previous hindcast iteration used to orchestrate warm start runs
+    lagged_ens_mem: lagged ensemble member identifier (e.g. mem1-mem6, no_da)
+    forcing_lag: number of hours lagged ensemble forcing valid time is lagged from start of ngen run
+    load_state_from: path to directory containing model state files to load at start of run
+    save_state: boolean flag for saving model state at end of run
+    save_state_dir: directory to save model state to; if None, defaults to `<work_dir>/state_save`
+    checkpoint_interval: interval (in timesteps) at which to save checkpoint state
+    checkpoint_dir: directory to save checkpoint state to; if None, defaults to `<work_dir>/checkpoint`
+    config_overrides: InputConfig instance to use instead of reading input.config from disk
+
+    Returns
+    ----------
+    Path to the update realization file
     """
     rb = RealizationBuilder(input_path=input_path, src_run_path=src_run_path, dst_run_path=dst_run_path,
                             use_cold_start=use_cold_start, use_warm_start=use_warm_start, use_lagged_ens=use_lagged_ens,
@@ -93,12 +182,24 @@ def update_fcst_run(input_path: str, src_run_path: str, dst_run_path: str, use_c
 def validate_topo(gpkg_file: str):
     """
     Validate Topoflow-Glacier applicability by checking glacier coverage in basin catchments
+
+    Prints the validation result dictiory to stdout.
+
+    Parameters
+    ----------
+    gpkg_file: path to the geopackage file
     """
     result = validate_topoflow_glacier(gpkg_file)
     print(result)
 
 
 def main():
+    """
+    Command-line entrypoint for the Model Setup Workflow Manager (msw-mgr)
+
+    Parses subcommands (build_default, build_calib, build_region, build_fcst, update_fcst, validate_topoflow_glacier) and their arguments,
+    then dispatches to the corresponding module-level function.
+    """
     # Create command line parser
     parser = argparse.ArgumentParser(prog="mswm",
                                      description="Model Setup Workflow Manager command-line")
