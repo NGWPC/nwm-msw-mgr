@@ -946,7 +946,7 @@ def create_sac_input(
         'riva 0.000',
         'side 0.0000',
         'rserv 0.3000',
-        'giuh_ordinates 0.06,0.51,0.28,0.12,0.03',
+        'giuh_ordinates 0.55,0.25,0.2',
     ]
 
     # Set namelist template  # TODO: Do we need a working sac-sma standalone file?
@@ -1382,7 +1382,7 @@ def create_lasam_input(
         f'max_valid_soil_types={max_soil_types}',
         'wilting_point_psi=15495.0[cm]',
         'field_capacity_psi=340.9[cm]',
-        'giuh_ordinates=0.06,0.51,0.28,0.12,0.03',  # TODO: Should the LASAM giuh ordinates match those used by other modules?
+        'giuh_ordinates=0.55,0.25,0.2', 
         'calib_params=true',
         'adaptive_timestep=true',
         'sft_coupled=',
