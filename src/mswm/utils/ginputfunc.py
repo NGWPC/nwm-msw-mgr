@@ -1382,7 +1382,7 @@ def create_lasam_input(
         f'max_valid_soil_types={max_soil_types}',
         'wilting_point_psi=15495.0[cm]',
         'field_capacity_psi=340.9[cm]',
-        'giuh_ordinates=0.55,0.25,0.2', 
+        'giuh_ordinates=0.55,0.25,0.2',
         'calib_params=true',
         'adaptive_timestep=true',
         'sft_coupled=',
@@ -1654,6 +1654,7 @@ def update_troute(
                 "reservoir_rfc_forecasts_lookback_hours": 28,
                 "reservoir_rfc_forecasts_offset_hours": 0,
                 "reservoir_rfc_forecasts_time_series_path": str(reservoir_rfc_dir),
+                "reservoir_rfc_forecasts_unavailable_action": "level_pool",
             }
         }
         logger.info("RFC reservoir data assimilation activated.")
@@ -1803,6 +1804,7 @@ def create_troute_config(
                 "reservoir_rfc_forecasts_lookback_hours": 28,
                 "reservoir_rfc_forecasts_offset_hours": 0,
                 "reservoir_rfc_forecasts_time_series_path": str(reservoir_rfc_dir),
+                "reservoir_rfc_forecasts_unavailable_action": "level_pool",
             }
         }
         logger.info("RFC reservoir data assimilation activated.")
