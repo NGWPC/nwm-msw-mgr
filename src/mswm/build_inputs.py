@@ -7,7 +7,6 @@ This module contains functions to manage the initial creation of configuration f
 import copy
 from pathlib import Path
 import os
-import ewts
 import logging
 import re
 import math
@@ -19,14 +18,16 @@ import yaml
 from collections import defaultdict
 from pydantic import ValidationError, validate_call
 
-from ewts.modules import ModuleKey
-
 from mswm.utils import ginputfunc as gfun
 from mswm.utils import settings
 from mswm.utils.input_configuration import InputConfig
 from mswm.utils.nwm_output_variables import get_providers_for_formulation
-
-MODNM = ModuleKey.MSW_MGR.value
+from mswm.utils.ewts_compat import (
+    MODNM,
+    Status,
+    initialize_msw_mgr_logger,
+    log_status,
+)
 
 # Initialize MSWM setup logger
 main_logger = logging.getLogger()
@@ -752,27 +753,18 @@ class RealizationBuilder:
         """
         Initialize logging depending on run type
 
-        Creates the log directory if needed from `self.log_file_path`, initializes the global logger via `ewts.logger.setup_logger`,
+        Creates the log directory if needed from `self.log_file_path`, initializes the global logger (via
+        `ewts.logger.setup_logger` when EWTS is available, or a plain stdout logger when it is not),
         and initializes the `ginputfunc.py` module-level logger.
         """
         log_dir, log_file_name = os.path.split(self.log_file_path)
 
-        # Create logs directory if it does not exist
-        os.makedirs(log_dir, exist_ok=True)
-
         # Initialize logging
         global logger
-        logger = ewts.logger.setup_logger(
-            ewts.MSW_MGR_ID,
-            level="INFO",
-            log_dir=log_dir,
-            log_file_name=log_file_name,
-            running_in_ngen=False,
-            enabled=True,
-        )
+        logger = initialize_msw_mgr_logger(log_dir, log_file_name)
 
         gfun.init_ginput_logger()
-        logger.status(ewts.Payload(ewts.Status.INITTED, modnm=MODNM))
+        log_status(logger, Status.INITTED, modnm=MODNM)
         logger.info(f"Building realization from: {self.input_path}")
 
     def _parse_gpkg_from_input(self):
@@ -2222,13 +2214,7 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.STARTING,
-                msg="Building calibration realization",
-                modnm=MODNM,
-            )
-        )
+        log_status(logger, Status.STARTING, msg="Building calibration realization", modnm=MODNM)
         if self.run_type != 'calibration':
             try:
                 raise ValueError(f"Unexpected run_type {self.run_type} for build_calib_realization. Must be `calibration`.")
@@ -2236,11 +2222,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.INPROG, msg="Building calibration realization", modnm=MODNM
-            )
-        )
+        log_status(logger, Status.INPROG, msg="Building calibration realization", modnm=MODNM)
         self._parse_forcing_engine()
         self._parse_time()
         self._parse_calib_settings()
@@ -2265,13 +2247,7 @@ class RealizationBuilder:
         self._create_calib_model_dict()
         self._write_calib_configuration()
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.COMPLETE,
-                msg="Calibration run set up successfully",
-                modnm=MODNM,
-            )
-        )
+        log_status(logger, Status.COMPLETE, msg="Calibration run set up successfully", modnm=MODNM)
 
         return self.realization_file
 
@@ -2291,13 +2267,7 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.STARTING,
-                msg="Building regionalization realization",
-                modnm=MODNM,
-            )
-        )
+        log_status(logger, Status.STARTING, msg="Building regionalization realization", modnm=MODNM)
         if self.run_type != 'regionalization':
             try:
                 raise ValueError(f"Unexpected run_type {self.run_type} for build_region_realization. Must be `regionalization`.")
@@ -2305,13 +2275,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.INPROG,
-                msg="Building regionalization realization",
-                modnm=MODNM,
-            )
-        )
+        log_status(logger, Status.INPROG, msg="Building regionalization realization", modnm=MODNM)
         self._parse_forcing_engine()
         self._load_reg_formulation()
         self._load_reg_catchments()
@@ -2340,13 +2304,7 @@ class RealizationBuilder:
         self._write_realization()
         self._write_partition()
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.COMPLETE,
-                msg="Regionalization run set up successfully",
-                modnm=MODNM,
-            )
-        )
+        log_status(logger, Status.COMPLETE, msg="Regionalization run set up successfully", modnm=MODNM)
 
         return self.realization_file
 
@@ -2382,17 +2340,9 @@ class RealizationBuilder:
         self._create_fcst_dir()
         self._init_log()
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.STARTING, msg="Building forecast realization", modnm=MODNM
-            )
-        )
+        log_status(logger, Status.STARTING, msg="Building forecast realization", modnm=MODNM)
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.INPROG, msg="Building forecast realization", modnm=MODNM
-            )
-        )
+        log_status(logger, Status.INPROG, msg="Building forecast realization", modnm=MODNM)
         self._parse_yaml()
         self._load_realization()
         self._parse_forcing_engine()
@@ -2416,13 +2366,7 @@ class RealizationBuilder:
         self._write_realization()
 
         adjective = "Cold start" if self.use_cold_start else "Forecast"
-        logger.status(
-            ewts.Payload(
-                ewts.Status.COMPLETE,
-                msg=f"{adjective} run set up successfully",
-                modnm=MODNM,
-            )
-        )
+        log_status(logger, Status.COMPLETE, msg=f"{adjective} run set up successfully", modnm=MODNM)
 
         self._building_fcst_realization = False
 
@@ -2447,11 +2391,7 @@ class RealizationBuilder:
         self._create_input_dir()
         self._init_log()
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.STARTING, msg="Building default realization", modnm=MODNM
-            )
-        )
+        log_status(logger, Status.STARTING, msg="Building default realization", modnm=MODNM)
 
         if self.run_type != 'default':
             try:
@@ -2460,11 +2400,7 @@ class RealizationBuilder:
                 logging.critical(e)
                 raise
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.INPROG, msg="Building default realization", modnm=MODNM
-            )
-        )
+        log_status(logger, Status.INPROG, msg="Building default realization", modnm=MODNM)
         self._parse_forcing_engine()
         self._parse_time()
         self._extract_hydrofabric()
@@ -2490,11 +2426,7 @@ class RealizationBuilder:
         self._write_realization()
         self._write_partition()
 
-        logger.status(
-            ewts.Payload(
-                ewts.Status.COMPLETE, msg="Default run set up successfully", modnm=MODNM
-            )
-        )
+        log_status(logger, Status.COMPLETE, msg="Default run set up successfully", modnm=MODNM)
 
         return self.realization_file
 

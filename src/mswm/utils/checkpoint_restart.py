@@ -5,8 +5,8 @@ import os
 import json
 import argparse
 from pathlib import Path
-import ewts
 from mswm.utils.copy_run_folder import copy_run_folder
+from mswm.utils.ewts_compat import initialize_msw_mgr_logger
 
 logger = None
 
@@ -37,15 +37,7 @@ def checkpoint_restart(
     # Initialize logging to dst logs directory
     global logger
     log_path = os.path.join(dst, 'logs')
-    ewts.logger.reset_logger(ewts.MSW_MGR_ID)
-    logger = ewts.logger.setup_logger(
-        ewts.MSW_MGR_ID,
-        level="INFO",
-        log_dir=log_path,
-        log_file_name="msw_mgr_checkpoint.log",
-        running_in_ngen=False,
-        enabled=True
-    )
+    logger = initialize_msw_mgr_logger(log_path, "msw_mgr_checkpoint.log")
 
     logger.info(f"Copied run folder from {src_path} to {dst_path}")
 
