@@ -13,13 +13,11 @@ The `nwm-msw-mgr` is used in two ways:
 
 ## Installation
 
-### Clone mswm
-
-This repository is the NGWPC fork of `nwm-msw-mgr`, maintained ahead of eventual merge to [NOAA-OWP/nwm-msw-mgr](https://github.com/NOAA-OWP/nwm-msw-mgr). Clone instructions below reference the NGWPC fork, as it is the current active development source.
+### Clone nwm-msw-mgr
 
 ```bash
 cd [NGEN_REG_ROOT]
-git clone --recurse-submodules https://github.com/NGWPC/nwm-msw-mgr.git
+git clone --recurse-submodules https://github.com/[GH_ORG]/nwm-msw-mgr.git
 ```
 
 ### Build the environment
@@ -627,7 +625,7 @@ All datetime parameters use the format: `YYYY-MM-DD HH:MM:SS` (UTC)
 
 ### Path Expansion
 Paths with `~` are expanded to the user's home directory. Example: 
-- `~/ngwpc/run_ngen` -> `/home/username/ngwpc/run_ngen`
+- `~/run_ngen` -> `/home/username/run_ngen`
 
 ### Available Modules
 **Glacier/Snow:** noah-owp-modular, snow-17, ueb, topoflow-glacier
