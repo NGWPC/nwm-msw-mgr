@@ -131,7 +131,7 @@ def call_icefabric_gpkg(
         subset_type: str,
         domain: str,
         output_dir: str,
-        environment: str,
+        edfs_url: str,
         source: str,
 ) -> str:
     """ Query icefabric API for geopackage
@@ -142,7 +142,7 @@ def call_icefabric_gpkg(
     subset_type: subset type string ('gage' or 'vpu')
     domain: domain name string (conus, ak, hi, prvi)
     output_dir: location to save gpkg
-    environment: environment for icefabric API ('test' or 'oe')
+    edfs_url: EDFS URL for icefabric API
     source: hydrofabric version ('hf' or 'nhf')
 
     Returns
@@ -164,15 +164,9 @@ def call_icefabric_gpkg(
     if source not in ('hf', 'nhf'):
         raise ValueError(f"Invalid source: '{source}'. Valid options are 'hf' and 'nhf'")
 
-    # Check environment value
-    if environment not in ('test', 'oe'):
-        raise ValueError(f"Invalid environment: '{environment}'. Valid options are 'test' and 'oe'")
-
-    # Set base endpoint
-    if environment == 'test':
-        url = f"http://edfs.test.nextgenwaterprediction.com/api/v1/hydrofabric/{basin}/gpkg"
-    elif environment == 'oe':
-        url = f"https://edfs.oe.nextgenwaterprediction.com/api/v1/hydrofabric/{basin}/gpkg"
+    # Set base endpoint by joining edfs_url with hydrofabric endpoint path
+    hydrofabric_endpoint = settings.HYDROFABRIC_ENDPOINT_TEMPLATE.format(basin=basin)
+    url = f"{edfs_url.rstrip('/')}/{hydrofabric_endpoint}"
 
     # Build query parameters
     params = {"id_type": id_type,

@@ -455,7 +455,7 @@ Configuration parameters that apply to all run types except `forecast`.
 | `basin` | string | Yes | Stream gage ID at basin outlet or VPU basin identified |
 | `subset_type` | string | Yes | Type of basin subset: `gage` or `vpu` |
 | `domain` | string | Yes | Region of requested basin: `conus`, `hi`, `ak`, `prvi`, or `gl` |
-| `environment` | string | Yes | Type of run environment: `test` or `oe` |
+| `edfs_url` | string | Yes | EDFS URL for icefabric API (http://edfs.{test/oe}.nextgenwaterprediction.com/api/v1/) |
 | `run_type` | string | Yes | Run type : `calibration`, `regionalization`, or `default` |
 | `models` | string | Yes | Comma-separated list of models for the formulation. **Note:** t-route is automatically added if not selected; sloth is automatically added when needed. |
 | `formulation` | string | Yes | User-defined formulation run name |

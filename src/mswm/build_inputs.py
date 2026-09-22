@@ -555,7 +555,7 @@ class RealizationBuilder:
         self.conf1 = self.input_configs.get('General')
         self.run_type = self.conf1.get("run_type") if self.conf1 else None
         self.domain = self.conf1.get("domain") if self.conf1 else None
-        self.environment = self.conf1.get("environment") if self.conf1 else None
+        self.efs_url = self.conf1.get("edfs_url") if self.conf1 else None
         self.basin = self.conf1['basin'] if self.conf1 else None
         self.subset_type = self.conf1.get("subset_type") if self.conf1 else None
 
@@ -1035,8 +1035,15 @@ class RealizationBuilder:
         # Retrieve gpkg from Icefabric API or symlink existing file if provided
         self.gpkg_file = self.conf3.get('hydrofab_file')
         if self.gpkg_file is None:
+            if not self.edfs_url:
+                try:
+                    raise Exception('efs_url must be provided when hydrofab_file is not set; cannot retrieve gpkg from Icefabric API')
+                except Exception as e:
+                    logger.critical(e)
+                    raise
+                
             # If gpkg_file not provided, retrieve gpkg from icefabric and save to file
-            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.subset_type, self.domain, self.input_dir, self.environment, 'nhf')
+            self.gpkg_file = gfun.call_icefabric_gpkg(self.basin, self.subset_type, self.domain, self.input_dir, self.edfs_url, 'nhf')
 
         else:
             # Ensure user provided geopackage file exists

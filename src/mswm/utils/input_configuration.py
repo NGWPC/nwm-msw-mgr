@@ -49,7 +49,7 @@ class GeneralConfig(StrictBaseModel):
     basin: basin name string
     subset_type: subset type, 'gage' or 'vpu'
     domain: domain name stringl normalized via `normalize_domain` to one of DOMAIN_MAPPINGS' values
-    environment: environment for icefabric API, 'test' or 'oe'
+    edfs_url: EDFS URL for icefabric API
     run_type: type of run: default, calibration, or regionalization
     models: comma-separated list of module names in the formulation, required unless run_type is 'regionalization'
     formulation: formulation name string
@@ -65,7 +65,7 @@ class GeneralConfig(StrictBaseModel):
     basin: str
     subset_type: Literal["gage", "vpu"] = 'gage'
     domain: str
-    environment: Literal["test", "oe"] = 'test'
+    edfs_url: Optional[str] = None
     run_type: Literal["default", "calibration", "regionalization"]
     models: Optional[str] = None
     formulation: Optional[str] = None
