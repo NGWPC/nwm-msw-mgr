@@ -4,7 +4,7 @@ DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 PARTITION_CONFIG_FILE_NAME_SUFFIX = "_partition_config"
 
 # Icefabric API endpoint path template for hydrofabric retrieval
-HYDROFABRIC_ENDPOINT_TEMPLATE = "hydrfabric/{basin}/gpkg"
+HYDROFABRIC_ENDPOINT_TEMPLATE = "hydrofabric/{basin}/gpkg"
 
 LAGGED_ENSEMBLE_MEMBER_LAGS: dict[str, int] = {
     "no_da": 0,
